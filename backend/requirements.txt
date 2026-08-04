@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+
+sqlalchemy
+psycopg2-binary
+alembic
+
+pydantic-settings
+python-dotenv
+
+bcrypt
+pyjwt
+
+# Exportação de relatórios (docs/00_PROJETO.md seção 16, pendência 2)
+openpyxl
+reportlab

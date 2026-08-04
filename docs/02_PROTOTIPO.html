@@ -1,0 +1,719 @@
+<title>Estoque Farmácia — Protótipo v1</title>
+<style>
+  :root{
+    --bg:#f5f4ee;
+    --surface:#ffffff;
+    --surface-2:#ece9df;
+    --ink:#20241f;
+    --muted:#6d7268;
+    --line:#d9d5c8;
+    --line-soft:#e8e5da;
+    --accent:#2f6a5c;
+    --accent-ink:#f6faf8;
+    --accent-soft:#e1ece7;
+    --accent-strong:#1f4d43;
+    --warn:#93641b;
+    --warn-bg:#f3e6cd;
+    --danger:#96392f;
+    --danger-bg:#f5e1de;
+    --ok:#2f6a5c;
+    --ok-bg:#e1ece7;
+    --locked-bg:#efece3;
+    --shadow: 0 1px 3px rgba(24,28,20,.07), 0 1px 1px rgba(24,28,20,.04);
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#141815; --surface:#1b2019; --surface-2:#20261f;
+      --ink:#e9e7de; --muted:#9a9c8f;
+      --line:#333a30; --line-soft:#262b23;
+      --accent:#7fb8a4; --accent-ink:#0d1512; --accent-soft:#1e2c27; --accent-strong:#a4d3c2;
+      --warn:#d9ad63; --warn-bg:#332a16;
+      --danger:#d98d80; --danger-bg:#33211d;
+      --ok:#7fb8a4; --ok-bg:#1c2b24;
+      --locked-bg:#1e231c;
+      --shadow: 0 1px 3px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#141815; --surface:#1b2019; --surface-2:#20261f;
+    --ink:#e9e7de; --muted:#9a9c8f;
+    --line:#333a30; --line-soft:#262b23;
+    --accent:#7fb8a4; --accent-ink:#0d1512; --accent-soft:#1e2c27; --accent-strong:#a4d3c2;
+    --warn:#d9ad63; --warn-bg:#332a16;
+    --danger:#d98d80; --danger-bg:#33211d;
+    --ok:#7fb8a4; --ok-bg:#1c2b24;
+    --locked-bg:#1e231c;
+    --shadow: 0 1px 3px rgba(0,0,0,.45);
+  }
+  :root[data-theme="light"]{
+    --bg:#f5f4ee; --surface:#ffffff; --surface-2:#ece9df;
+    --ink:#20241f; --muted:#6d7268;
+    --line:#d9d5c8; --line-soft:#e8e5da;
+    --accent:#2f6a5c; --accent-ink:#f6faf8; --accent-soft:#e1ece7; --accent-strong:#1f4d43;
+    --warn:#93641b; --warn-bg:#f3e6cd;
+    --danger:#96392f; --danger-bg:#f5e1de;
+    --ok:#2f6a5c; --ok-bg:#e1ece7;
+    --locked-bg:#efece3;
+    --shadow: 0 1px 3px rgba(24,28,20,.07), 0 1px 1px rgba(24,28,20,.04);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    margin:0; padding:0; -webkit-font-smoothing:antialiased; font-size:14px;
+  }
+  .shell{ display:flex; flex-direction:column; min-height:100vh; }
+  .topbar{
+    flex:none; height:58px; display:flex; align-items:center; gap:14px; padding:0 18px;
+    background:#61358c; color:#f7f3fa; position:relative;
+  }
+  .topbar::after{
+    content:""; position:absolute; left:0; right:0; bottom:-3px; height:3px;
+    background:linear-gradient(90deg,#61358c 0 25%,#7572a7 25% 50%,#79bfb4 50% 75%,#73d9a8 75% 100%);
+  }
+  .topbar .fesf-id{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .topbar .fesf-org{ font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:#e3d6ec; white-space:nowrap; font-weight:600; }
+  .topbar .fesf-hospital{ font-weight:700; font-size:14.5px; letter-spacing:-.005em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .topbar .fesf-div{ width:1px; align-self:stretch; margin:12px 0; background:rgba(247,243,250,.25); flex:none; }
+  .topbar .fesf-app{ font-size:11.5px; color:#e3d6ec; margin-left:auto; white-space:nowrap; }
+  .app{ display:flex; flex:1; min-height:0; }
+
+  /* ---- sidebar ---- */
+  .sidebar{
+    width:236px; flex:none; background:var(--surface); border-right:1px solid var(--line);
+    padding:22px 14px; display:flex; flex-direction:column; gap:22px;
+  }
+  .brand{ display:flex; align-items:center; gap:9px; padding:0 4px; }
+  .brand .mark{ width:26px; height:26px; border-radius:7px; background:var(--accent); color:var(--accent-ink);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; flex:none; }
+  .brand .name{ font-size:13.5px; font-weight:650; letter-spacing:-.01em; line-height:1.15; }
+  .brand .name small{ display:block; font-size:10px; color:var(--muted); font-weight:500; letter-spacing:.02em; }
+
+  .session-card{ background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:10px 11px; }
+  .session-card .who{ font-size:12.5px; font-weight:600; }
+  .session-card .role{ font-size:10.5px; color:var(--muted); margin-top:1px; }
+  .session-card .unit{ margin-top:8px; display:flex; align-items:center; justify-content:space-between; font-size:11px; }
+  .session-card .unit b{ font-family:var(--mono); font-size:10.5px; background:var(--accent-soft); color:var(--accent-strong); padding:2px 6px; border-radius:4px; }
+
+  .profile-switch{ display:flex; flex-direction:column; gap:5px; }
+  .profile-switch .eyebrow{ font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:0 0 2px 2px; font-weight:600;}
+  .profile-btn{
+    text-align:left; padding:6px 9px; border-radius:6px; border:1px solid transparent;
+    background:transparent; color:var(--muted); font-size:12px; cursor:pointer; font-family:var(--sans);
+  }
+  .profile-btn[aria-pressed="true"]{ background:var(--accent-soft); color:var(--accent-strong); border-color:var(--accent); font-weight:650; }
+  .profile-btn:hover:not([aria-pressed="true"]){ background:var(--line-soft); }
+
+  .unit-btn{
+    text-align:left; padding:6px 9px; border-radius:6px; border:1px solid transparent;
+    background:transparent; color:var(--muted); font-size:12px; cursor:pointer; font-family:var(--sans);
+  }
+  .unit-btn[aria-pressed="true"]{ background:var(--warn-bg); color:var(--warn); border-color:var(--warn); font-weight:650; }
+  .unit-btn:hover:not([aria-pressed="true"]){ background:var(--line-soft); }
+
+  nav.screens{ display:flex; flex-direction:column; gap:1px; }
+  nav.screens .eyebrow{ font-size:10px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); margin:2px 0 5px 2px; font-weight:600;}
+  .nav-btn{
+    display:flex; align-items:center; gap:9px;
+    text-align:left; padding:8px 9px; border-radius:6px; border:none;
+    background:transparent; color:var(--ink); font-size:13px; cursor:pointer; font-family:var(--sans);
+  }
+  .nav-btn .ic{ width:15px; text-align:center; font-size:13px; opacity:.8; flex:none; }
+  .nav-btn .lbl{ flex:1; }
+  .nav-btn:hover{ background:var(--line-soft); }
+  .nav-btn[aria-current="true"]{ background:var(--accent); color:var(--accent-ink); font-weight:650; }
+  .nav-btn[aria-current="true"] .ic{ opacity:1; }
+  .nav-btn .lock{ font-size:9.5px; color:var(--danger); font-weight:600; }
+  .nav-btn[data-locked="true"]{ color:var(--muted); }
+
+  .sidebar-foot{ margin-top:auto; font-size:10.5px; color:var(--muted); padding:0 4px; }
+
+  /* ---- main ---- */
+  main{ flex:1; padding:30px 40px 70px; max-width:1020px; }
+  .screen{ display:none; }
+  .screen.active{ display:block; animation: fade .12s ease; }
+  @keyframes fade{ from{opacity:.5} to{opacity:1} }
+
+  .screen-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:2px; flex-wrap:wrap;}
+  .screen-head h1{ font-size:21px; margin:0; font-weight:650; letter-spacing:-.01em; text-wrap:balance; }
+  .screen-tag{ font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+  .screen-sub{ color:var(--muted); font-size:12.5px; margin:5px 0 22px; max-width:64ch; line-height:1.5; }
+  .screen-sub code{ font-family:var(--mono); background:var(--surface-2); padding:1px 5px; border-radius:3px; font-size:11.5px; }
+
+  .locked-panel{
+    border:1px solid var(--line); background:var(--locked-bg); border-radius:var(--radius);
+    padding:40px 20px; text-align:center; color:var(--muted); font-size:13px;
+  }
+  .locked-panel .lock-icon{ font-size:22px; display:block; margin-bottom:10px; }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:22px 24px; margin-bottom:18px; box-shadow:var(--shadow);
+  }
+  .panel h2{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; font-weight:700; color:var(--muted); margin:0 0 16px; display:flex; align-items:center; gap:8px; }
+
+  .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:16px 20px; }
+  .grid.g3{ grid-template-columns:repeat(3,1fr); }
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field.span2{ grid-column:span 2; }
+  .field label{ font-size:11.5px; color:var(--muted); display:flex; justify-content:space-between; gap:6px; font-weight:600; }
+  .field label .req{ color:var(--danger); font-weight:700; }
+  .field label .tag{ font-family:var(--mono); font-size:9px; color:var(--muted); border:1px solid var(--line); border-radius:3px; padding:1px 5px; text-transform:none; letter-spacing:0; font-weight:500;}
+
+  input[type=text], input[type=number], input[type=date], input[type=password], select{
+    font-family:var(--sans); border:1px solid var(--line); border-radius:7px; background:var(--bg);
+    padding:9px 10px; font-size:13px; color:var(--ink); width:100%; appearance:none;
+  }
+  input:focus, select:focus, button:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; }
+  input::placeholder{ color:var(--muted); }
+  input:disabled, select:disabled, .box.disabled{ color:var(--muted); background:var(--line-soft); cursor:not-allowed; }
+  select{ background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+    background-position: calc(100% - 16px) center, calc(100% - 11px) center; background-size:5px 5px; background-repeat:no-repeat; padding-right:28px; }
+  .box{
+    border:1px solid var(--line); border-radius:7px; background:var(--line-soft);
+    padding:9px 10px; font-size:13px; color:var(--muted); min-height:36px; display:flex; align-items:center;
+  }
+
+  .seg{ display:flex; border:1px solid var(--line); border-radius:7px; overflow:hidden; }
+  .seg button{ flex:1; border:none; background:var(--surface); color:var(--muted); font-size:12.5px; font-weight:600; padding:9px 10px; cursor:pointer; font-family:var(--sans); border-right:1px solid var(--line); }
+  .seg button:last-child{ border-right:none; }
+  .seg button[aria-pressed="true"]{ background:var(--accent); color:var(--accent-ink); }
+
+  .actions{ display:flex; gap:10px; margin-top:20px; }
+  .btn{
+    font-family:var(--sans); font-size:12.5px; font-weight:650; padding:9px 17px; border-radius:7px;
+    border:1px solid var(--accent); background:var(--accent); color:var(--accent-ink); cursor:pointer;
+  }
+  .btn:hover{ background:var(--accent-strong); border-color:var(--accent-strong); }
+  .btn.ghost{ background:transparent; color:var(--ink); border-color:var(--line); }
+  .btn.ghost:hover{ background:var(--line-soft); }
+  .btn.danger{ background:transparent; color:var(--danger); border-color:var(--danger); }
+  .btn.danger:hover{ background:var(--danger-bg); }
+  .btn.ok{ background:transparent; color:var(--ok); border-color:var(--ok); }
+  .btn.ok:hover{ background:var(--ok-bg); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn.sm{ padding:6px 11px; font-size:11.5px; }
+
+  .note{ font-size:11.5px; color:var(--muted); border-left:2px solid var(--line); padding:2px 0 2px 11px; margin-top:16px; line-height:1.5; }
+  .note.new{ border-color:var(--warn); }
+  .note.new strong{ color:var(--warn); }
+
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  th{ text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:700; padding:8px; border-bottom:1px solid var(--line); white-space:nowrap;}
+  td{ padding:9px 8px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
+  tbody tr:hover{ background:var(--line-soft); }
+  .table-wrap{ overflow-x:auto; }
+  .num{ font-variant-numeric:tabular-nums; text-align:right; }
+  .mono{ font-family:var(--mono); font-size:12px; }
+
+  .pill{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:20px; }
+  .pill.pend{ background:var(--warn-bg); color:var(--warn); }
+  .pill.ok{ background:var(--ok-bg); color:var(--ok); }
+  .pill.danger{ background:var(--danger-bg); color:var(--danger); }
+  .pill.muted{ background:var(--line-soft); color:var(--muted); }
+  .pill::before{ content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+
+  .tiles{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px;}
+  .tile{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:15px 17px; box-shadow:var(--shadow);}
+  .tile .k{ font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:700; }
+  .tile .v{ font-size:21px; font-weight:700; margin-top:6px; font-variant-numeric:tabular-nums; letter-spacing:-.01em; }
+  .tile .v.warn{ color:var(--warn); }
+
+  .letterhead{
+    border:1px solid var(--line); border-top:3px solid #61358c; border-radius:8px;
+    background:var(--surface); padding:12px 16px; margin-bottom:16px; box-shadow:var(--shadow);
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .letterhead .lh-brand{ display:flex; flex-direction:column; gap:2px; }
+  .letterhead .lh-org{ font-size:9.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .letterhead .lh-hospital{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .letterhead .lh-meta{ text-align:right; font-size:10.5px; color:var(--muted); line-height:1.5; }
+  .letterhead .lh-meta b{ color:var(--ink); font-weight:650; }
+
+  .tabs2{ display:flex; gap:2px; border-bottom:1px solid var(--line); margin-bottom:18px; }
+  .tab2{ font-size:12px; padding:9px 13px; border:none; background:none; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; font-family:var(--sans); font-weight:650; margin-bottom:-1px;}
+  .tab2:hover{ color:var(--ink); }
+  .tab2[aria-selected="true"]{ color:var(--accent-strong); border-color:var(--accent); }
+  .report-body{ display:none; }
+  .report-body.active{ display:block; }
+
+  .matrix-legend{ display:flex; gap:18px; margin-bottom:14px; flex-wrap:wrap; font-size:11.5px; color:var(--muted); }
+  .matrix-legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .dot{ width:8px; height:8px; border-radius:2px; display:inline-block; }
+  .dot.full{ background:var(--accent);} .dot.view{ background:var(--line);} .dot.none{ background:var(--danger-bg); border:1px solid var(--danger);}
+  .m-full{ color:var(--accent-strong); font-weight:700;} .m-view{ color:var(--muted);} .m-none{ color:var(--danger); }
+
+  .default-q{ background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; margin-top:20px; }
+  .default-q h2{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 12px; font-weight:700;}
+  .default-q ol{ margin:0; padding-left:18px; font-size:12.5px; color:var(--ink); }
+  .default-q li{ margin-bottom:9px; line-height:1.5; }
+  .default-q li b{ color:var(--accent-strong); }
+
+  ::selection{ background:var(--accent-soft); }
+</style>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="fesf-id">
+      <span class="fesf-org">Fundação Estatal Saúde da Família</span>
+      <span class="fesf-hospital">Hospital Materno Infantil Dr. Joaquim Sampaio</span>
+    </div>
+    <span class="fesf-div"></span>
+    <span class="fesf-app">Estoque Farmácia — Farmácia Hospitalar</span>
+  </div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark">Rx</div>
+      <div class="name">Estoque Farmácia<small>protótipo v1 · rede local</small></div>
+    </div>
+
+    <div class="session-card">
+      <div class="who" id="who-name">Ana Ribeiro</div>
+      <div class="role" id="who-role">Farmacêutico · CRF 12345-SP</div>
+      <div class="unit">Unidade ativa <b id="unit-badge">UTI</b></div>
+    </div>
+
+    <div class="profile-switch">
+      <div class="eyebrow">Simular perfil</div>
+      <button class="profile-btn" data-profile="coordenador" aria-pressed="false">Coordenador</button>
+      <button class="profile-btn" data-profile="farmaceutico" aria-pressed="true">Farmacêutico</button>
+      <button class="profile-btn" data-profile="atendente" aria-pressed="false">Atendente</button>
+    </div>
+
+    <div class="profile-switch">
+      <div class="eyebrow">Simular unidade ativa</div>
+      <button class="unit-btn" data-unit="CAF" aria-pressed="false">CAF</button>
+      <button class="unit-btn" data-unit="UTI" aria-pressed="true">UTI</button>
+      <button class="unit-btn" data-unit="Centro Cirúrgico" aria-pressed="false">Centro Cirúrgico</button>
+      <button class="unit-btn" data-unit="Emergência" aria-pressed="false">Emergência</button>
+    </div>
+
+    <nav class="screens">
+      <div class="eyebrow">Telas</div>
+      <button class="nav-btn" data-screen="login" aria-current="false"><span class="ic">⏻</span><span class="lbl">Login &amp; Unidade</span></button>
+      <button class="nav-btn" data-screen="estoque" aria-current="false"><span class="ic">▤</span><span class="lbl">Estoque atual</span></button>
+      <button class="nav-btn" data-screen="entrada" aria-current="false" data-perm="entrada"><span class="ic">↓</span><span class="lbl">Entrada</span></button>
+      <button class="nav-btn" data-screen="transferencia" aria-current="false" data-perm="transferencia"><span class="ic">⇄</span><span class="lbl">Transferência</span></button>
+      <button class="nav-btn" data-screen="saida" aria-current="false" data-perm="saida"><span class="ic">↑</span><span class="lbl">Saída / Dispensação</span></button>
+      <button class="nav-btn" data-screen="descarte" aria-current="false" data-perm="descarte"><span class="ic">✕</span><span class="lbl">Descarte</span></button>
+      <button class="nav-btn" data-screen="relatorios" aria-current="false" data-perm="relatorios"><span class="ic">▦</span><span class="lbl">Relatórios</span></button>
+      <div class="eyebrow">Referência</div>
+      <button class="nav-btn" data-screen="matriz" aria-current="false"><span class="ic">◇</span><span class="lbl">Matriz de permissões</span></button>
+    </nav>
+
+    <div class="sidebar-foot">Servidor local · sem internet<br>Backup: pg_dump diário 02:00</div>
+  </aside>
+
+  <main>
+
+    <!-- LOGIN -->
+    <section class="screen" id="s-login">
+      <div class="screen-head"><h1>Login &amp; Seleção de Unidade</h1><span class="screen-tag">passo 1 de 2</span></div>
+      <p class="screen-sub">A unidade escolhida aqui vira o filtro de tudo que a sessão pode ver e movimentar.</p>
+
+      <div class="panel" style="max-width:360px">
+        <h2>Acesso</h2>
+        <div class="field"><label>Login <span class="req">*</span></label><input type="text" placeholder="usuario.nome"></div>
+        <div class="field" style="margin-top:12px"><label>Senha <span class="req">*</span></label><input type="password" placeholder="••••••••"></div>
+        <div class="actions"><button class="btn">Entrar</button></div>
+      </div>
+
+      <div class="panel" style="max-width:440px">
+        <h2>Selecionar unidade</h2>
+        <div class="field" style="margin-bottom:12px"><label>Usuário reconhecido</label><div class="box">Ana Ribeiro — Farmacêutico · CRF 12345-SP</div></div>
+        <div class="grid g3">
+          <button class="seg" style="display:block;text-align:center;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);border-radius:7px;padding:10px;font-weight:650;font-size:12.5px;cursor:pointer">CAF</button>
+          <button class="seg" style="display:block;text-align:center;border-radius:7px;padding:10px;font-weight:650;font-size:12.5px;cursor:pointer;background:var(--surface)">UTI</button>
+          <button class="seg" style="display:block;text-align:center;border-radius:7px;padding:10px;font-weight:650;font-size:12.5px;cursor:pointer;background:var(--surface)">Centro Cirúrgico</button>
+          <button class="seg" style="display:block;text-align:center;border-radius:7px;padding:10px;font-weight:650;font-size:12.5px;cursor:pointer;background:var(--surface)">Emergência</button>
+        </div>
+        <div class="actions"><button class="btn">Confirmar e entrar</button></div>
+      </div>
+    </section>
+
+    <!-- ESTOQUE -->
+    <section class="screen" id="s-estoque">
+      <div class="screen-head"><h1>Estoque atual — <span id="unit-label-1">UTI</span></h1><span class="screen-tag">landing pós-login</span></div>
+      <p class="screen-sub">Coordenador enxerga o consolidado de todas as unidades aqui; os demais perfis ficam restritos à unidade ativa.</p>
+
+      <div class="tiles">
+        <div class="tile"><div class="k">Itens em risco de ruptura</div><div class="v warn">7</div></div>
+        <div class="tile"><div class="k">Lotes vencendo em 30 dias</div><div class="v warn">4</div></div>
+        <div class="tile"><div class="k">Transferências pendentes</div><div class="v">2</div></div>
+        <div class="tile"><div class="k">Valor total em estoque</div><div class="v">R$ 48.230</div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Lotes — unidade ativa</h2>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Medicamento</th><th>Lote</th><th>Validade</th><th class="num">Qtd.</th><th>Acondic.</th><th>Origem</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Dipirona 500mg/mL</td><td class="mono">LT48213</td><td>02/11/2026</td><td class="num">340</td><td>Ambiente</td><td>Compra</td><td><span class="pill muted">ok</span></td></tr>
+            <tr><td>Insulina NPH</td><td class="mono">LT19004</td><td>14/08/2026</td><td class="num">22</td><td>Geladeira</td><td>Doação</td><td><span class="pill pend">vence em 14d</span></td></tr>
+            <tr><td>Soro Fisiológico 0,9%</td><td class="mono">LT77120</td><td>30/01/2027</td><td class="num">910</td><td>Ambiente</td><td>Compra</td><td><span class="pill muted">ok</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ENTRADA -->
+    <section class="screen" id="s-entrada" data-perm="entrada">
+      <div class="screen-head"><h1>Entrada de Estoque</h1><span class="screen-tag">cria <code>lotes</code> + <code>movimentacoes(entrada)</code></span></div>
+      <p class="screen-sub">Origem determina se <b>Valor unitário pago</b> é obrigatório (Compra) ou travado em zero (Doação) — o acréscimo de escopo desta rodada. <b>Entrada só ocorre na CAF</b> — as demais unidades recebem item só por Transferência.</p>
+
+      <div class="panel">
+        <h2>Novo lote</h2>
+        <div class="grid">
+          <div class="field span2"><label>Medicamento <span class="req">*</span></label><input type="text" placeholder="buscar por nome…"></div>
+          <div class="field"><label>Apresentação <span class="tag">auto</span></label><input type="text" disabled placeholder="preenchido pelo medicamento"></div>
+          <div class="field"><label>Acondicionamento <span class="tag">auto</span></label><input type="text" disabled placeholder="Ambiente / Geladeira"></div>
+          <div class="field"><label>Número do lote <span class="req">*</span></label><input type="text" placeholder="ex.: LT48213"></div>
+          <div class="field"><label>Data de validade <span class="req">*</span></label><input type="date"></div>
+          <div class="field"><label>Quantidade <span class="req">*</span></label><input type="number" placeholder="0"></div>
+          <div class="field"><label>Unidade <span class="tag">fixa</span></label><input type="text" disabled value="CAF"></div>
+          <div class="field"><label>Origem <span class="req">*</span></label>
+            <div class="seg" id="origem-seg">
+              <button aria-pressed="true" data-origem="compra">Compra</button>
+              <button aria-pressed="false" data-origem="doacao">Doação</button>
+            </div>
+          </div>
+          <div class="field"><label>Valor unitário pago <span class="req" id="valor-req">*</span> <span class="tag">novo campo</span></label><input type="text" id="valor-input" placeholder="R$ 0,00"></div>
+          <div class="field"><label>Nº nota fiscal <span class="req" id="nf-req">*</span> <span class="tag" id="nf-tag">se Compra</span></label><input type="text" id="nf-input" placeholder="série-número"></div>
+          <div class="field"><label>Nº AFM <span class="tag">opcional</span></label><input type="text" placeholder="—"></div>
+        </div>
+        <div class="actions">
+          <button class="btn">Registrar entrada</button>
+          <button class="btn ghost">Cancelar</button>
+        </div>
+        <div class="note new"><strong>Novo nesta rodada —</strong> ao marcar Doação, o valor trava em R$0,00 e a nota fiscal deixa de ser obrigatória. Teste clicando em "Doação" acima.</div>
+      </div>
+    </section>
+
+    <!-- TRANSFERENCIA -->
+    <section class="screen" id="s-transferencia" data-perm="transferencia">
+      <div class="screen-head"><h1>Transferência entre unidades</h1><span class="screen-tag">envio → em_transito · confirmação → novo lote</span></div>
+      <p class="screen-sub">Transferência parcial gera um segundo registro de lote no destino, ligado ao lote pai por <code>lote_origem_id</code>.</p>
+
+      <div class="panel">
+        <h2>Enviar lote</h2>
+        <div class="grid">
+          <div class="field span2"><label>Lote de origem <span class="req">*</span></label><input type="text" placeholder="buscar por medicamento ou nº do lote — unidade ativa"></div>
+          <div class="field"><label>Quantidade disponível <span class="tag">auto</span></label><input type="text" disabled value="340"></div>
+          <div class="field"><label>Quantidade a enviar <span class="req">*</span></label><input type="number" placeholder="≤ 340"></div>
+          <div class="field span2"><label>Unidade de destino <span class="req">*</span></label>
+            <select><option>CAF</option><option>Centro Cirúrgico</option><option>Emergência</option></select>
+          </div>
+        </div>
+        <div class="actions"><button class="btn">Enviar</button></div>
+      </div>
+
+      <div class="panel">
+        <h2>Confirmar recebimento — pendentes na unidade ativa</h2>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Medicamento</th><th>Lote</th><th>Origem</th><th class="num">Qtd. enviada</th><th>Qtd. recebida</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Soro Fisiológico 0,9%</td><td class="mono">LT77120</td><td>CAF</td><td class="num">150</td><td style="width:110px"><input type="number" placeholder="150"></td><td><button class="btn ok sm">Confirmar</button></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="note">Divergência entre enviado e recebido é registrada, não bloqueia a confirmação — só sinaliza para auditoria.</div>
+      </div>
+    </section>
+
+    <!-- SAIDA -->
+    <section class="screen" id="s-saida" data-perm="saida">
+      <div class="screen-head"><h1>Saída / Dispensação</h1><span class="screen-tag">decrementa <code>quantidade_atual</code></span></div>
+      <p class="screen-sub">FEFO: o lote com validade mais próxima aparece destacado no topo da busca.</p>
+
+      <div class="panel" style="max-width:540px">
+        <h2>Registrar saída</h2>
+        <div class="field" style="margin-bottom:16px">
+          <label>Lote <span class="req">*</span></label>
+          <div class="box" style="background:var(--warn-bg);color:var(--ink);border-color:var(--warn);justify-content:space-between">
+            <span>Insulina NPH · LT19004 · vence 14/08</span><span class="pill pend">sugerido (FEFO)</span>
+          </div>
+        </div>
+        <div class="grid">
+          <div class="field"><label>Quantidade <span class="req">*</span></label><input type="number" placeholder="0"></div>
+          <div class="field"><label>Setor consumidor <span class="req">*</span></label>
+            <select><option>UTI</option><option>Centro Cirúrgico</option><option>Emergência</option></select>
+          </div>
+        </div>
+        <div class="actions"><button class="btn">Registrar saída</button></div>
+        <div class="note">Quantidade acima do saldo do lote bloqueia o registro — sem saldo negativo.</div>
+      </div>
+    </section>
+
+    <!-- DESCARTE -->
+    <section class="screen" id="s-descarte" data-perm="descarte">
+      <div class="screen-head"><h1>Descarte</h1><span class="screen-tag">fluxo de 2 etapas</span></div>
+      <p class="screen-sub">Estoque só é decrementado depois da aprovação do Coordenador.</p>
+
+      <div class="panel" data-role-visible="farmaceutico">
+        <h2>Solicitar descarte <span class="pill muted">Farmacêutico</span></h2>
+        <div class="grid">
+          <div class="field span2"><label>Lote <span class="req">*</span></label><input type="text" placeholder="buscar por medicamento ou nº do lote"></div>
+          <div class="field"><label>Quantidade <span class="req">*</span></label><input type="number" placeholder="0"></div>
+          <div class="field"><label>Motivo <span class="req">*</span></label>
+            <select><option>Vencimento</option><option>Quebra</option><option>Outro</option></select>
+          </div>
+        </div>
+        <div class="actions"><button class="btn">Enviar para aprovação</button></div>
+      </div>
+
+      <div class="panel" data-role-visible="coordenador">
+        <h2>Aprovar descarte <span class="pill muted">Coordenador</span></h2>
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Medicamento</th><th>Lote</th><th class="num">Qtd.</th><th>Motivo</th><th>Solicitante</th><th>Status</th><th></th></tr></thead>
+          <tbody>
+            <tr><td>Insulina NPH</td><td class="mono">LT19004</td><td class="num">6</td><td>Vencimento</td><td>Ana Ribeiro · CRF 12345-SP</td><td><span class="pill pend">pendente</span></td>
+              <td style="display:flex;gap:6px"><button class="btn ok sm">Aprovar</button><button class="btn danger sm">Rejeitar</button></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- RELATORIOS -->
+    <section class="screen" id="s-relatorios" data-perm="relatorios">
+      <div class="screen-head"><h1>Relatórios</h1><span class="screen-tag">tela + exportação PDF / Excel</span></div>
+      <p class="screen-sub">Todos cruzam <code>movimentacoes</code> com <code>lotes.valor_unitario</code>. Relatórios financeiros ficam restritos a Coordenador e Farmacêutico; a trilha de auditoria fica só com Coordenação.</p>
+
+      <div class="letterhead">
+        <div class="lh-brand">
+          <span class="lh-org">Fundação Estatal Saúde da Família</span>
+          <span class="lh-hospital">Hospital Materno Infantil Dr. Joaquim Sampaio</span>
+        </div>
+        <div class="lh-meta">
+          <div><b id="lh-report-title">Consolidado geral</b></div>
+          <div>Gerado em 31/07/2026 14:32 · <span id="lh-who">Ana Ribeiro</span> · Unidade: <span id="lh-unit">UTI</span></div>
+        </div>
+      </div>
+      <div class="note" style="margin:0 0 18px">Este cabeçalho se repete no topo de todas as páginas ao exportar em PDF ou Excel.</div>
+
+      <div class="tabs2">
+        <button class="tab2" data-report="consolidado" aria-selected="true">Consolidado geral</button>
+        <button class="tab2" data-report="custo" aria-selected="false" data-financeiro="true">Custo por setor</button>
+        <button class="tab2" data-report="auditoria" aria-selected="false" data-restrict="coordenador">Trilha de auditoria</button>
+        <button class="tab2" data-report="validade" aria-selected="false">Vencimentos próximos</button>
+      </div>
+
+      <div class="panel">
+        <div class="report-body active" id="r-consolidado">
+          <h2>Valor total em estoque, por lote</h2>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Medicamento</th><th>Lote</th><th>Unidade</th><th class="num">Qtd.</th><th class="num">Valor unit.</th><th class="num">Valor total</th></tr></thead>
+            <tbody>
+              <tr><td>Dipirona 500mg/mL</td><td class="mono">LT48213</td><td>UTI</td><td class="num">340</td><td class="num">R$ 2,10</td><td class="num">R$ 714,00</td></tr>
+              <tr><td>Soro Fisiológico 0,9%</td><td class="mono">LT77120</td><td>CAF</td><td class="num">910</td><td class="num">R$ 3,40</td><td class="num">R$ 3.094,00</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="report-body" id="r-custo">
+          <h2>Custo por setor consumidor, no período</h2>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Setor</th><th class="num">Saídas (un.)</th><th class="num">Custo (R$)</th></tr></thead>
+            <tbody>
+              <tr><td>UTI</td><td class="num">1.204</td><td class="num">R$ 5.310,20</td></tr>
+              <tr><td>Centro Cirúrgico</td><td class="num">640</td><td class="num">R$ 2.870,00</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="report-body" id="r-auditoria">
+          <h2>Trilha completa de movimentações</h2>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data/hora</th><th>Tipo</th><th>Lote</th><th>Usuário</th><th>Detalhe</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">31/07 14:02</td><td>descarte</td><td class="mono">LT19004</td><td>Ana Ribeiro</td><td>aprovado por J. Souza</td></tr>
+              <tr><td class="mono">31/07 09:41</td><td>saida</td><td class="mono">LT48213</td><td>C. Moreira</td><td>setor: UTI</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="report-body" id="r-validade">
+          <h2>Lotes vencendo nos próximos 30 dias</h2>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Medicamento</th><th>Lote</th><th>Unidade</th><th>Validade</th><th class="num">Qtd.</th></tr></thead>
+            <tbody>
+              <tr><td>Insulina NPH</td><td class="mono">LT19004</td><td>UTI</td><td>14/08</td><td class="num">22</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+        <div class="actions"><button class="btn ghost">Exportar PDF</button><button class="btn ghost">Exportar Excel</button></div>
+      </div>
+    </section>
+
+    <!-- MATRIZ -->
+    <section class="screen" id="s-matriz">
+      <div class="screen-head"><h1>Matriz de permissões</h1><span class="screen-tag">defaults aplicados — confirmar antes do código</span></div>
+      <p class="screen-sub">O documento original só define regras explícitas para Descarte e confirmação de Transferência. As demais linhas usam os defaults combinados na última rodada — ainda revisáveis. <b>Correção confirmada nesta rodada:</b> trilha de auditoria fica restrita à Coordenação, e Coordenador também tem CRF (é Farmacêutico por formação).</p>
+
+      <div class="matrix-legend">
+        <span><i class="dot full"></i> acesso completo</span>
+        <span><i class="dot view"></i> só leitura</span>
+        <span><i class="dot none"></i> sem acesso</span>
+      </div>
+
+      <div class="panel">
+        <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tela / ação</th><th>Coordenador</th><th>Farmacêutico</th><th>Atendente</th><th>Base</th></tr></thead>
+          <tbody>
+            <tr><td>Estoque atual (consulta)</td><td class="m-full">completo · todas unidades</td><td class="m-full">completo · unidade ativa</td><td class="m-full">completo · unidade ativa</td><td>default — Coordenador vê consolidado geral</td></tr>
+            <tr><td>Entrada de estoque</td><td class="m-full">completo, só na CAF</td><td class="m-full">completo, só na CAF</td><td class="m-none">sem acesso</td><td>explícito (2026-07-31) — Entrada só ocorre na CAF, demais unidades recebem por Transferência</td></tr>
+            <tr><td>Transferência — enviar</td><td class="m-full">completo</td><td class="m-full">completo</td><td class="m-none">sem acesso</td><td>default</td></tr>
+            <tr><td>Transferência — confirmar recebimento</td><td class="m-full">completo</td><td class="m-full">completo</td><td class="m-full">completo</td><td>explícito no documento</td></tr>
+            <tr><td>Saída / dispensação</td><td class="m-full">completo</td><td class="m-full">completo</td><td class="m-full">completo</td><td>default — atendente é o executor típico do dia a dia</td></tr>
+            <tr><td>Descarte — solicitar</td><td class="m-none">sem acesso</td><td class="m-full">completo</td><td class="m-none">sem acesso</td><td>explícito — motivo obrigatório, perfil farmacêutico</td></tr>
+            <tr><td>Descarte — aprovar</td><td class="m-full">completo</td><td class="m-none">sem acesso</td><td class="m-none">sem acesso</td><td>explícito</td></tr>
+            <tr><td>Relatórios operacionais (estoque, validade)</td><td class="m-full">completo</td><td class="m-full">completo</td><td class="m-view">só leitura</td><td>default</td></tr>
+            <tr><td>Relatórios financeiros (valor, custo por setor)</td><td class="m-full">completo</td><td class="m-full">completo</td><td class="m-none">sem acesso</td><td>default — dado gerencial sensível</td></tr>
+            <tr><td>Trilha de auditoria</td><td class="m-full">completo</td><td class="m-none">sem acesso</td><td class="m-none">sem acesso</td><td>explícito (2026-07-31) — só Coordenação</td></tr>
+            <tr><td>Cadastro de medicamentos</td><td class="m-full">completo</td><td class="m-full">completo, sem aprovação</td><td class="m-none">sem acesso</td><td>default</td></tr>
+            <tr><td>Cadastro de usuários</td><td colspan="3" style="color:var(--muted)">fora do MVP — gerenciado direto no banco pelo DBA/DevOps</td><td>default</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+
+      <div class="default-q">
+        <h2>Defaults aplicados nesta rodada — fácil de corrigir</h2>
+        <ol>
+          <li><b>Entrada:</b> restrita a Farmacêutico/Coordenador, e só na CAF — confirmado, não é mais default (ver banner na tela de Entrada quando a unidade ativa simulada não é CAF).</li>
+          <li><b>Relatórios financeiros:</b> sem acesso para Atendente.</li>
+          <li><b>Consolidado multi-unidade:</b> só Coordenador enxerga todas as unidades nos relatórios; ações continuam restritas à unidade ativa para todos.</li>
+          <li><b>Cadastro de usuários:</b> fora do MVP, sem tela própria por ora.</li>
+          <li><b>Cadastro de medicamentos:</b> Farmacêutico cadastra sozinho, sem fluxo de aprovação.</li>
+        </ol>
+      </div>
+    </section>
+
+  </main>
+</div>
+</div>
+
+<script>
+(function(){
+  const PERMS = {
+    coordenador:  { entrada:true,  transferencia:true,  saida:true, descarte:true,  relatorios:true },
+    farmaceutico: { entrada:true,  transferencia:true,  saida:true, descarte:true,  relatorios:true },
+    atendente:    { entrada:false, transferencia:false, saida:true, descarte:false, relatorios:true }
+  };
+  const WHO = {
+    coordenador:  { name:'João Souza',  role:'Coordenador · Farmacêutico · CRF 22711-SP' },
+    farmaceutico: { name:'Ana Ribeiro', role:'Farmacêutico · CRF 12345-SP' },
+    atendente:    { name:'Carlos Moreira', role:'Atendente' }
+  };
+  let profile = 'farmaceutico';
+  let unit = 'UTI';
+  let currentScreen = 'login';
+
+  const profileBtns = document.querySelectorAll('.profile-btn');
+  const unitBtns = document.querySelectorAll('.unit-btn');
+  const navBtns = document.querySelectorAll('.nav-btn');
+  const screens = document.querySelectorAll('.screen');
+
+  function isAllowed(perm){
+    if(!perm) return true;
+    if(perm === 'entrada' && unit !== 'CAF') return false;
+    return PERMS[profile][perm];
+  }
+
+  function applyProfile(){
+    profileBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.profile === profile ? 'true' : 'false'));
+    unitBtns.forEach(b => b.setAttribute('aria-pressed', b.dataset.unit === unit ? 'true' : 'false'));
+    document.getElementById('who-name').textContent = WHO[profile].name;
+    document.getElementById('who-role').textContent = WHO[profile].role;
+    document.getElementById('unit-badge').textContent = unit;
+    document.getElementById('unit-label-1').textContent = unit;
+    document.getElementById('lh-who').textContent = WHO[profile].name;
+    document.getElementById('lh-unit').textContent = (profile === 'coordenador') ? 'todas' : unit;
+
+    // sem acesso = nem aparece no menu (nada de item travado com X)
+    navBtns.forEach(btn => {
+      const perm = btn.dataset.perm;
+      btn.style.display = (!perm || isAllowed(perm)) ? '' : 'none';
+    });
+    document.querySelectorAll('[data-role-visible]').forEach(el => {
+      el.style.display = (el.dataset.roleVisible === profile) ? '' : 'none';
+    });
+    document.querySelectorAll('.tab2[data-financeiro]').forEach(t => {
+      t.style.display = (profile === 'atendente') ? 'none' : '';
+    });
+    document.querySelectorAll('.tab2[data-restrict="coordenador"]').forEach(t => {
+      t.style.display = (profile === 'coordenador') ? '' : 'none';
+    });
+
+    // se a tela ou o relatório atual sumiu do menu, cai num destino sempre visível
+    const currentBtn = document.querySelector('.nav-btn[data-screen="'+currentScreen+'"]');
+    if(currentBtn && currentBtn.style.display === 'none'){ currentScreen = 'estoque'; }
+    const currentTab = document.querySelector('.tab2[data-report="'+(document.querySelector('.tab2[aria-selected="true"]')?.dataset.report || 'consolidado')+'"]');
+    if(currentTab && currentTab.style.display === 'none'){
+      const fallbackTab = document.querySelector('.tab2[data-report="consolidado"]');
+      document.querySelectorAll('.tab2').forEach(x => x.setAttribute('aria-selected', x===fallbackTab ? 'true':'false'));
+      document.querySelectorAll('.report-body').forEach(rb => rb.classList.toggle('active', rb.id === 'r-consolidado'));
+    }
+    updateLetterheadTitle();
+
+    renderScreen();
+  }
+
+  const REPORT_TITLES = {
+    consolidado: 'Consolidado geral', custo: 'Custo por setor',
+    auditoria: 'Trilha de auditoria', validade: 'Vencimentos próximos'
+  };
+  function updateLetterheadTitle(){
+    const sel = document.querySelector('.tab2[aria-selected="true"]');
+    document.getElementById('lh-report-title').textContent = REPORT_TITLES[sel?.dataset.report || 'consolidado'];
+  }
+
+  function renderScreen(){
+    screens.forEach(s => s.classList.toggle('active', s.id === 's-'+currentScreen));
+    navBtns.forEach(b => b.setAttribute('aria-current', b.dataset.screen === currentScreen ? 'true' : 'false'));
+  }
+
+  profileBtns.forEach(b => b.addEventListener('click', () => { profile = b.dataset.profile; applyProfile(); }));
+  unitBtns.forEach(b => b.addEventListener('click', () => { unit = b.dataset.unit; applyProfile(); }));
+  navBtns.forEach(b => b.addEventListener('click', () => { currentScreen = b.dataset.screen; renderScreen(); }));
+
+  const tabs2 = document.querySelectorAll('.tab2');
+  tabs2.forEach(t => t.addEventListener('click', () => {
+    tabs2.forEach(x => x.setAttribute('aria-selected', x===t ? 'true':'false'));
+    document.querySelectorAll('.report-body').forEach(rb => rb.classList.toggle('active', rb.id === 'r-'+t.dataset.report));
+    updateLetterheadTitle();
+  }));
+
+  const origemSeg = document.getElementById('origem-seg');
+  origemSeg.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if(!b) return;
+    origemSeg.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x===b ? 'true':'false'));
+    const doacao = b.dataset.origem === 'doacao';
+    const valorInput = document.getElementById('valor-input');
+    const nfInput = document.getElementById('nf-input');
+    valorInput.disabled = doacao;
+    valorInput.value = doacao ? 'R$ 0,00' : '';
+    document.getElementById('valor-req').style.display = doacao ? 'none' : '';
+    nfInput.disabled = doacao;
+    document.getElementById('nf-req').style.display = doacao ? 'none' : '';
+    document.getElementById('nf-tag').textContent = doacao ? 'não obrigatório' : 'se Compra';
+  });
+
+  currentScreen = 'entrada';
+  applyProfile();
+})();
+</script>

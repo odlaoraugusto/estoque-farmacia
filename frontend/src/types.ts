@@ -1,0 +1,171 @@
+// Tipos espelhando app/schemas/*.py do backend (FastAPI). Strings literais
+// no lugar de `enum` porque o tsconfig do projeto usa `erasableSyntaxOnly`.
+
+export type Perfil = 'coordenador' | 'farmaceutico' | 'atendente';
+
+export type Acondicionamento = 'ambiente' | 'geladeira';
+
+export type Apresentacao =
+  | 'comprimido'
+  | 'capsula'
+  | 'solucao_oral'
+  | 'xarope'
+  | 'suspensao'
+  | 'solucao_injetavel'
+  | 'ampola'
+  | 'frasco_ampola'
+  | 'pomada'
+  | 'creme'
+  | 'gel'
+  | 'spray'
+  | 'supositorio'
+  | 'adesivo'
+  | 'bolsa';
+
+export type Origem = 'compra' | 'doacao';
+
+export type StatusTransferencia = 'em_transito' | 'recebido';
+
+export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte';
+
+export type StatusDescarte = 'pendente_aprovacao' | 'aprovado' | 'rejeitado';
+
+export interface ConfigInstalacao {
+  hospital_nome: string;
+  organizacao: string;
+}
+
+export interface UsuarioMe {
+  id: number;
+  nome: string;
+  login: string;
+  perfil: Perfil;
+  crf: string | null;
+  unidade_ativa_id: number | null;
+  unidade_ativa_nome: string | null;
+}
+
+export interface UsuarioResumo {
+  id: number;
+  nome: string;
+  perfil: Perfil;
+  crf: string | null;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  usuario: UsuarioMe;
+}
+
+export interface UnidadeOut {
+  id: number;
+  nome: string;
+}
+
+export interface MedicamentoOut {
+  id: number;
+  nome: string;
+  apresentacao: Apresentacao;
+  concentracao: string;
+  acondicionamento: Acondicionamento;
+  estoque_minimo: number;
+  ativo: boolean;
+}
+
+export interface LoteOut {
+  id: number;
+  medicamento_id: number;
+  unidade_id: number;
+  numero_lote: string;
+  data_validade: string;
+  quantidade_atual: number;
+  valor_unitario: string;
+  origem: Origem;
+  numero_nota_fiscal: string | null;
+  numero_afm: string | null;
+  data_entrada: string;
+  usuario_entrada_id: number;
+  status_transferencia: StatusTransferencia | null;
+  lote_origem_id: number | null;
+}
+
+export interface LoteDetalhadoOut extends LoteOut {
+  medicamento: MedicamentoOut;
+  unidade: UnidadeOut;
+  sugerido_fefo: boolean;
+}
+
+export interface MovimentacaoOut {
+  id: number;
+  tipo: TipoMovimentacao;
+  lote_id: number;
+  quantidade: number;
+  unidade_origem_id: number | null;
+  unidade_destino_id: number | null;
+  quantidade_recebida: number | null;
+  setor_consumidor: string | null;
+  motivo_descarte: string | null;
+  status: StatusDescarte | null;
+  usuario_id: number;
+  usuario_solicitante_id: number | null;
+  usuario_aprovador_id: number | null;
+  usuario_confirmacao_id: number | null;
+  data_hora: string;
+  data_confirmacao: string | null;
+}
+
+export interface MovimentacaoDetalhadaOut extends MovimentacaoOut {
+  lote: LoteDetalhadoOut;
+  unidade_origem: UnidadeOut | null;
+  unidade_destino: UnidadeOut | null;
+  usuario: UsuarioResumo;
+  usuario_solicitante: UsuarioResumo | null;
+  usuario_aprovador: UsuarioResumo | null;
+  usuario_confirmacao: UsuarioResumo | null;
+}
+
+export interface RelatorioMetadados {
+  hospital: string;
+  organizacao: string;
+  titulo_relatorio: string;
+  gerado_em: string;
+  gerado_por: string;
+  unidade: string;
+}
+
+export interface RelatorioEstoqueConsolidadoItem {
+  lote: LoteDetalhadoOut;
+  valor_total_lote: string;
+}
+
+export interface RelatorioEstoqueConsolidadoOut {
+  metadados: RelatorioMetadados;
+  itens: RelatorioEstoqueConsolidadoItem[];
+  valor_total_geral: string;
+}
+
+export interface RelatorioCustoPorSetorItem {
+  setor_consumidor: string;
+  quantidade_total: number;
+  valor_total: string;
+}
+
+export interface RelatorioCustoPorSetorOut {
+  metadados: RelatorioMetadados;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  itens: RelatorioCustoPorSetorItem[];
+  valor_total_geral: string;
+}
+
+export interface RelatorioAuditoriaOut {
+  metadados: RelatorioMetadados;
+  itens: MovimentacaoDetalhadaOut[];
+}
+
+export interface RelatorioVencimentosProximosOut {
+  metadados: RelatorioMetadados;
+  dias_considerados: number;
+  itens: LoteDetalhadoOut[];
+}

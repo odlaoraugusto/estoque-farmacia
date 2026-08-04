@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Identidade Visual — Estoque Farmácia</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  /* ---- tokens: espelho exato de frontend/src/index.css ---- */
+  :root {
+    --fesf-purple: #61358c;
+    --fesf-lavender: #7572a7;
+    --fesf-teal: #79bfb4;
+    --fesf-mint: #73d9a8;
+    --fesf-gray: #575756;
+
+    --bg: #f7f4f8;
+    --surface: #ffffff;
+    --surface-2: #eeeaf0;
+    --ink: #2c2433;
+    --muted: #73687d;
+    --line: #dad3de;
+    --line-soft: #e9e5eb;
+    --accent: #754f9c;
+    --accent-ink: #fcfafc;
+    --accent-soft: #f0ebf4;
+    --accent-strong: #543276;
+    --warn: #886220;
+    --warn-bg: #f7f0e3;
+    --danger: #96404f;
+    --danger-bg: #f4e6e8;
+    --ok: #397463;
+    --ok-bg: #e8f3ef;
+    --locked-bg: #ece7ee;
+    --unit-caf: #754f9c;
+    --unit-uti: #6d6aaf;
+    --unit-cc: #3b9184;
+    --unit-emerg: #389468;
+    --shadow: 0 1px 3px rgba(44, 36, 51, 0.07), 0 1px 1px rgba(44, 36, 51, 0.04);
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    --sans: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --radius: 10px;
+  }
+  [data-theme='dark'] {
+    --bg: #17121c;
+    --surface: #221c26;
+    --surface-2: #2c2532;
+    --ink: #ece7ef;
+    --muted: #a9a0b1;
+    --line: #453b4e;
+    --line-soft: #362e3d;
+    --accent: #b897d8;
+    --accent-ink: #18111d;
+    --accent-soft: #332442;
+    --accent-strong: #d1bae8;
+    --warn: #dab981;
+    --warn-bg: #372d1b;
+    --danger: #dd9da7;
+    --danger-bg: #381e23;
+    --ok: #80c6b2;
+    --ok-bg: #1d302a;
+    --locked-bg: #312a37;
+    --unit-caf: #b897d8;
+    --unit-uti: #a5a2d7;
+    --unit-cc: #77c5b9;
+    --unit-emerg: #75c79f;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .topbar {
+    height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 24px;
+    background: var(--fesf-purple);
+    color: #f7f3fa;
+    position: relative;
+  }
+  .topbar::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -3px; height: 3px;
+    background: linear-gradient(90deg, var(--fesf-purple) 0 25%, var(--fesf-lavender) 25% 50%, var(--fesf-teal) 50% 75%, var(--fesf-mint) 75% 100%);
+  }
+  .topbar .t-org { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: #e3d6ec; font-weight: 600; }
+  .topbar .t-hospital { font-weight: 700; font-size: 14.5px; }
+  .topbar .t-id { display: flex; flex-direction: column; gap: 2px; }
+  .topbar .t-app { margin-left: auto; font-size: 11.5px; color: #e3d6ec; }
+  .topbar .theme-toggle {
+    margin-left: 20px;
+    background: rgba(255,255,255,.14);
+    border: 1px solid rgba(255,255,255,.3);
+    color: #fff;
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--sans);
+  }
+
+  main { max-width: 980px; margin: 0 auto; padding: 8px 28px 90px; }
+
+  h1.doc-title { font-size: 26px; margin: 34px 0 4px; letter-spacing: -.01em; }
+  .doc-sub { color: var(--muted); font-size: 13px; margin-bottom: 40px; }
+
+  section { margin: 56px 0; }
+  section h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--accent-strong); font-weight: 700; margin: 0 0 6px;
+    border-bottom: 1px solid var(--line); padding-bottom: 10px;
+  }
+  section h3 { font-size: 19px; margin: 26px 0 8px; letter-spacing: -.005em; }
+  section p.lead { color: var(--muted); font-size: 13.5px; line-height: 1.6; max-width: 74ch; margin: 0 0 22px; }
+  section p { line-height: 1.6; font-size: 13.5px; max-width: 74ch; }
+
+  .swatch-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 16px 0; }
+  .swatch { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .swatch .chip { height: 64px; }
+  .swatch .label { padding: 8px 10px; background: var(--surface); font-size: 11px; }
+  .swatch .label b { display: block; font-size: 12px; }
+  .swatch .label span { color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+
+  .token-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 14px 0 8px; }
+  .token-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .token-table td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); }
+  .token-table .dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 7px; vertical-align: -2px; border: 1px solid rgba(0,0,0,.08); }
+  .token-table code { font-family: var(--mono); font-size: 11.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 3px; }
+
+  .type-scale div { margin-bottom: 14px; }
+  .type-scale .t1 { font-size: 21px; font-weight: 650; }
+  .type-scale .t2 { font-size: 16px; font-weight: 650; }
+  .type-scale .t3 { font-size: 13px; }
+  .type-scale .t4 { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+  .type-scale .t5 { font-family: var(--mono); font-size: 12.5px; }
+  .type-scale small { display: block; color: var(--muted); font-size: 10.5px; margin-top: 2px; font-family: var(--mono); }
+
+  .demo-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 14px 0; }
+  .btn { font-family: var(--sans); font-size: 12.5px; font-weight: 650; padding: 9px 17px; border-radius: 7px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+  .pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .pill.pend { background: var(--warn-bg); color: var(--warn); }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.danger { background: var(--danger-bg); color: var(--danger); }
+  .pill.muted { background: var(--line-soft); color: var(--muted); }
+
+  .cards-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 16px 0; }
+  .u-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 13px 15px; box-shadow: var(--shadow); border-left: 3px solid var(--card-color, var(--line)); }
+  .u-card .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+  .u-card .v { font-size: 15px; font-weight: 700; margin-top: 4px; }
+
+  .alerta { border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 10px; display: flex; gap: 8px; line-height: 1.5; }
+  .alerta.erro { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger); }
+  .alerta.sucesso { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); }
+  .alerta.info { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+
+  table.demo-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 14px 0; }
+  table.demo-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; padding: 8px; border-bottom: 1px solid var(--line); }
+  table.demo-table td { padding: 9px 8px; border-bottom: 1px solid var(--line-soft); }
+  table.demo-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .letterhead { border: 1px solid var(--line); border-top: 3px solid var(--fesf-purple); border-radius: 8px; background: var(--surface); padding: 14px 18px; margin: 16px 0; box-shadow: var(--shadow); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .letterhead .lh-org { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  .letterhead .lh-hospital { font-size: 13px; font-weight: 700; }
+  .letterhead .lh-meta { text-align: right; font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+  .signature-rule { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); flex-wrap: wrap; }
+  .signature-rule b { color: var(--ink); }
+  .signature-rule .arrow { color: var(--line); }
+
+  code.inline { font-family: var(--mono); background: var(--surface-2); padding: 1px 5px; border-radius: 3px; font-size: 11.5px; }
+
+  .dont-do { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .dont-do .box { border-radius: var(--radius); padding: 14px 16px; font-size: 12.5px; line-height: 1.6; }
+  .dont-do .box.dont { background: var(--danger-bg); border: 1px solid var(--danger); color: var(--ink); }
+  .dont-do .box.do { background: var(--ok-bg); border: 1px solid var(--ok); color: var(--ink); }
+  .dont-do .box b { display: block; margin-bottom: 4px; }
+  .dont-do .box.dont b { color: var(--danger); }
+  .dont-do .box.do b { color: var(--ok); }
+
+  footer { text-align: center; color: var(--muted); font-size: 11px; padding: 40px 0 20px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="t-id">
+    <span class="t-org">Fundação Estatal Saúde da Família</span>
+    <span class="t-hospital">Hospital Materno Infantil Dr. Joaquim Sampaio</span>
+  </div>
+  <span class="t-app">Estoque Farmácia — guia de identidade visual</span>
+  <button class="theme-toggle" onclick="document.body.toggleAttribute('data-theme'); this.textContent = document.body.hasAttribute('data-theme') ? '☀ modo claro' : '● modo escuro'" data-theme-btn>● modo escuro</button>
+</div>
+
+<main>
+  <h1 class="doc-title">Identidade Visual — Estoque Farmácia</h1>
+  <p class="doc-sub">Guia vivo — os tokens desta página são os mesmos de <code class="inline">frontend/src/index.css</code>. Derivado do Manual de Aplicação de Marca FESFSUS 2024. Ver <code class="inline">docs/04_IDENTIDADE_VISUAL.md</code> para o texto completo e justificativas.</p>
+
+  <section id="marca">
+    <h2>Herança de marca — não suavizado</h2>
+    <p class="lead">As cinco cores oficiais da FESFSUS, extraídas do manual de marca. Aparecem sem alteração na barra institucional, na régua de 4 cores e no letterhead de relatórios.</p>
+    <div class="swatch-row">
+      <div class="swatch"><div class="chip" style="background:#61358c"></div><div class="label"><b>Roxo</b><span>#61358c</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#7572a7"></div><div class="label"><b>Lis</b><span>#7572a7</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#79bfb4"></div><div class="label"><b>Verde-água</b><span>#79bfb4</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#73d9a8"></div><div class="label"><b>Menta</b><span>#73d9a8</span></div></div>
+      <div class="swatch"><div class="chip" style="background:#575756"></div><div class="label"><b>Cinza</b><span>#575756</span></div></div>
+    </div>
+  </section>
+
+  <section id="paleta">
+    <h2>Paleta do produto — suavizada</h2>
+    <p class="lead">Mesmos matizes, saturação reduzida e luminosidade calibrada para tela. Todos os pares abaixo passam WCAG AA (≥4,5:1 para texto normal).</p>
+    <table class="token-table">
+      <thead><tr><th>Token</th><th>Cor</th><th>Uso</th></tr></thead>
+      <tbody>
+        <tr><td><code>--accent</code></td><td><span class="dot" style="background:var(--accent)"></span>botão / foco / links</td><td>Roxo suavizado</td></tr>
+        <tr><td><code>--accent-strong</code></td><td><span class="dot" style="background:var(--accent-strong)"></span>hover</td><td>Roxo suavizado, escurecido</td></tr>
+        <tr><td><code>--ok</code></td><td><span class="dot" style="background:var(--ok)"></span>status positivo</td><td>Verde-água suavizado</td></tr>
+        <tr><td><code>--warn</code></td><td><span class="dot" style="background:var(--warn)"></span>atenção / pendência</td><td>Âmbar (fora da paleta FESF, ver manual §3)</td></tr>
+        <tr><td><code>--danger</code></td><td><span class="dot" style="background:var(--danger)"></span>erro / rejeição</td><td>Terracota (fora da paleta FESF, ver manual §3)</td></tr>
+        <tr><td><code>--ink</code> / <code>--muted</code></td><td><span class="dot" style="background:var(--ink)"></span><span class="dot" style="background:var(--muted)"></span>texto</td><td>Roxo escurecido / dessaturado</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="unidades">
+    <h2>Cor por unidade — rail de contexto</h2>
+    <p class="lead">As 4 cores da régua institucional, suavizadas, identificam as 4 unidades do hospital. Sempre acompanhadas do nome por extenso — a cor nunca é a única pista.</p>
+    <div class="cards-row">
+      <div class="u-card" style="--card-color: var(--unit-caf)"><div class="k">CAF</div><div class="v">312 lotes ativos</div></div>
+      <div class="u-card" style="--card-color: var(--unit-uti)"><div class="k">UTI</div><div class="v">58 lotes ativos</div></div>
+      <div class="u-card" style="--card-color: var(--unit-cc)"><div class="k">Centro Cirúrgico</div><div class="v">41 lotes ativos</div></div>
+      <div class="u-card" style="--card-color: var(--unit-emerg)"><div class="k">Emergência</div><div class="v">77 lotes ativos</div></div>
+    </div>
+  </section>
+
+  <section id="tipografia">
+    <h2>Tipografia</h2>
+    <p class="lead">Arimo para todo o produto (compatível com Arial, fallback de sistema até embutir o arquivo). De Rotterdam reservado à marca — não replicado aqui por depender do arquivo licenciado da FESF.</p>
+    <div class="type-scale">
+      <div><span class="t1">Estoque atual — CAF</span><small>título de tela · 21px · 650</small></div>
+      <div><span class="t2">Entrada de lote</span><small>título de seção · 16px · 650</small></div>
+      <div><span class="t3">Dipirona 500mg/mL, solução injetável</span><small>corpo · 13px · 400</small></div>
+      <div><span class="t4">Número do lote</span><small>rótulo de campo · 11px · 700 · versalete</small></div>
+      <div><span class="t5">Lote 2026-0341 · Venc. 2027-03</span><small>mono · 12.5px · para código/lote/CRF</small></div>
+    </div>
+  </section>
+
+  <section id="componentes">
+    <h2>Componentes</h2>
+
+    <h3>Botões</h3>
+    <div class="demo-row">
+      <button class="btn">Registrar entrada</button>
+      <button class="btn ghost">Cancelar</button>
+      <button class="btn danger">Rejeitar descarte</button>
+    </div>
+
+    <h3>Pills de status</h3>
+    <div class="demo-row">
+      <span class="pill pend">Pendente de aprovação</span>
+      <span class="pill ok">Confirmado</span>
+      <span class="pill danger">Saldo insuficiente</span>
+      <span class="pill muted">Inativo</span>
+    </div>
+
+    <h3>Alertas</h3>
+    <div class="alerta erro">Saldo insuficiente: restam 40 unidades deste lote.</div>
+    <div class="alerta sucesso">Lote registrado.</div>
+    <div class="alerta info">Nenhuma transferência pendente de confirmação nesta unidade.</div>
+
+    <h3>Tabela</h3>
+    <table class="demo-table">
+      <thead><tr><th>Medicamento</th><th>Lote</th><th>Validade</th><th class="num">Qtd.</th><th class="num">Valor total</th></tr></thead>
+      <tbody>
+        <tr><td>Dipirona 500mg/mL</td><td class="inline">2026-0341</td><td>2027-03</td><td class="num">340</td><td class="num">R$ 714,00</td></tr>
+        <tr><td>Soro Fisiológico 0,9%</td><td class="inline">2025-1187</td><td>2026-11</td><td class="num">120</td><td class="num">R$ 348,00</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="letterhead">
+    <h2>Letterhead de relatórios</h2>
+    <p class="lead">Cabeçalho institucional, igual em tela e em PDF/Excel exportado. A régua de assinatura completa (Serviço → FESF → SUS → Governo do Estado) aguarda os arquivos de logotipo do SUS e do Governo da Bahia.</p>
+    <div class="letterhead">
+      <div>
+        <div class="lh-org">Fundação Estatal Saúde da Família</div>
+        <div class="lh-hospital">Hospital Materno Infantil Dr. Joaquim Sampaio</div>
+      </div>
+      <div class="lh-meta">
+        <div><b>Consolidado Geral de Estoque</b></div>
+        <div>Gerado em 03/08/2026 09:12 · joao.souza · Unidade: CAF</div>
+      </div>
+    </div>
+    <div class="signature-rule">
+      <b>Hospital Materno-Infantil Dr. Joaquim Sampaio</b>
+      <span class="arrow">→</span> FESFSUS <span class="arrow">→</span> SUS <span class="arrow">→</span> Governo do Estado (Bahia)
+    </div>
+  </section>
+
+  <section id="evitar">
+    <h2>O que evitar</h2>
+    <div class="dont-do">
+      <div class="box dont"><b>Evitar</b>Botão gigante, fonte grande demais, sombra pesada, gradiente arco-íris fora da régua de marca, emoji na interface, ilustração genérica de "saúde digital".</div>
+      <div class="box do"><b>Preferir</b>Densidade adequada a uso profissional prolongado, cor com significado consistente, texto que nunca depende só da cor, tom direto nas mensagens de sistema.</div>
+    </div>
+  </section>
+
+  <footer>Estoque Farmácia · Rede FESFSUS · docs/04_IDENTIDADE_VISUAL.html — companheiro deste guia: docs/04_IDENTIDADE_VISUAL.md</footer>
+</main>
+
+</body>
+</html>
