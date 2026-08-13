@@ -210,6 +210,19 @@ Nenhum bug novo encontrado. Dados de teste (2 medicamentos) desativados após o 
 
 **Status: sem pendências de funcionalidade, segurança ou QA conhecidas.** Falta só o passo de deploy real no hospital (trocar `JWT_SECRET_KEY`, instalar no servidor definitivo, configurar backup agendado).
 
+## 20. Deploy de protótipo — Render + Neon (2026-08-13)
+
+Fase temporária, sem custo (plano free dos dois), pra uso pessoal enquanto o sistema ainda é protótipo — não é a arquitetura de produção (essa continua sendo servidor local, `docs/03_DEPLOY.md`).
+
+- **Backend**: Render, via Blueprint (`render.yaml` na raiz do repo) — builda e roda `alembic upgrade head` automaticamente a cada deploy. URL: `https://estoquefarmacia-6b49d5.onrender.com`.
+- **Banco**: Neon (Postgres serverless free). Migrations e os 3 usuários de teste (mesmos do ambiente local: `joao.souza`/coordenador, `ana.ribeiro`/farmaceutico, `carlos.moreira`/atendente, senha `Senha123!`) já aplicados.
+- **Frontend**: Vercel, projeto `estoque-a9697852` (nome aleatório de propósito — "URL secreta", só o usuário sabe). URL: `https://estoque-a9697852.vercel.app`.
+- **Limitação aceita**: instância free do Render "dorme" após inatividade — primeiro acesso depois de um tempo parado pode demorar até ~50s (cold start). Sem região no Brasil disponível no Render (só Oregon, Ohio, Virginia, Frankfurt, Singapura) — Oregon foi usada, latência mais alta mas aceitável pra uso pessoal de protótipo.
+
+**Bugs encontrados e corrigidos durante este deploy** (só apareceram testando o ambiente publicado de verdade, não existiam ou não tinham sido notados no ambiente local):
+1. **404 em qualquer rota direta no Vercel** (`/login`, refresh de página, etc.) — faltava `frontend/vercel.json` com rewrite pra SPA (`{"source": "/(.*)", "destination": "/index.html"}`). Mesmo problema que o `try_files` do nginx já resolvia no deploy local — Vercel precisa da própria config.
+2. **Rótulo de perfil errado na tela de seleção de unidade** (`LoginPage.tsx`) — Coordenador aparecia como "Farmacêutico". Ternário binário (`atendente` vs tudo mais) nunca tratava coordenador como caso próprio; trocado pelo `labelPerfil()` já usado em todo o resto do app.
+
 ## 19. Identidade visual — paleta oficial FESFSUS aplicada (2026-08-03/04)
 
 Nova direção de identidade documentada em `docs/04_IDENTIDADE_VISUAL.md` (+ `.html` de referência viva dos tokens + `.docx`): a paleta do produto deixou de ser o verde-salva do protótipo original e passou a derivar das 5 cores oficiais do Manual de Marca FESFSUS (roxo, lis, verde-água, menta, cinza), suavizadas em tom pastel para uso denso de tela — as cores cheias da marca continuam intactas só na barra institucional, na régua de 4 cores e no letterhead dos relatórios, como manda o manual. `frontend/src/index.css` já veio com os tokens da nova paleta aplicados (confirmado 1:1 contra o doc, claro e escuro).
