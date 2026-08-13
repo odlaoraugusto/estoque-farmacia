@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
+import { labelPerfil } from '../lib/formato';
 import type { UnidadeOut } from '../types';
 
 /** Login + Seleção de Unidade — fluxo de 2 passos (docs/02_PROTOTIPO.html).
@@ -136,7 +137,7 @@ export function LoginPage() {
                 <div className="field" style={{ marginBottom: 12 }}>
                   <label>Usuário reconhecido</label>
                   <div className="box">
-                    {usuario.nome} — {usuario.perfil === 'atendente' ? 'Atendente' : 'Farmacêutico'}
+                    {usuario.nome} — {labelPerfil(usuario.perfil)}
                     {usuario.crf ? ` · CRF ${usuario.crf}` : ''}
                   </div>
                 </div>
