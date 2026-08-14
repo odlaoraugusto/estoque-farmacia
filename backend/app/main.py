@@ -8,6 +8,7 @@ from app.api.routes.descartes import router as descartes_router
 from app.api.routes.entradas import router as entradas_router
 from app.api.routes.lotes import router as lotes_router
 from app.api.routes.medicamentos import router as medicamentos_router
+from app.api.routes.pacientes import router as pacientes_router
 from app.api.routes.relatorios import router as relatorios_router
 from app.api.routes.saidas import router as saidas_router
 from app.api.routes.transferencias import router as transferencias_router
@@ -47,6 +48,7 @@ app.include_router(saidas_router)
 app.include_router(descartes_router)
 app.include_router(lotes_router)
 app.include_router(relatorios_router)
+app.include_router(pacientes_router)
 
 
 @app.get("/")

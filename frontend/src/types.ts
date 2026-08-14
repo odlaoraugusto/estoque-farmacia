@@ -30,6 +30,11 @@ export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte
 
 export type StatusDescarte = 'pendente_aprovacao' | 'aprovado' | 'rejeitado';
 
+/** Carrinho de emergência (2026-08-13): vira um local de estoque
+ * rastreável (`tipo=carrinho`), mas nunca gera acesso de sessão — só
+ * `tipo=unidade` aparece na seleção de unidade ativa do login. */
+export type TipoUnidade = 'unidade' | 'carrinho';
+
 export interface ConfigInstalacao {
   hospital_nome: string;
   organizacao: string;
@@ -61,6 +66,9 @@ export interface TokenResponse {
 export interface UnidadeOut {
   id: number;
   nome: string;
+  tipo: TipoUnidade;
+  unidade_pai_id: number | null;
+  descricao: string | null;
 }
 
 export interface MedicamentoOut {
@@ -107,6 +115,11 @@ export interface MovimentacaoOut {
   setor_consumidor: string | null;
   motivo_descarte: string | null;
   status: StatusDescarte | null;
+  // Paciente/prontuário (seção 22 do doc) — só preenchido em Saída, e só
+  // visível para quem tem acesso (backend zera os dois para Atendente,
+  // ver MovimentacaoOut.visivel_para no schema Python).
+  paciente_nome: string | null;
+  paciente_prontuario: string | null;
   usuario_id: number;
   usuario_solicitante_id: number | null;
   usuario_aprovador_id: number | null;
@@ -123,6 +136,13 @@ export interface MovimentacaoDetalhadaOut extends MovimentacaoOut {
   usuario_solicitante: UsuarioResumo | null;
   usuario_aprovador: UsuarioResumo | null;
   usuario_confirmacao: UsuarioResumo | null;
+}
+
+/** Resposta do autopreenchimento por prontuário (`GET /pacientes/{prontuario}`)
+ * — restrito a Farmacêutico/Coordenador no backend (403 para Atendente). */
+export interface PacienteOut {
+  prontuario: string;
+  nome: string;
 }
 
 export interface RelatorioMetadados {

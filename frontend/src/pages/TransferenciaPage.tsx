@@ -28,6 +28,7 @@ export function TransferenciaPage() {
       </p>
 
       {permissoes.transferenciaEnviar && <PainelEnviar token={token} unidadeAtivaId={unidadeAtivaId} />}
+      {permissoes.devolverCarrinho && <PainelDevolverCarrinho token={token} unidadeAtivaId={unidadeAtivaId} />}
       <PainelConfirmar token={token} unidadeAtivaId={unidadeAtivaId} />
     </section>
   );
@@ -56,7 +57,7 @@ function PainelEnviar({ token, unidadeAtivaId }: { token: string | null; unidade
     carregarLotes();
     if (!token) return;
     api
-      .get<UnidadeOut[]>('/unidades', { token })
+      .get<UnidadeOut[]>('/unidades', { token, params: { tipo: 'unidade' } })
       .then((lista) => setUnidades(lista.filter((u) => u.id !== unidadeAtivaId)))
       .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar as unidades.')));
   }, [carregarLotes, token, unidadeAtivaId]);
@@ -119,7 +120,7 @@ function PainelEnviar({ token, unidadeAtivaId }: { token: string | null; unidade
               setBusca(v);
               setLoteSelecionado(null);
             }}
-            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual}`}
+            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`}
             chave={(l) => l.id}
             aoSelecionar={(l) => {
               setLoteSelecionado(l);
@@ -168,6 +169,133 @@ function PainelEnviar({ token, unidadeAtivaId }: { token: string | null; unidade
           {enviando ? 'Enviando…' : 'Enviar'}
         </button>
       </div>
+    </form>
+  );
+}
+
+/** Devolução de carrinho -> CAF (seção 22 do doc): espelho da Reposição,
+ * mas em DUAS etapas — esta tela só envia (fica pendente); a CAF confirma
+ * no painel de Confirmar recebimento logo abaixo, o mesmo que já existe
+ * para qualquer Transferência normal (nenhuma mudança precisou ser feita
+ * ali, ele já lista qualquer pendente da unidade ativa). Exclusiva do
+ * Farmacêutico, sem restrição de unidade — qualquer unidade real pode ter
+ * carrinhos filhos com saldo pra devolver. */
+function PainelDevolverCarrinho({ token, unidadeAtivaId }: { token: string | null; unidadeAtivaId: number | null }) {
+  const [lotesCarrinho, setLotesCarrinho] = useState<LoteDetalhadoOut[]>([]);
+  const [busca, setBusca] = useState('');
+  const [loteSelecionado, setLoteSelecionado] = useState<LoteDetalhadoOut | null>(null);
+  const [quantidade, setQuantidade] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  const carregarLotes = useCallback(() => {
+    if (!token || unidadeAtivaId == null) return;
+    api
+      .get<LoteDetalhadoOut[]>('/lotes', { token, params: { unidade_id: unidadeAtivaId } })
+      // GET /lotes já devolve unidade ativa + carrinhos filhos combinados;
+      // devolução só faz sentido a partir de um carrinho, filtra no cliente.
+      .then((lista) => setLotesCarrinho(lista.filter((l) => l.unidade.tipo === 'carrinho')))
+      .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar os lotes dos carrinhos da unidade.')));
+  }, [token, unidadeAtivaId]);
+
+  useEffect(() => {
+    carregarLotes();
+  }, [carregarLotes]);
+
+  function limpar() {
+    setBusca('');
+    setLoteSelecionado(null);
+    setQuantidade('');
+  }
+
+  async function aoSubmeter(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    setSucesso(null);
+    if (!loteSelecionado) {
+      setErro('Selecione um lote em um carrinho da unidade.');
+      return;
+    }
+    setEnviando(true);
+    try {
+      await api.post(
+        '/transferencias/devolver-carrinho',
+        { lote_id: loteSelecionado.id, quantidade: Number(quantidade) },
+        { token },
+      );
+      setSucesso('Devolução enviada — pendente até a CAF confirmar o recebimento.');
+      limpar();
+      carregarLotes();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível registrar a devolução.'));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <form className="panel" onSubmit={aoSubmeter}>
+      <h2>Devolver carrinho ao CAF</h2>
+      <p className="screen-sub">
+        Destino: <b>CAF</b> (sempre, não é uma escolha). Diferente da reposição, que já sai recebida no destino, a
+        devolução fica pendente até alguém confirmar na CAF.
+      </p>
+      {erro && <Alerta tipo="erro">{erro}</Alerta>}
+      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      <div className="grid">
+        <div className="field span2">
+          <label htmlFor="busca-lote-devolucao">
+            Lote (em um carrinho da unidade ativa) <span className="req">*</span>
+          </label>
+          <BuscaAutocomplete
+            id="busca-lote-devolucao"
+            itens={lotesCarrinho}
+            valor={loteSelecionado ? `${loteSelecionado.medicamento.nome} · ${loteSelecionado.numero_lote}` : busca}
+            aoMudarValor={(v) => {
+              setBusca(v);
+              setLoteSelecionado(null);
+            }}
+            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`}
+            chave={(l) => l.id}
+            aoSelecionar={(l) => {
+              setLoteSelecionado(l);
+              setBusca(`${l.medicamento.nome} · ${l.numero_lote}`);
+            }}
+            placeholder="buscar por medicamento ou nº do lote — carrinhos da unidade ativa"
+          />
+        </div>
+        <div className="field">
+          <label>
+            Saldo no carrinho <span className="tag">auto</span>
+          </label>
+          <input type="text" disabled value={loteSelecionado?.quantidade_atual ?? ''} />
+        </div>
+        <div className="field">
+          <label htmlFor="qtd-devolver">
+            Quantidade a devolver <span className="req">*</span>
+          </label>
+          <input
+            id="qtd-devolver"
+            type="number"
+            min={1}
+            max={loteSelecionado?.quantidade_atual}
+            placeholder={loteSelecionado ? `≤ ${loteSelecionado.quantidade_atual}` : '0'}
+            value={quantidade}
+            onChange={(e) => setQuantidade(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+      <div className="actions">
+        <button type="submit" className="btn" disabled={enviando}>
+          {enviando ? 'Enviando…' : 'Devolver ao CAF'}
+        </button>
+        <button type="button" className="btn ghost" onClick={limpar} disabled={enviando}>
+          Cancelar
+        </button>
+      </div>
+      <div className="note">Precisa de confirmação da CAF depois de enviada — não sai já recebida como a reposição.</div>
     </form>
   );
 }

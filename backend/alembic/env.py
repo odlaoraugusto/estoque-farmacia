@@ -8,7 +8,14 @@ from app.database.database import Base
 
 # Importa todos os models para que `Base.metadata` os conheça e o
 # autogenerate do Alembic consiga detectá-los.
-from app.models import lote, medicamento, movimentacao, unidade, usuario  # noqa: F401
+from app.models import (  # noqa: F401
+    lote,
+    medicamento,
+    movimentacao,
+    paciente,
+    unidade,
+    usuario,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

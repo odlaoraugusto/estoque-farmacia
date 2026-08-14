@@ -10,6 +10,7 @@ import { SaidaPage } from './pages/SaidaPage';
 import { DescartePage } from './pages/DescartePage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
 import { MedicamentosPage } from './pages/MedicamentosPage';
+import { ReposicaoCarrinhoPage } from './pages/ReposicaoCarrinhoPage';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
               <Route path="/entrada" element={<EntradaPage />} />
               <Route path="/transferencia" element={<TransferenciaPage />} />
               <Route path="/saida" element={<SaidaPage />} />
+              <Route path="/reposicao-carrinho" element={<ReposicaoCarrinhoPage />} />
               <Route path="/descarte" element={<DescartePage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/medicamentos" element={<MedicamentosPage />} />

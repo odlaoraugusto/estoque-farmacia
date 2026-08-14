@@ -140,7 +140,7 @@ export function EstoquePage() {
                 <tr>
                   <th>Medicamento</th>
                   <th>Lote</th>
-                  {ehCoordenador && <th>Unidade</th>}
+                  <th>Unidade</th>
                   <th>Validade</th>
                   <th className="num">Qtd.</th>
                   <th>Acondic.</th>
@@ -151,7 +151,7 @@ export function EstoquePage() {
               <tbody>
                 {lotes.length === 0 && (
                   <tr>
-                    <td colSpan={ehCoordenador ? 8 : 7} className="vazio-tabela">
+                    <td colSpan={8} className="vazio-tabela">
                       Nenhum lote disponível.
                     </td>
                   </tr>
@@ -163,7 +163,7 @@ export function EstoquePage() {
                     <tr key={lote.id}>
                       <td>{lote.medicamento.nome}</td>
                       <td className="mono">{lote.numero_lote}</td>
-                      {ehCoordenador && <td>{lote.unidade.nome}</td>}
+                      <td>{lote.unidade.nome}</td>
                       <td>{formatarData(lote.data_validade)}</td>
                       <td className="num">{lote.quantidade_atual}</td>
                       <td>{labelAcondicionamento(lote.medicamento.acondicionamento)}</td>

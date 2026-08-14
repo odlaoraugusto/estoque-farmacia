@@ -43,6 +43,27 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // aprovação; Coordenador também tem acesso completo; Atendente sem
     // acesso (docs/00_PROJETO.md seção 9, ver app/api/routes/medicamentos.py).
     medicamentos: farmaceuticoOuCoordenador,
+
+    // Reposição de carrinho de emergência — exclusiva do Farmacêutico
+    // (Coordenador NÃO repõe carrinho, diferente do envio de Transferência
+    // normal) e só a partir da unidade CAF (regras 1/2 dos carrinhos,
+    // ver app/api/routes/transferencias.py, _PODE_REPOR_CARRINHO).
+    reporCarrinho: perfil === 'farmaceutico' && unidadeEhCaf(usuario),
+
+    // Devolução de carrinho -> CAF (seção 22 do doc) — mesma exclusividade
+    // da reposição (só Farmacêutico, Coordenador não devolve), mas SEM
+    // restrição de unidade: qualquer unidade real pode ter carrinhos
+    // filhos com saldo pra devolver, diferente da reposição que exige CAF
+    // como origem (ver _PODE_DEVOLVER_CARRINHO em
+    // app/api/routes/transferencias.py).
+    devolverCarrinho: perfil === 'farmaceutico',
+
+    // Dados de paciente/prontuário (seção 22 do doc, LGPD) — Farmacêutico
+    // e Coordenador só, espelha PERFIS_COM_ACESSO_A_DADOS_DE_PACIENTE em
+    // app/core/permissoes.py. Usado para decidir se a tela de Saída tenta
+    // o autopreenchimento por GET /pacientes/{prontuario} (Atendente
+    // nunca deve chamar essa rota — daria 403 sempre).
+    verDadosPaciente: farmaceuticoOuCoordenador,
   };
 }
 

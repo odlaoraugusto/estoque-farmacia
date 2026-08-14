@@ -47,6 +47,16 @@ class Movimentacao(Base):
     setor_consumidor = Column(String(100), nullable=True)  # obrigatório em saída
     motivo_descarte = Column(Text, nullable=True)  # obrigatório em descarte
 
+    # Paciente/prontuário (seção 22 do doc) — opcional, só usado em
+    # Saída. Sempre em CAIXA ALTA (normalizado no service, nunca confia
+    # no que vem do front). Dado sensível de saúde (LGPD): a leitura
+    # desses 2 campos é restrita a Farmacêutico/Coordenador na camada de
+    # serialização (`app/schemas/movimentacao.py`,
+    # `MovimentacaoOut.visivel_para`), não aqui no model — o banco
+    # sempre guarda o dado completo, quem filtra é a resposta da API.
+    paciente_nome = Column(String(200), nullable=True)
+    paciente_prontuario = Column(String(50), nullable=True)
+
     status = Column(
         Enum(
             StatusDescarteEnum,

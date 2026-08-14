@@ -248,3 +248,36 @@ Também confirmado: a régua de assinatura institucional do manual de marca (Ser
 `frontend/src/index.css` atualizado com os novos tokens (mesma estrutura de variáveis, só os valores mudaram — nenhum componente ou layout foi tocado). Build de produção não pôde ser confirmado neste ambiente por incompatibilidade da biblioteca nativa `lightningcss` com o sandbox Linux usado nesta sessão (o projeto foi instalado em Windows); a compilação chegou a transformar os 41 módulos do frontend sem erro antes de falhar num binário nativo — recomenda-se rodar `npm run build` no ambiente normal do projeto antes do próximo deploy.
 
 Entregáveis: `docs/04_IDENTIDADE_VISUAL.md` (fonte), `docs/04_IDENTIDADE_VISUAL.docx` (manual formatado) e `docs/04_IDENTIDADE_VISUAL.html` (guia de estilo vivo, com os tokens reais aplicados).
+
+## 21. Carrinhos de emergência (2026-08-13/14)
+
+Cliente enviou a planilha de conferência mensal dos 18 carrinhos de emergência físicos do hospital (carros/malas pré-posicionados em pontos de uso — UTI Neonatal, Centro Obstétrico, Centro Cirúrgico, etc.), cada um localizado dentro de uma das 4 unidades reais. Confirmado com o cliente: o farmacêutico responsável por cada carrinho na planilha é só controle interno do setor (não impacta o sistema), os kits mencionados entre parênteses são descrição textual do conteúdo (não viram unidades de estoque próprias), e a conferência mensal com validação da coordenadora é um processo de auditoria interna separado, fora do escopo por enquanto.
+
+**Modelagem:** carrinho virou um local de estoque rastreável — `Unidade.tipo` (`unidade` | `carrinho`) + `unidade_pai_id` (a unidade real onde o carrinho fica). Carrinho **nunca** gera acesso de sessão — só `tipo=unidade` aparece na seleção de unidade do login. Os 18 carrinhos foram cadastrados com os nomes exatos da planilha (migration `0003_carrinhos_emergencia`).
+
+**Regras de negócio:**
+- Só a CAF repõe carrinho, e só o perfil Farmacêutico faz essa reposição (Coordenador não repõe) — fluxo dedicado `POST /transferencias/repor-carrinho`, **uma etapa só** (sem confirmação separada, diferente da Transferência normal — o carrinho não tem sessão própria pra confirmar recebimento).
+- Saída, Descarte, Estoque atual e os relatórios de estoque-consolidado/vencimentos-próximos passam a enxergar/aceitar também os lotes que estão nos carrinhos-filho da unidade ativa — sem isso, o estoque de um carrinho ficaria preso, sem ninguém conseguindo mexer.
+- Carrinho nunca é destino de Transferência normal entre unidades reais (bloqueado com 400) — só do fluxo dedicado de reposição.
+- Entrada e Transferência-enviar (origem) continuam exigindo `unidade_ativa_id` exato, sem o escopo ampliado.
+
+Testado de ponta a ponta (backend via chamadas HTTP reais, frontend via typecheck/build limpos + validação HTTP do mesmo contrato — a validação visual em navegador ficou pendente neste momento).
+
+## 22. Roteiro pós-carrinhos — devolução, paciente/prontuário, e itens só planejados (2026-08-14)
+
+Discussão sobre o que mais aparece em sistemas de estoque de farmácia hospitalar em geral. Decisões fechadas:
+
+**Devolução (unidade/carrinho → CAF):**
+- Unidade real → CAF **já funciona hoje** sem nada novo — é só uma Transferência normal com destino = CAF (CAF já é uma unidade `tipo=unidade` selecionável como destino).
+- O que falta é só **devolução saindo de um carrinho** — espelho do fluxo de reposição, mas em **2 etapas** (diferente da reposição, que é 1 etapa): farmacêutico logado na unidade real dona do carrinho solicita o envio de volta pra CAF; quem estiver logado na CAF confirma o recebimento (reaproveita o `/transferencias/{id}/confirmar` que já existe) — faz sentido a CAF conferir o que está voltando antes de aceitar de volta no estoque central, diferente da reposição onde a CAF é a fonte confiável despachando estoque já controlado.
+
+**Saída vinculada a paciente/prontuário** (dado sensível de saúde — LGPD):
+- Campo **opcional** — setor consumidor continua sendo o mínimo obrigatório em toda Saída; paciente/prontuário é informação extra quando aplicável.
+- Nome do paciente sempre em **caixa alta** (fonte discreta, não maior que o resto da tela).
+- Autopreenchimento por prontuário (base cresce organicamente conforme os prontuários são digitados) e visualização do nome do paciente em relatórios ficam restritos a **Farmacêutico e Coordenador** — Atendente continua registrando a saída digitando o paciente na hora (não fica bloqueado de fazer seu trabalho), só não vê histórico de outros pacientes nem aparece nome de paciente em relatório pra esse perfil.
+
+**Só planejado, sem construir agora** (registrado como próximos passos futuros):
+- **Giro de estoque / Curva ABC** — barato de fazer quando for hora: só um relatório novo em cima de dados que já existem (saídas × valor por medicamento), sem mudança de schema.
+- **Inventário rotativo** (contagem física periódica) — mais trabalhoso: precisa de fluxo de contagem, cálculo de divergência, e aprovação pra ajustar saldo (parecido com o Descarte). Não modelado em detalhe ainda.
+
+**Alarme de estoque crítico** — hoje é só passivo (tile "Itens em risco de ruptura" na Estoque atual, contagem calculada ao abrir a tela); não existe notificação proativa. Não houve pedido de mudança nesta rodada, só esclarecimento do estado atual.

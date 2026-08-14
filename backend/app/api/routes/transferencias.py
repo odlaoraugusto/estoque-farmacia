@@ -10,7 +10,9 @@ from app.api.deps import (
 from app.database.session import get_db
 from app.models.enums import PerfilEnum
 from app.schemas.movimentacao import (
+    DevolverCarrinhoCreate,
     MovimentacaoDetalhadaOut,
+    ReporCarrinhoCreate,
     TransferenciaConfirmarCreate,
     TransferenciaEnviarCreate,
 )
@@ -24,6 +26,15 @@ service = TransferenciaService()
 # Regra 3: enviar é restrito a farmacêutico/coordenador.
 _PODE_ENVIAR = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
 
+# Regra 1 dos carrinhos: reposição de carrinho é exclusiva do farmacêutico
+# (diferente do envio de Transferência normal, que também aceita
+# coordenador) — Coordenador NÃO repõe carrinho.
+_PODE_REPOR_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico)
+
+# Devolução de carrinho -> CAF (seção 22 do doc): mesma exclusividade da
+# reposição — só farmacêutico, coordenador não devolve.
+_PODE_DEVOLVER_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico)
+
 
 @router.post("/enviar", response_model=MovimentacaoDetalhadaOut)
 def enviar_transferencia(
@@ -32,7 +43,37 @@ def enviar_transferencia(
     unidade_ativa_id: int = Depends(get_unidade_ativa_id),
     db: Session = Depends(get_db),
 ):
-    return service.enviar(db, usuario, unidade_ativa_id, dados)
+    movimentacao = service.enviar(db, usuario, unidade_ativa_id, dados)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
+
+
+@router.post("/repor-carrinho", response_model=MovimentacaoDetalhadaOut)
+def repor_carrinho(
+    dados: ReporCarrinhoCreate,
+    usuario: UsuarioMe = Depends(_PODE_REPOR_CARRINHO),
+    unidade_ativa_id: int = Depends(get_unidade_ativa_id),
+    db: Session = Depends(get_db),
+):
+    """Reposição de carrinho de emergência (regras 1/2, docs/00_PROJETO.md):
+    só farmacêutico, só a partir da CAF, fluxo de uma etapa só — sem
+    confirmação separada, o lote já nasce recebido no carrinho destino."""
+    movimentacao = service.repor_carrinho(db, usuario, unidade_ativa_id, dados)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
+
+
+@router.post("/devolver-carrinho", response_model=MovimentacaoDetalhadaOut)
+def devolver_carrinho(
+    dados: DevolverCarrinhoCreate,
+    usuario: UsuarioMe = Depends(_PODE_DEVOLVER_CARRINHO),
+    unidade_ativa_id: int = Depends(get_unidade_ativa_id),
+    db: Session = Depends(get_db),
+):
+    """Devolução de carrinho de emergência -> CAF (seção 22 do doc): só
+    farmacêutico, fluxo de DUAS etapas (diferente da reposição) — esta
+    etapa só envia (fica pendente); a CAF confirma com o endpoint já
+    existente `POST /transferencias/{id}/confirmar`."""
+    movimentacao = service.devolver_carrinho(db, usuario, unidade_ativa_id, dados)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
 
 
 @router.post("/{movimentacao_id}/confirmar", response_model=MovimentacaoDetalhadaOut)
@@ -45,7 +86,8 @@ def confirmar_transferencia(
 ):
     """Regra 4: qualquer perfil (incluindo atendente) pode confirmar,
     desde que esteja na unidade de destino."""
-    return service.confirmar(db, usuario, unidade_ativa_id, movimentacao_id, dados)
+    movimentacao = service.confirmar(db, usuario, unidade_ativa_id, movimentacao_id, dados)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
 
 
 @router.get("/pendentes", response_model=list[MovimentacaoDetalhadaOut])
@@ -59,4 +101,5 @@ def listar_transferencias_pendentes(
     unidade ativa."""
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_destino_id)
 
-    return service.listar_pendentes(db, unidade_escopo)
+    pendentes = service.listar_pendentes(db, unidade_escopo)
+    return [MovimentacaoDetalhadaOut.visivel_para(m, usuario) for m in pendentes]

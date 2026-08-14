@@ -53,11 +53,28 @@ class RelatorioService:
             unidade=unidade_label,
         )
 
+    def _expandir_escopo(self, db: Session, unidade_id: int | None) -> int | list[int] | None:
+        """Amplia um id de unidade real para incluir os carrinhos de
+        emergência filhos dela (docs/00_PROJETO.md, carrinhos 2026-08-13).
+        `None` (sem filtro de unidade) passa direto — mantém o consolidado
+        de todas as unidades já existente."""
+        if unidade_id is None:
+            return None
+
+        return self.unidade_repository.listar_ids_com_carrinhos(db, unidade_id)
+
     def estoque_consolidado(
         self, db: Session, usuario: UsuarioMe, unidade_id: int | None
     ) -> RelatorioEstoqueConsolidadoOut:
+        """Escopo ampliado (2026-08-13): quando filtrado por unidade, inclui
+        também os carrinhos de emergência filhos dela — o valor total em
+        estoque de uma unidade tem que contar o que está posicionado nos
+        carrinhos dela também. `unidade_id` continua sendo o id "de
+        exibição" no cabeçalho (label da unidade), só a query de lotes é
+        ampliada."""
+        escopo = self._expandir_escopo(db, unidade_id)
         lotes = self.lote_repository.listar(
-            db, unidade_id=unidade_id, apenas_disponivel=True, ordenar_fefo=False
+            db, unidade_id=escopo, apenas_disponivel=True, ordenar_fefo=False
         )
 
         itens = []
@@ -142,15 +159,25 @@ class RelatorioService:
 
         return RelatorioAuditoriaOut(
             metadados=self._metadados(usuario, "Trilha de Auditoria", unidade_id, db),
+            # `visivel_para` aplica a regra de paciente/prontuário
+            # (seção 22 do doc) — hoje este relatório só é acessível ao
+            # Coordenador (regra 7, router `relatorios.py`), então na
+            # prática nunca oculta nada aqui, mas usar o mesmo
+            # construtor central evita reintroduzir o vazamento se a
+            # matriz de permissões deste relatório mudar no futuro.
             itens=[
-                MovimentacaoDetalhadaOut.model_validate(m) for m in movimentacoes
+                MovimentacaoDetalhadaOut.visivel_para(m, usuario)
+                for m in movimentacoes
             ],
         )
 
     def vencimentos_proximos(
         self, db: Session, usuario: UsuarioMe, unidade_id: int | None, dias: int
     ) -> RelatorioVencimentosProximosOut:
-        lotes = self.lote_repository.listar_vencimento_proximo(db, dias, unidade_id)
+        """Mesmo escopo ampliado de `estoque_consolidado` — inclui os
+        carrinhos filhos da unidade filtrada."""
+        escopo = self._expandir_escopo(db, unidade_id)
+        lotes = self.lote_repository.listar_vencimento_proximo(db, dias, escopo)
 
         return RelatorioVencimentosProximosOut(
             metadados=self._metadados(

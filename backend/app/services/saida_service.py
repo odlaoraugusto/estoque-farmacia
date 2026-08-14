@@ -7,15 +7,32 @@ from app.repositories.lote_repository import LoteRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
 from app.schemas.movimentacao import SaidaCreate
 from app.schemas.usuario import UsuarioMe
+from app.services.paciente_service import PacienteService
 
 
 class SaidaService:
     """Regra 5: qualquer perfil pode dispensar, desde que o lote esteja na
-    unidade ativa da sessão. Nunca permite saldo negativo."""
+    unidade ativa da sessão OU num carrinho de emergência filho dela
+    (2026-08-13 — carrinhos são local de estoque sem acesso de sessão
+    próprio, então quem está logado na unidade real "pai" dispensa por
+    eles). Nunca permite saldo negativo.
+
+    Paciente/prontuário (seção 22 do doc): campo adicional opcional,
+    aceito de qualquer perfil (inclusive Atendente — ele está
+    registrando a própria dispensação, a restrição de visibilidade do
+    dado é só de leitura depois, ver `app/schemas/movimentacao.py`)."""
 
     def __init__(self):
         self.lote_repository = LoteRepository()
         self.movimentacao_repository = MovimentacaoRepository()
+        self.paciente_service = PacienteService()
+
+    @staticmethod
+    def _lote_no_escopo_da_unidade(lote, unidade_ativa_id: int) -> bool:
+        return (
+            lote.unidade_id == unidade_ativa_id
+            or lote.unidade.unidade_pai_id == unidade_ativa_id
+        )
 
     def registrar(
         self,
@@ -31,10 +48,11 @@ class SaidaService:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Lote não encontrado."
             )
 
-        if lote.unidade_id != unidade_ativa_id:
+        if not self._lote_no_escopo_da_unidade(lote, unidade_ativa_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="O lote não pertence à unidade ativa da sessão.",
+                detail="O lote não pertence à unidade ativa da sessão "
+                "nem a um carrinho de emergência dela.",
             )
 
         if not dados.setor_consumidor or not dados.setor_consumidor.strip():
@@ -63,5 +81,17 @@ class SaidaService:
             setor_consumidor=dados.setor_consumidor.strip(),
             usuario_id=usuario.id,
         )
+
+        # Autopreenchimento por prontuário (seção 22 do doc): resolve
+        # ANTES de criar a movimentação, para gravar sempre o nome
+        # "oficial" (já cadastrado ou recém-criado), nunca o que veio
+        # solto no corpo da requisição — ver decisão em
+        # `PacienteService.resolver_para_saida` sobre nome divergente.
+        if dados.paciente_prontuario and dados.paciente_nome:
+            prontuario, nome = self.paciente_service.resolver_para_saida(
+                db, dados.paciente_prontuario, dados.paciente_nome
+            )
+            movimentacao.paciente_prontuario = prontuario
+            movimentacao.paciente_nome = nome
 
         return self.movimentacao_repository.create(db, movimentacao)

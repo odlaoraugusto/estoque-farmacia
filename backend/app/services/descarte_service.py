@@ -12,11 +12,20 @@ from app.schemas.usuario import UsuarioMe
 class DescarteService:
     """Regra 6: fluxo de duas etapas — Farmacêutico solicita (não
     decrementa estoque), Coordenador aprova (decrementa) ou rejeita
-    (não mexe no estoque)."""
+    (não mexe no estoque). Solicitação aceita lote na unidade ativa OU num
+    carrinho de emergência filho dela (2026-08-13), mesma lógica de
+    `SaidaService`."""
 
     def __init__(self):
         self.lote_repository = LoteRepository()
         self.movimentacao_repository = MovimentacaoRepository()
+
+    @staticmethod
+    def _lote_no_escopo_da_unidade(lote, unidade_ativa_id: int) -> bool:
+        return (
+            lote.unidade_id == unidade_ativa_id
+            or lote.unidade.unidade_pai_id == unidade_ativa_id
+        )
 
     def solicitar(
         self,
@@ -32,10 +41,11 @@ class DescarteService:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Lote não encontrado."
             )
 
-        if lote.unidade_id != unidade_ativa_id:
+        if not self._lote_no_escopo_da_unidade(lote, unidade_ativa_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="O lote não pertence à unidade ativa da sessão.",
+                detail="O lote não pertence à unidade ativa da sessão "
+                "nem a um carrinho de emergência dela.",
             )
 
         if not dados.motivo_descarte or not dados.motivo_descarte.strip():

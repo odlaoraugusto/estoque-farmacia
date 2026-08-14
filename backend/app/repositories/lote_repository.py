@@ -32,14 +32,20 @@ class LoteRepository:
     def listar(
         self,
         db: Session,
-        unidade_id: int | None = None,
+        unidade_id: int | list[int] | None = None,
         medicamento_id: int | None = None,
         apenas_disponivel: bool = True,
         ordenar_fefo: bool = True,
     ) -> list[Lote]:
+        """`unidade_id` aceita uma lista (além de um único id) para cobrir o
+        escopo ampliado unidade real + carrinhos-filho dela (carrinhos de
+        emergência, docs/00_PROJETO.md) — quem decide se amplia ou não é a
+        camada de service, aqui só aplicamos o filtro que vier."""
         query = db.query(Lote)
 
-        if unidade_id is not None:
+        if isinstance(unidade_id, list):
+            query = query.filter(Lote.unidade_id.in_(unidade_id))
+        elif unidade_id is not None:
             query = query.filter(Lote.unidade_id == unidade_id)
 
         if medicamento_id is not None:
@@ -57,7 +63,7 @@ class LoteRepository:
         self,
         db: Session,
         dias: int,
-        unidade_id: int | None = None,
+        unidade_id: int | list[int] | None = None,
     ) -> list[Lote]:
         limite = date.today()
         from datetime import timedelta
@@ -69,7 +75,9 @@ class LoteRepository:
             Lote.data_validade <= limite,
         )
 
-        if unidade_id is not None:
+        if isinstance(unidade_id, list):
+            query = query.filter(Lote.unidade_id.in_(unidade_id))
+        elif unidade_id is not None:
             query = query.filter(Lote.unidade_id == unidade_id)
 
         return query.order_by(Lote.data_validade.asc()).all()

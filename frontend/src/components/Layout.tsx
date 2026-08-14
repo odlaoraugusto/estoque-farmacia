@@ -83,6 +83,12 @@ export function Layout() {
                 <span className="lbl">Saída / Dispensação</span>
               </NavLink>
             )}
+            {permissoes.reporCarrinho && (
+              <NavLink to="/reposicao-carrinho" className="nav-btn">
+                <span className="ic">↻</span>
+                <span className="lbl">Reposição de Carrinhos</span>
+              </NavLink>
+            )}
             {(permissoes.descarteSolicitar || permissoes.descarteAprovar) && (
               <NavLink to="/descarte" className="nav-btn">
                 <span className="ic">✕</span>

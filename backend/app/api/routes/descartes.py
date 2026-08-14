@@ -31,7 +31,8 @@ def solicitar_descarte(
     unidade_ativa_id: int = Depends(get_unidade_ativa_id),
     db: Session = Depends(get_db),
 ):
-    return service.solicitar(db, usuario, unidade_ativa_id, dados)
+    movimentacao = service.solicitar(db, usuario, unidade_ativa_id, dados)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
 
 
 @router.post("/{movimentacao_id}/aprovar", response_model=MovimentacaoDetalhadaOut)
@@ -40,7 +41,8 @@ def aprovar_descarte(
     usuario: UsuarioMe = Depends(_PODE_APROVAR),
     db: Session = Depends(get_db),
 ):
-    return service.aprovar(db, usuario, movimentacao_id)
+    movimentacao = service.aprovar(db, usuario, movimentacao_id)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
 
 
 @router.post("/{movimentacao_id}/rejeitar", response_model=MovimentacaoDetalhadaOut)
@@ -50,7 +52,8 @@ def rejeitar_descarte(
     usuario: UsuarioMe = Depends(_PODE_APROVAR),
     db: Session = Depends(get_db),
 ):
-    return service.rejeitar(db, usuario, movimentacao_id, dados)
+    movimentacao = service.rejeitar(db, usuario, movimentacao_id, dados)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
 
 
 @router.get("/pendentes", response_model=list[MovimentacaoDetalhadaOut])
@@ -61,4 +64,5 @@ def listar_descartes_pendentes(
 ):
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
 
-    return service.listar_pendentes(db, unidade_escopo)
+    pendentes = service.listar_pendentes(db, unidade_escopo)
+    return [MovimentacaoDetalhadaOut.visivel_para(m, usuario) for m in pendentes]

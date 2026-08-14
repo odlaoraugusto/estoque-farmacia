@@ -118,7 +118,7 @@ function PainelSolicitar({ token, unidadeAtivaId }: { token: string | null; unid
               setBusca(v);
               setLoteSelecionado(null);
             }}
-            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual}`}
+            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`}
             chave={(l) => l.id}
             aoSelecionar={(l) => {
               setLoteSelecionado(l);

@@ -57,3 +57,14 @@ class StatusDescarteEnum(str, enum.Enum):
     pendente_aprovacao = "pendente_aprovacao"
     aprovado = "aprovado"
     rejeitado = "rejeitado"
+
+
+class TipoUnidadeEnum(str, enum.Enum):
+    """Carrinhos de emergência (2026-08-13): viraram um local de estoque
+    rastreável (`Unidade.tipo = carrinho`), fisicamente dentro de uma das
+    4 unidades reais (`unidade_pai_id`), mas SEM acesso de sessão — só as
+    unidades tipo `unidade` aparecem na seleção de unidade ativa do
+    login."""
+
+    unidade = "unidade"
+    carrinho = "carrinho"

@@ -29,7 +29,7 @@ export function LoginPage() {
     if (!precisaSelecionarUnidade || !token) return;
     setCarregandoUnidades(true);
     api
-      .get<UnidadeOut[]>('/unidades', { token })
+      .get<UnidadeOut[]>('/unidades', { token, params: { tipo: 'unidade' } })
       .then(setUnidades)
       .catch((err) => setErroUnidade(mensagemErro(err, 'Não foi possível carregar as unidades.')))
       .finally(() => setCarregandoUnidades(false));
