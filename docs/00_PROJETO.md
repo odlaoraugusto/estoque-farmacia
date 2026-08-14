@@ -281,3 +281,13 @@ Discussão sobre o que mais aparece em sistemas de estoque de farmácia hospital
 - **Inventário rotativo** (contagem física periódica) — mais trabalhoso: precisa de fluxo de contagem, cálculo de divergência, e aprovação pra ajustar saldo (parecido com o Descarte). Não modelado em detalhe ainda.
 
 **Alarme de estoque crítico** — hoje é só passivo (tile "Itens em risco de ruptura" na Estoque atual, contagem calculada ao abrir a tela); não existe notificação proativa. Não houve pedido de mudança nesta rodada, só esclarecimento do estado atual.
+
+## 23. Devolução + paciente/prontuário — implementado e publicado (2026-08-14)
+
+Backend e frontend das 2 features da seção 22 (Devolução de carrinho e Saída com paciente/prontuário) implementados, testados de ponta a ponta (local, com clique real no navegador) e publicados no ambiente de protótipo (Render + Neon + Vercel).
+
+- `POST /transferencias/devolver-carrinho` — farmacêutico, lote tem que estar num carrinho filho da unidade ativa, fica pendente até confirmação na CAF (reaproveita `POST /transferencias/{id}/confirmar` sem alteração). Painel "Devolver Carrinho ao CAF" dentro de `TransferenciaPage.tsx` (não é tela própria — reaproveita o painel de confirmação já existente).
+- `GET /pacientes/{prontuario}` (farmacêutico/coordenador) + tabela `pacientes` (migration `0004_pacientes_saida`) — autopreenchimento no campo de nome quando o prontuário já existe; nome sempre normalizado em caixa alta no backend. Divergência de nome num prontuário já cadastrado: o nome novo é **ignorado silenciosamente**, mantém o já salvo (prontuário é a chave, não o nome).
+- Visibilidade de paciente restrita a Farmacêutico/Coordenador implementada na camada de serialização (`MovimentacaoOut.visivel_para`) — o dado nem trafega pra Atendente, não é só escondido na tela.
+
+Testado ao vivo em produção (`https://estoque-a9697852.vercel.app`): reposição → devolução → confirmação na CAF completos via clique real; autopreenchimento de paciente confirmado. Observado (não é bug novo, já documentado seção 20): cold-start do Render às vezes mostra um erro passageiro de sessão na primeira chamada após o backend acordar — o retry automático resolve sozinho.
