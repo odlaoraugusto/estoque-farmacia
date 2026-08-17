@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.api.routes.ajustes import router as ajustes_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.config import router as config_router
 from app.api.routes.descartes import router as descartes_router
@@ -46,6 +47,7 @@ app.include_router(entradas_router)
 app.include_router(transferencias_router)
 app.include_router(saidas_router)
 app.include_router(descartes_router)
+app.include_router(ajustes_router)
 app.include_router(lotes_router)
 app.include_router(relatorios_router)
 app.include_router(pacientes_router)

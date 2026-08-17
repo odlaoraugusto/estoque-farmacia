@@ -11,6 +11,7 @@ import { DescartePage } from './pages/DescartePage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
 import { MedicamentosPage } from './pages/MedicamentosPage';
 import { ReposicaoCarrinhoPage } from './pages/ReposicaoCarrinhoPage';
+import { AjustePage } from './pages/AjustePage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
               <Route path="/saida" element={<SaidaPage />} />
               <Route path="/reposicao-carrinho" element={<ReposicaoCarrinhoPage />} />
               <Route path="/descarte" element={<DescartePage />} />
+              <Route path="/ajuste" element={<AjustePage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/medicamentos" element={<MedicamentosPage />} />
             </Route>

@@ -58,6 +58,18 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // app/api/routes/transferencias.py).
     devolverCarrinho: perfil === 'farmaceutico',
 
+    // Ajuste de estoque (2026-08-14) — exclusivo do Coordenador, pedido
+    // explícito do cliente. Corrige saldo fora dos fluxos normais (ex.:
+    // divergência de contagem física); ver app/api/routes/ajustes.py.
+    ajustarEstoque: perfil === 'coordenador',
+
+    // Notificação de estoque crítico/vencendo ao logar (2026-08-15,
+    // pedido do cliente) — mesmo par de perfis que já vê financeiro
+    // (ver app/api/routes/relatorios.py, _PODE_VER_FINANCEIRO), mas é
+    // uma regra própria (o dado em si não é financeiro) por isso fica
+    // com nome dedicado em vez de reaproveitar `relatoriosFinanceiro`.
+    notificacaoEstoqueCritico: farmaceuticoOuCoordenador,
+
     // Dados de paciente/prontuário (seção 22 do doc, LGPD) — Farmacêutico
     // e Coordenador só, espelha PERFIS_COM_ACESSO_A_DADOS_DE_PACIENTE em
     // app/core/permissoes.py. Usado para decidir se a tela de Saída tenta

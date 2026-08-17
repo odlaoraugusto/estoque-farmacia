@@ -228,6 +228,7 @@ export function RelatoriosPage() {
                 <option value="transferencia">Transferência</option>
                 <option value="saida">Saída</option>
                 <option value="descarte">Descarte</option>
+                <option value="ajuste">Ajuste</option>
               </select>
             </div>
           )}
@@ -368,6 +369,10 @@ function detalheMovimentacao(mov: MovimentacaoDetalhadaOut): string {
       if (mov.status === 'aprovado') return `aprovado por ${mov.usuario_aprovador?.nome ?? '—'}`;
       if (mov.status === 'rejeitado') return `rejeitado por ${mov.usuario_aprovador?.nome ?? '—'}`;
       return 'aguardando aprovação';
+    case 'ajuste': {
+      const sinal = mov.quantidade > 0 ? `+${mov.quantidade}` : String(mov.quantidade);
+      return `${sinal} un. — ${mov.motivo_ajuste ?? '—'}`;
+    }
     default:
       return '—';
   }

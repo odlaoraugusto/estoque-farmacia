@@ -13,6 +13,7 @@ from app.schemas.relatorio import (
     RelatorioAuditoriaOut,
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoOut,
+    RelatorioEstoqueCriticoOut,
     RelatorioVencimentosProximosOut,
 )
 from app.schemas.usuario import UsuarioMe
@@ -94,6 +95,20 @@ def relatorio_auditoria(
         return relatorio
 
     return exportar_relatorio(formato, "auditoria", tabela_auditoria(relatorio))
+
+
+@router.get("/estoque-critico", response_model=RelatorioEstoqueCriticoOut)
+def relatorio_estoque_critico(
+    unidade_id: int | None = None,
+    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
+    db: Session = Depends(get_db),
+):
+    """Alimenta o popup de notificação ao login (pedido do cliente,
+    2026-08-15) — por isso restrito a Farmacêutico/Coordenador, mesmo
+    perfil de quem já vê o financeiro, embora o dado em si (quantidade
+    de medicamento) não seja sensível como paciente/prontuário."""
+    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
+    return service.estoque_critico(db, usuario, unidade_escopo)
 
 
 @router.get("/vencimentos-proximos", response_model=RelatorioVencimentosProximosOut)

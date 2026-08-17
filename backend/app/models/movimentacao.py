@@ -47,6 +47,14 @@ class Movimentacao(Base):
     setor_consumidor = Column(String(100), nullable=True)  # obrigatório em saída
     motivo_descarte = Column(Text, nullable=True)  # obrigatório em descarte
 
+    # Ajuste de estoque — exclusivo do Coordenador (docs/00_PROJETO.md,
+    # correção de saldo fora dos fluxos normais, ex.: divergência de
+    # contagem física). `quantidade` guarda o DELTA com sinal (positivo =
+    # aumento, negativo = redução) em vez de uma magnitude sempre positiva
+    # como nos outros tipos — é o único tipo em que a direção não é fixa
+    # pelo próprio `tipo`. Motivo sempre obrigatório, texto livre.
+    motivo_ajuste = Column(Text, nullable=True)
+
     # Paciente/prontuário (seção 22 do doc) — opcional, só usado em
     # Saída. Sempre em CAIXA ALTA (normalizado no service, nunca confia
     # no que vem do front). Dado sensível de saúde (LGPD): a leitura

@@ -26,7 +26,7 @@ export type Origem = 'compra' | 'doacao';
 
 export type StatusTransferencia = 'em_transito' | 'recebido';
 
-export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte';
+export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte' | 'ajuste';
 
 export type StatusDescarte = 'pendente_aprovacao' | 'aprovado' | 'rejeitado';
 
@@ -114,6 +114,7 @@ export interface MovimentacaoOut {
   quantidade_recebida: number | null;
   setor_consumidor: string | null;
   motivo_descarte: string | null;
+  motivo_ajuste: string | null;
   status: StatusDescarte | null;
   // Paciente/prontuário (seção 22 do doc) — só preenchido em Saída, e só
   // visível para quem tem acesso (backend zera os dois para Atendente,
@@ -188,4 +189,16 @@ export interface RelatorioVencimentosProximosOut {
   metadados: RelatorioMetadados;
   dias_considerados: number;
   itens: LoteDetalhadoOut[];
+}
+
+export interface RelatorioEstoqueCriticoItem {
+  medicamento_id: number;
+  nome: string;
+  quantidade_atual: number;
+  estoque_minimo: number;
+}
+
+export interface RelatorioEstoqueCriticoOut {
+  metadados: RelatorioMetadados;
+  itens: RelatorioEstoqueCriticoItem[];
 }

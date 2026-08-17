@@ -51,6 +51,7 @@ class TipoMovimentacaoEnum(str, enum.Enum):
     transferencia = "transferencia"
     saida = "saida"
     descarte = "descarte"
+    ajuste = "ajuste"
 
 
 class StatusDescarteEnum(str, enum.Enum):

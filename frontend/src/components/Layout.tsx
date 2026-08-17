@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { permissoesDe } from '../lib/permissoes';
 import { classeRailUnidade, labelPerfil } from '../lib/formato';
+import { NotificacaoEstoquePopup } from './NotificacaoEstoquePopup';
 
 /** Casca da aplicação pós-login: barra institucional FESFSUS no topo +
  * sidebar de navegação + conteúdo da tela. Itens de menu sem permissão
@@ -16,6 +17,7 @@ export function Layout() {
 
   return (
     <div className="shell">
+      <NotificacaoEstoquePopup />
       <div className="topbar">
         <div className="fesf-id">
           <span className="fesf-org">{organizacao}</span>
@@ -93,6 +95,12 @@ export function Layout() {
               <NavLink to="/descarte" className="nav-btn">
                 <span className="ic">✕</span>
                 <span className="lbl">Descarte</span>
+              </NavLink>
+            )}
+            {permissoes.ajustarEstoque && (
+              <NavLink to="/ajuste" className="nav-btn">
+                <span className="ic">⚖</span>
+                <span className="lbl">Ajuste de Estoque</span>
               </NavLink>
             )}
             <NavLink to="/relatorios" className="nav-btn">

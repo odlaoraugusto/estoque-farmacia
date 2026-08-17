@@ -55,3 +55,18 @@ class RelatorioVencimentosProximosOut(BaseModel):
     metadados: RelatorioMetadados
     dias_considerados: int
     itens: list[LoteDetalhadoOut]
+
+
+class RelatorioEstoqueCriticoItem(BaseModel):
+    """Um medicamento cuja soma de `quantidade_atual` (todos os lotes no
+    escopo) ficou abaixo do `estoque_minimo` cadastrado nele."""
+
+    medicamento_id: int
+    nome: str
+    quantidade_atual: int
+    estoque_minimo: int
+
+
+class RelatorioEstoqueCriticoOut(BaseModel):
+    metadados: RelatorioMetadados
+    itens: list[RelatorioEstoqueCriticoItem]

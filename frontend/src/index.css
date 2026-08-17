@@ -33,6 +33,8 @@
   --danger-bg: #f4e6e8;
   --ok: #397463;
   --ok-bg: #e8f3ef;
+  --info: #2f6690;
+  --info-bg: #e6eef4;
   --locked-bg: #ece7ee;
   --shadow: 0 1px 3px rgba(44, 36, 51, 0.07), 0 1px 1px rgba(44, 36, 51, 0.04);
   --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
@@ -67,6 +69,8 @@
     --danger-bg: #381e23;
     --ok: #80c6b2;
     --ok-bg: #1d302a;
+    --info: #8bb8d9;
+    --info-bg: #1c2c38;
     --locked-bg: #312a37;
     --shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
     --unit-caf: #b897d8;
@@ -977,3 +981,99 @@ tbody tr:hover {
 .rail-uti { border-left: 3px solid var(--unit-uti); }
 .rail-cc { border-left: 3px solid var(--unit-cc); }
 .rail-emerg { border-left: 3px solid var(--unit-emerg); }
+
+/* Ajuste de estoque (2026-08-14) — o campo "Diferença" (read-only) muda
+   de cor pra deixar óbvio, antes de confirmar, se o ajuste aumenta ou
+   diminui o saldo. */
+.field input.ajuste-positivo { color: var(--ok); font-weight: 600; }
+.field input.ajuste-negativo { color: var(--danger); font-weight: 600; }
+
+/* Popup de notificação de estoque ao login (2026-08-15) — primeiro modal
+   do sistema, pedido do cliente: estoque crítico em vermelho, validade
+   próxima em azul (--info, novo token). */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 15, 24, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.modal-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 20px 24px 24px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.modal-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.modal-close:hover { color: var(--ink); }
+
+.alerta-bloco {
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border-left: 3px solid transparent;
+}
+.alerta-bloco h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.alerta-bloco ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.alerta-critico {
+  background: var(--danger-bg);
+  border-left-color: var(--danger);
+}
+.alerta-critico h3 { color: var(--danger); }
+
+/* Vencido (já passou da validade) é mais grave que "vencendo em breve"
+   — mesma cor de --danger, mas com destaque extra (borda mais grossa,
+   itens em negrito) pra não se confundir visualmente com o bloco de
+   estoque crítico logo acima. */
+.alerta-vencido {
+  background: var(--danger-bg);
+  border-left: 5px solid var(--danger);
+}
+.alerta-vencido h3 { color: var(--danger); }
+.alerta-vencido li { font-weight: 600; }
+
+.alerta-vencendo {
+  background: var(--info-bg);
+  border-left-color: var(--info);
+}
+.alerta-vencendo h3 { color: var(--info); }

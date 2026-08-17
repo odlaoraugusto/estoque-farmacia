@@ -291,3 +291,29 @@ Backend e frontend das 2 features da seção 22 (Devolução de carrinho e Saíd
 - Visibilidade de paciente restrita a Farmacêutico/Coordenador implementada na camada de serialização (`MovimentacaoOut.visivel_para`) — o dado nem trafega pra Atendente, não é só escondido na tela.
 
 Testado ao vivo em produção (`https://estoque-a9697852.vercel.app`): reposição → devolução → confirmação na CAF completos via clique real; autopreenchimento de paciente confirmado. Observado (não é bug novo, já documentado seção 20): cold-start do Render às vezes mostra um erro passageiro de sessão na primeira chamada após o backend acordar — o retry automático resolve sozinho.
+
+## 24. Ajuste de estoque (2026-08-14)
+
+Pedido do cliente: corrigir saldo de um lote fora dos fluxos normais (ex.: divergência encontrada numa contagem física), sem forçar isso por Descarte/Entrada. Exclusivo do **Coordenador** — mesma autoridade que já aprova Descarte.
+
+- Novo tipo de movimentação `ajuste` (`TipoMovimentacaoEnum`) — só app-level, `tipo` não é enum nativo do Postgres (`native_enum=False`), então nenhuma migração de enum foi necessária, só a coluna nova.
+- `motivo_ajuste` (texto livre, obrigatório) — nova coluna em `movimentacoes` (migration `0005_ajuste_estoque`), mesmo padrão de `motivo_descarte`.
+- **`ajuste` é o único tipo em que `quantidade` guarda um delta com sinal** (positivo = aumento, negativo = redução), não uma magnitude sempre positiva como nos demais tipos — a direção não é fixa pelo próprio `tipo`. Calculado no service (`quantidade_nova - quantidade_atual`), nunca aceito pronto do cliente.
+- 1 etapa só (sem aprovação separada — o Coordenador já É a autoridade de aprovação). Mesmo escopo de unidade dos outros fluxos de escrita (lote na unidade ativa ou num carrinho filho dela). Bloqueia ajuste "nulo" (quantidade nova igual à atual).
+- `POST /ajustes` — tela dedicada `Ajuste de Estoque` na sidebar, some para quem não é Coordenador (padrão esconder-não-travar). Mostra saldo atual e a diferença (+/-, colorida) antes de confirmar.
+- Aparece na Trilha de Auditoria (`/relatorios/auditoria?tipo=ajuste`), não entra em Custo por Setor (que só soma Saída).
+
+Testado ponta a ponta: local via curl (ajuste válido, motivo vazio rejeitado, ajuste nulo rejeitado, farmacêutico barrado com 403) e via clique real no navegador logado como Coordenador (busca → seleção do lote → saldo/diferença calculados ao vivo → confirmação → saldo atualizado).
+
+## 25. Popup de alertas de estoque ao login (2026-08-15)
+
+Pedido do cliente: os tiles "itens em risco de ruptura" e "vencendo em 30 dias" da tela Estoque atual eram só um número passivo — sem dizer qual medicamento, sem avisar ninguém. Agora, ao entrar no sistema, quem tem acesso vê um popup automático com a descrição de cada item, cor por tipo (crítico = vermelho, validade próxima = azul), e um botão Fechar.
+
+- `GET /relatorios/estoque-critico` (novo) — restrito a Farmacêutico/Coordenador (`_PODE_VER_FINANCEIRO`), mesmo escopo de unidade (+ carrinhos filhos) dos demais relatórios de estoque.
+- **Bug real encontrado construindo isso**: o cálculo de "risco de ruptura" (tanto o novo endpoint quanto o tile antigo, que era só client-side) somava a partir dos LOTES — um medicamento com estoque mínimo cadastrado mas ZERO lotes (prateleira vazia, o caso mais crítico) nunca aparecia, porque não existia nenhuma linha de lote pra somar. Corrigido nos dois lugares: semear a partir de TODOS os medicamentos ativos (saldo 0) antes de somar os lotes por cima.
+- Popup (`NotificacaoEstoquePopup.tsx`) monta uma vez dentro do `Layout` — como o Layout não remonta ao navegar entre telas (só num login/F5 novo), o efeito prático é "aparece uma vez por sessão". Busca `/relatorios/estoque-critico` + `/relatorios/vencimentos-proximos` (já existia, aberto a todos os perfis) em paralelo; só abre se pelo menos uma lista tiver item. Falha de rede aqui é silenciosa de propósito — é um "a mais", não pode travar o login.
+- Novo token de cor `--info` (azul) no design system, ao lado de `--ok`/`--danger` já existentes, com variante dark mode.
+
+Testado: `/relatorios/estoque-critico` via curl (Coordenador vê corretamente, Atendente barrado com 403) e ponta a ponta no navegador (popup abre ao logar, cores conferidas via `getComputedStyle`, botão Fechar dispensa).
+
+**Ajuste fino (2026-08-15, mesmo dia):** lote já vencido (`diasAteVencer < 0`) é mais grave que "vencendo em breve" — virou seu próprio bloco vermelho ("Vencidos", borda esquerda de 5px + itens em negrito para destacar de `.alerta-critico`), separado do bloco azul "Validade próxima" que continua só com quem ainda está dentro do prazo (`diasAteVencer >= 0`).

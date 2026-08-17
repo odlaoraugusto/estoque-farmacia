@@ -11,7 +11,7 @@ import {
   labelOrigem,
   labelAcondicionamento,
 } from '../lib/formato';
-import type { LoteDetalhadoOut, RelatorioEstoqueConsolidadoOut, RelatorioVencimentosProximosOut, MovimentacaoDetalhadaOut } from '../types';
+import type { LoteDetalhadoOut, MedicamentoOut, RelatorioEstoqueConsolidadoOut, RelatorioVencimentosProximosOut, MovimentacaoDetalhadaOut } from '../types';
 
 /** Home pós-login. Coordenador enxerga o consolidado de todas as
  * unidades aqui (GET /lotes sem unidade_id); os demais perfis ficam
@@ -23,6 +23,7 @@ export function EstoquePage() {
   const ehCoordenador = usuario?.perfil === 'coordenador';
 
   const [lotes, setLotes] = useState<LoteDetalhadoOut[]>([]);
+  const [medicamentos, setMedicamentos] = useState<MedicamentoOut[]>([]);
   const [vencimentos, setVencimentos] = useState<RelatorioVencimentosProximosOut | null>(null);
   const [pendentes, setPendentes] = useState<MovimentacaoDetalhadaOut[]>([]);
   const [consolidado, setConsolidado] = useState<RelatorioEstoqueConsolidadoOut | null>(null);
@@ -38,6 +39,9 @@ export function EstoquePage() {
     const chamadas: Promise<void>[] = [
       api.get<LoteDetalhadoOut[]>('/lotes', { token }).then((r) => {
         if (!cancelado) setLotes(r);
+      }),
+      api.get<MedicamentoOut[]>('/medicamentos', { token }).then((r) => {
+        if (!cancelado) setMedicamentos(r);
       }),
       api.get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', { token }).then((r) => {
         if (!cancelado) setVencimentos(r);
@@ -70,7 +74,15 @@ export function EstoquePage() {
   }, [token, usuario?.unidade_ativa_id]);
 
   const itensEmRisco = useMemo(() => {
+    // Semeia com TODOS os medicamentos ativos (saldo 0) antes de somar os
+    // lotes — sem isso, um medicamento com estoque mínimo cadastrado mas
+    // ZERO lotes (prateleira vazia, o caso mais crítico) nunca aparecia
+    // aqui, porque não existia nenhuma linha de lote pra iterar. Mesma
+    // regra do backend (`RelatorioService.estoque_critico`).
     const somaPorMedicamento = new Map<number, { nome: string; total: number; minimo: number }>();
+    for (const medicamento of medicamentos) {
+      somaPorMedicamento.set(medicamento.id, { nome: medicamento.nome, total: 0, minimo: medicamento.estoque_minimo });
+    }
     for (const lote of lotes) {
       const atual = somaPorMedicamento.get(lote.medicamento_id);
       if (atual) {
@@ -84,7 +96,7 @@ export function EstoquePage() {
       }
     }
     return [...somaPorMedicamento.values()].filter((m) => m.minimo > 0 && m.total < m.minimo);
-  }, [lotes]);
+  }, [lotes, medicamentos]);
 
   const vencidosEmBreve = useMemo(() => {
     const idsVencendo = new Set((vencimentos?.itens ?? []).map((l) => l.id));

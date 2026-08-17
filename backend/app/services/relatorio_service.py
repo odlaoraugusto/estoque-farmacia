@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.enums import TipoMovimentacaoEnum
 from app.repositories.lote_repository import LoteRepository
+from app.repositories.medicamento_repository import MedicamentoRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
 from app.repositories.unidade_repository import UnidadeRepository
 from app.schemas.lote import LoteDetalhadoOut
@@ -17,6 +18,8 @@ from app.schemas.relatorio import (
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoItem,
     RelatorioEstoqueConsolidadoOut,
+    RelatorioEstoqueCriticoItem,
+    RelatorioEstoqueCriticoOut,
     RelatorioMetadados,
     RelatorioVencimentosProximosOut,
 )
@@ -32,6 +35,7 @@ class RelatorioService:
 
     def __init__(self):
         self.lote_repository = LoteRepository()
+        self.medicamento_repository = MedicamentoRepository()
         self.movimentacao_repository = MovimentacaoRepository()
         self.unidade_repository = UnidadeRepository()
 
@@ -169,6 +173,63 @@ class RelatorioService:
                 MovimentacaoDetalhadaOut.visivel_para(m, usuario)
                 for m in movimentacoes
             ],
+        )
+
+    def estoque_critico(
+        self, db: Session, usuario: UsuarioMe, unidade_id: int | None
+    ) -> RelatorioEstoqueCriticoOut:
+        """Mesmo escopo ampliado dos demais relatórios de estoque (inclui
+        carrinhos filhos da unidade filtrada). Soma `quantidade_atual` de
+        todos os lotes de cada medicamento no escopo e compara com
+        `estoque_minimo` — mesma regra que já existia só no frontend
+        (tile "Itens em risco de ruptura" da tela Estoque atual);
+        `estoque_minimo == 0` significa "sem controle de mínimo definido",
+        nunca entra na lista (não é criticidade real, é ausência de
+        configuração)."""
+        escopo = self._expandir_escopo(db, unidade_id)
+        lotes = self.lote_repository.listar(
+            db, unidade_id=escopo, apenas_disponivel=True, ordenar_fefo=False
+        )
+
+        # Semeia com TODOS os medicamentos ativos, saldo 0 — não só os que
+        # aparecem nos lotes acima. Sem isso, um medicamento com estoque
+        # mínimo cadastrado mas ZERO lotes na unidade (o caso mais crítico
+        # de todos: prateleira vazia) nunca entraria na lista, porque
+        # simplesmente não haveria nenhuma linha de lote pra somar.
+        totais: dict[int, dict] = {
+            medicamento.id: {
+                "nome": medicamento.nome,
+                "quantidade_atual": 0,
+                "estoque_minimo": medicamento.estoque_minimo,
+            }
+            for medicamento in self.medicamento_repository.list(db, apenas_ativos=True)
+        }
+        for lote in lotes:
+            agregado = totais.setdefault(
+                lote.medicamento_id,
+                {
+                    "nome": lote.medicamento.nome,
+                    "quantidade_atual": 0,
+                    "estoque_minimo": lote.medicamento.estoque_minimo,
+                },
+            )
+            agregado["quantidade_atual"] += lote.quantidade_atual
+
+        itens = [
+            RelatorioEstoqueCriticoItem(
+                medicamento_id=medicamento_id,
+                nome=dados["nome"],
+                quantidade_atual=dados["quantidade_atual"],
+                estoque_minimo=dados["estoque_minimo"],
+            )
+            for medicamento_id, dados in totais.items()
+            if dados["estoque_minimo"] > 0 and dados["quantidade_atual"] < dados["estoque_minimo"]
+        ]
+        itens.sort(key=lambda item: item.nome)
+
+        return RelatorioEstoqueCriticoOut(
+            metadados=self._metadados(usuario, "Estoque Crítico", unidade_id, db),
+            itens=itens,
         )
 
     def vencimentos_proximos(

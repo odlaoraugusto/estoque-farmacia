@@ -79,6 +79,17 @@ class DescarteRejeitarCreate(BaseModel):
     motivo_rejeicao: str | None = None
 
 
+class AjusteCreate(BaseModel):
+    """Ajuste de estoque — exclusivo do Coordenador (regra de negócio,
+    aplicada em `AjusteService`/`app/api/routes/ajustes.py`). `quantidade_
+    nova` é o saldo correto do lote depois de uma contagem física; o
+    service calcula o delta contra o saldo atual, não o cliente."""
+
+    lote_id: int
+    quantidade_nova: int = Field(ge=0)
+    motivo_ajuste: str
+
+
 class MovimentacaoOut(BaseModel):
     id: int
     tipo: TipoMovimentacaoEnum
@@ -91,6 +102,7 @@ class MovimentacaoOut(BaseModel):
 
     setor_consumidor: str | None
     motivo_descarte: str | None
+    motivo_ajuste: str | None
     status: StatusDescarteEnum | None
 
     # Paciente/prontuário (seção 22 do doc) — nullable, só preenchido em
