@@ -10,12 +10,14 @@ from app.schemas.usuario import UsuarioMe
 
 
 class AjusteService:
-    """Ajuste de estoque — exclusivo do Coordenador (router garante o
+    """Ajuste de estoque — Farmacêutico ou Coordenador (router garante o
     perfil). Corrige o saldo de um lote fora dos fluxos normais (ex.:
     divergência encontrada numa contagem física), sempre com motivo
-    obrigatório e registrado na trilha de auditoria. Mesmo escopo de
-    unidade dos outros fluxos de escrita: o lote precisa estar na
-    unidade ativa da sessão ou num carrinho de emergência filho dela."""
+    obrigatório e registrado na trilha de auditoria (Coordenador é
+    notificado de todo ajuste, ver `RelatorioService.atividade_recente`).
+    Mesmo escopo de unidade dos outros fluxos de escrita: o lote precisa
+    estar na unidade ativa da sessão ou num carrinho de emergência filho
+    dela."""
 
     def __init__(self):
         self.lote_repository = LoteRepository()

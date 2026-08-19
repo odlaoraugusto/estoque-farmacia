@@ -7,6 +7,7 @@ import { Letterhead } from '../components/Letterhead';
 import { formatarData, formatarDataHora, formatarMoeda, labelTipoMovimentacao } from '../lib/formato';
 import type {
   MovimentacaoDetalhadaOut,
+  RelatorioAntimicrobianoOut,
   RelatorioCustoPorSetorOut,
   RelatorioEstoqueConsolidadoOut,
   RelatorioAuditoriaOut,
@@ -15,13 +16,14 @@ import type {
   UnidadeOut,
 } from '../types';
 
-type AbaRelatorio = 'consolidado' | 'custo' | 'auditoria' | 'vencimentos';
+type AbaRelatorio = 'consolidado' | 'custo' | 'auditoria' | 'vencimentos' | 'antimicrobianos';
 
 const TITULOS: Record<AbaRelatorio, string> = {
   consolidado: 'Consolidado geral',
   custo: 'Custo por setor',
   auditoria: 'Trilha de auditoria',
   vencimentos: 'Vencimentos próximos',
+  antimicrobianos: 'Antimicrobianos',
 };
 
 const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
@@ -29,7 +31,13 @@ const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
   custo: '/relatorios/custo-por-setor',
   auditoria: '/relatorios/auditoria',
   vencimentos: '/relatorios/vencimentos-proximos',
+  antimicrobianos: '/relatorios/antimicrobianos',
 };
+
+// Antimicrobianos não tem exportação PDF/Excel ainda (só a tela) —
+// dado de paciente, formato de exportação fica pra quando fizer falta
+// de verdade, não construído especulativamente.
+const ABAS_SEM_EXPORTACAO: AbaRelatorio[] = ['antimicrobianos'];
 
 /** Relatórios — 4 abas com o cabeçalho institucional acima delas
  * (docs/00_PROJETO.md seção 14). Cada aba some do menu de abas quando o
@@ -45,8 +53,9 @@ export function RelatoriosPage() {
     if (permissoes.relatoriosFinanceiro) abas.push('consolidado', 'custo');
     if (permissoes.relatoriosAuditoria) abas.push('auditoria');
     abas.push('vencimentos');
+    if (permissoes.notificacaoEstoqueCritico) abas.push('antimicrobianos');
     return abas;
-  }, [permissoes.relatoriosFinanceiro, permissoes.relatoriosAuditoria]);
+  }, [permissoes.relatoriosFinanceiro, permissoes.relatoriosAuditoria, permissoes.notificacaoEstoqueCritico]);
 
   const [abaAtiva, setAbaAtiva] = useState<AbaRelatorio>(abasDisponiveis[0] ?? 'vencimentos');
   useEffect(() => {
@@ -68,6 +77,7 @@ export function RelatoriosPage() {
   const [dataFim, setDataFim] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimentacao | ''>('');
   const [dias, setDias] = useState('');
+  const [diasMinimoAntimicrobiano, setDiasMinimoAntimicrobiano] = useState('');
 
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -75,6 +85,7 @@ export function RelatoriosPage() {
   const [custo, setCusto] = useState<RelatorioCustoPorSetorOut | null>(null);
   const [auditoria, setAuditoria] = useState<RelatorioAuditoriaOut | null>(null);
   const [vencimentos, setVencimentos] = useState<RelatorioVencimentosProximosOut | null>(null);
+  const [antimicrobianos, setAntimicrobianos] = useState<RelatorioAntimicrobianoOut | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -106,18 +117,25 @@ export function RelatoriosPage() {
                   },
                 })
                 .then(setAuditoria)
-            : api
-                .get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', {
-                  token,
-                  params: { unidade_id: unidadeId, dias: dias || undefined },
-                })
-                .then(setVencimentos);
+            : abaAtiva === 'vencimentos'
+              ? api
+                  .get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', {
+                    token,
+                    params: { unidade_id: unidadeId, dias: dias || undefined },
+                  })
+                  .then(setVencimentos)
+              : api
+                  .get<RelatorioAntimicrobianoOut>('/relatorios/antimicrobianos', {
+                    token,
+                    params: { unidade_id: unidadeId, dias_minimo: diasMinimoAntimicrobiano || undefined },
+                  })
+                  .then(setAntimicrobianos);
 
     promessa
       .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar o relatório.')))
       .finally(() => setCarregando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abaAtiva, token, unidadeFiltro, dataInicio, dataFim, tipoFiltro, dias]);
+  }, [abaAtiva, token, unidadeFiltro, dataInicio, dataFim, tipoFiltro, dias, diasMinimoAntimicrobiano]);
 
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null);
 
@@ -149,6 +167,7 @@ export function RelatoriosPage() {
     (abaAtiva === 'custo' && custo?.metadados) ||
     (abaAtiva === 'auditoria' && auditoria?.metadados) ||
     (abaAtiva === 'vencimentos' && vencimentos?.metadados) ||
+    (abaAtiva === 'antimicrobianos' && antimicrobianos?.metadados) ||
     null;
 
   return (
@@ -238,6 +257,19 @@ export function RelatoriosPage() {
               <input id="filtro-dias" type="number" min={1} placeholder="30" value={dias} onChange={(e) => setDias(e.target.value)} />
             </div>
           )}
+          {abaAtiva === 'antimicrobianos' && (
+            <div className="field">
+              <label htmlFor="filtro-dias-antimicrobiano">Dias mínimo de uso</label>
+              <input
+                id="filtro-dias-antimicrobiano"
+                type="number"
+                min={1}
+                placeholder="7"
+                value={diasMinimoAntimicrobiano}
+                onChange={(e) => setDiasMinimoAntimicrobiano(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         {carregando && <p className="carregando">Carregando relatório…</p>}
@@ -248,15 +280,18 @@ export function RelatoriosPage() {
         {!carregando && abaAtiva === 'custo' && <TabelaCusto dados={custo} />}
         {!carregando && abaAtiva === 'auditoria' && <TabelaAuditoria dados={auditoria} />}
         {!carregando && abaAtiva === 'vencimentos' && <TabelaVencimentos dados={vencimentos} ehCoordenador={ehCoordenador} />}
+        {!carregando && abaAtiva === 'antimicrobianos' && <TabelaAntimicrobianos dados={antimicrobianos} />}
 
-        <div className="actions">
-          <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('pdf')}>
-            {exportando === 'pdf' ? 'Gerando PDF…' : 'Exportar PDF'}
-          </button>
-          <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('excel')}>
-            {exportando === 'excel' ? 'Gerando Excel…' : 'Exportar Excel'}
-          </button>
-        </div>
+        {!ABAS_SEM_EXPORTACAO.includes(abaAtiva) && (
+          <div className="actions">
+            <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('pdf')}>
+              {exportando === 'pdf' ? 'Gerando PDF…' : 'Exportar PDF'}
+            </button>
+            <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('excel')}>
+              {exportando === 'excel' ? 'Gerando Excel…' : 'Exportar Excel'}
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -412,6 +447,62 @@ function TabelaAuditoria({ dados }: { dados: RelatorioAuditoriaOut | null }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function TabelaAntimicrobianos({ dados }: { dados: RelatorioAntimicrobianoOut | null }) {
+  if (!dados) return null;
+  return (
+    <>
+      <p className="note" style={{ marginTop: 0 }}>
+        Aproximação a partir de dispensações da farmácia (Saída), não de confirmação de administração à beira do
+        leito — o hospital não tem prontuário eletrônico de enfermagem. "Em uso" considera só quem teve dispensação
+        nos últimos 2 dias.
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Paciente</th>
+              <th>Prontuário</th>
+              <th>Medicamento</th>
+              <th className="num">Dias consecutivos</th>
+              <th>Início</th>
+              <th>Última dose</th>
+              <th>Doses</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dados.itens.length === 0 && (
+              <tr>
+                <td colSpan={7} className="vazio-tabela">
+                  Nenhum paciente com uso de antimicrobiano acima de {dados.dias_minimo} dias no momento.
+                </td>
+              </tr>
+            )}
+            {dados.itens.map((item) => (
+              <tr key={`${item.paciente_prontuario}-${item.medicamento_id}`}>
+                <td>{item.paciente_nome}</td>
+                <td className="mono">{item.paciente_prontuario}</td>
+                <td>{item.medicamento_nome}</td>
+                <td className="num">
+                  <span className="pill pend">{item.dias_consecutivos}d</span>
+                </td>
+                <td>{formatarData(item.data_inicio)}</td>
+                <td>{formatarData(item.data_fim)}</td>
+                <td>
+                  {item.doses.map((d, i) => (
+                    <span key={i} className="mono" style={{ display: 'block' }}>
+                      {formatarData(d.data)} · {d.quantidade} un. · lote {d.numero_lote}
+                    </span>
+                  ))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

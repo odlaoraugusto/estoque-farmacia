@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database.database import Base
-from app.models.enums import StatusDescarteEnum, TipoMovimentacaoEnum
+from app.models.enums import CategoriaSaidaEnum, StatusDescarteEnum, TipoMovimentacaoEnum
 
 
 class Movimentacao(Base):
@@ -45,6 +45,21 @@ class Movimentacao(Base):
     quantidade_recebida = Column(Integer, nullable=True)
 
     setor_consumidor = Column(String(100), nullable=True)  # obrigatório em saída
+
+    # Categoria da Saída (2026-08-19) — normal/emprestimo/doacao. Só usada
+    # quando tipo=saida; nullable pros demais tipos e pra saídas antigas
+    # (pré-migração), que ficam sem categoria definida em vez de forçar um
+    # valor retroativo.
+    categoria_saida = Column(
+        Enum(
+            CategoriaSaidaEnum,
+            name="categoria_saida_enum",
+            native_enum=False,
+            length=15,
+        ),
+        nullable=True,
+    )
+
     motivo_descarte = Column(Text, nullable=True)  # obrigatório em descarte
 
     # Ajuste de estoque — exclusivo do Coordenador (docs/00_PROJETO.md,

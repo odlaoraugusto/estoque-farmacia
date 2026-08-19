@@ -12,11 +12,13 @@ router = APIRouter(prefix="/ajustes", tags=["Ajustes"])
 
 service = AjusteService()
 
-# Ajuste de estoque é exclusivo do Coordenador — pedido do cliente
-# (2026-08-14): corrige saldo fora dos fluxos normais (ex.: divergência
-# de contagem física), então fica restrito a quem tem autoridade de
-# aprovação no resto do sistema (mesmo perfil que aprova Descarte).
-_PODE_AJUSTAR = exigir_perfis(PerfilEnum.coordenador)
+# Ajuste de estoque: Farmacêutico e Coordenador (2026-08-19 — era
+# exclusivo do Coordenador desde 2026-08-14, ampliado quando o cliente
+# igualou o nível de acesso do Farmacêutico ao do Coordenador). Corrige
+# saldo fora dos fluxos normais (ex.: divergência de contagem física); a
+# supervisão agora é via notificação ao Coordenador, não mais restrição
+# de quem pode agir — ver /relatorios/atividade-recente.
+_PODE_AJUSTAR = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
 
 
 @router.post("", response_model=MovimentacaoDetalhadaOut)

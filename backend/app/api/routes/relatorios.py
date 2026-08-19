@@ -10,6 +10,8 @@ from app.database.session import get_db
 from app.models.enums import PerfilEnum, TipoMovimentacaoEnum
 from app.schemas.exportacao import FormatoExportacao
 from app.schemas.relatorio import (
+    RelatorioAntimicrobianoOut,
+    RelatorioAtividadeRecenteOut,
     RelatorioAuditoriaOut,
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoOut,
@@ -29,8 +31,9 @@ router = APIRouter(prefix="/relatorios", tags=["Relatórios"])
 
 service = RelatorioService()
 
-# Regra 7: relatórios financeiros — Coordenador (todas as unidades) e
-# Farmacêutico (só a própria unidade ativa); Atendente sem acesso.
+# Regra 7: relatórios financeiros — Farmacêutico e Coordenador, ambos
+# com acesso ao consolidado de todas as unidades (2026-08-19, ampliado —
+# ver resolver_unidade_escopo); Atendente sem acesso.
 _PODE_VER_FINANCEIRO = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
 # Trilha de auditoria completa: só Coordenador.
 _PODE_VER_AUDITORIA = exigir_perfis(PerfilEnum.coordenador)
@@ -109,6 +112,37 @@ def relatorio_estoque_critico(
     de medicamento) não seja sensível como paciente/prontuário."""
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
     return service.estoque_critico(db, usuario, unidade_escopo)
+
+
+@router.get("/antimicrobianos", response_model=RelatorioAntimicrobianoOut)
+def relatorio_antimicrobianos(
+    unidade_id: int | None = None,
+    dias_minimo: int = 7,
+    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
+    db: Session = Depends(get_db),
+):
+    """DOT — programa de uso racional de antimicrobianos (2026-08-19).
+    Mesma restrição de perfil dos demais relatórios de estoque, mas o
+    conteúdo em si é dado de paciente — só chega quem já é Farmacêutico/
+    Coordenador (`pode_ver_dados_paciente`), então não precisa passar
+    pelo construtor `visivel_para` (não tem "consultar com dado
+    oculto" aqui, é tudo ou nada pelo próprio endpoint)."""
+    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
+    return service.antimicrobianos_uso_prolongado(db, usuario, unidade_escopo, dias_minimo)
+
+
+@router.get("/atividade-recente", response_model=RelatorioAtividadeRecenteOut)
+def relatorio_atividade_recente(
+    unidade_id: int | None = None,
+    dias: int = 7,
+    usuario: UsuarioMe = Depends(_PODE_VER_AUDITORIA),
+    db: Session = Depends(get_db),
+):
+    """Notificação ao Coordenador (2026-08-19) — descartes, ajustes e
+    saídas de empréstimo/doação recentes, com quem fez. Exclusivo do
+    Coordenador (reaproveita `_PODE_VER_AUDITORIA`: é vigilância, não
+    uma tela operacional)."""
+    return service.atividade_recente(db, usuario, unidade_id, dias)
 
 
 @router.get("/vencimentos-proximos", response_model=RelatorioVencimentosProximosOut)

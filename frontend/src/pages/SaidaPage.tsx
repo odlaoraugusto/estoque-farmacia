@@ -6,7 +6,13 @@ import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
 import { formatarData } from '../lib/formato';
-import type { LoteDetalhadoOut, MedicamentoOut, PacienteOut, UnidadeOut } from '../types';
+import type { CategoriaSaida, LoteDetalhadoOut, MedicamentoOut, PacienteOut, UnidadeOut } from '../types';
+
+const CATEGORIAS: { valor: CategoriaSaida; rotulo: string }[] = [
+  { valor: 'normal', rotulo: 'Dispensação normal' },
+  { valor: 'emprestimo', rotulo: 'Empréstimo' },
+  { valor: 'doacao', rotulo: 'Doação' },
+];
 
 /** Saída / Dispensação — qualquer perfil pode registrar (regra 5 do
  * doc). FEFO: o lote com validade mais próxima vem sinalizado
@@ -25,6 +31,7 @@ export function SaidaPage() {
 
   const [quantidade, setQuantidade] = useState('');
   const [setorConsumidor, setSetorConsumidor] = useState('');
+  const [categoria, setCategoria] = useState<CategoriaSaida>('normal');
 
   // Paciente/prontuário (seção 22 do doc): opcional, adicional ao setor
   // consumidor. Autopreenchimento por prontuário só é tentado para quem
@@ -132,6 +139,12 @@ export function SaidaPage() {
       setErro('Prontuário e nome do paciente devem ser preenchidos juntos, ou nenhum dos dois.');
       return;
     }
+    if (medicamentoSelecionado?.e_antimicrobiano && !prontuarioPreenchido) {
+      setErro(
+        `${medicamentoSelecionado.nome} é antimicrobiano — paciente e prontuário são obrigatórios nesta saída (vigilância de uso prolongado).`,
+      );
+      return;
+    }
     setEnviando(true);
     try {
       await api.post(
@@ -140,6 +153,7 @@ export function SaidaPage() {
           lote_id: loteSelecionado.id,
           quantidade: Number(quantidade),
           setor_consumidor: setorConsumidor,
+          categoria,
           // Opcionais — só vão no corpo quando pelo menos um foi preenchido
           // (o backend exige os dois juntos ou nenhum; nunca string vazia).
           ...(prontuarioPreenchido || nomePreenchido
@@ -154,6 +168,7 @@ export function SaidaPage() {
       setLotesFefo([]);
       setLoteSelecionadoId(null);
       setQuantidade('');
+      setCategoria('normal');
       setProntuario('');
       setPacienteNome('');
       setPacienteEncontrado(false);
@@ -228,7 +243,29 @@ export function SaidaPage() {
           <p className="carregando">Nenhum lote disponível para este medicamento na unidade ativa.</p>
         )}
 
+        {medicamentoSelecionado?.e_antimicrobiano && (
+          <div
+            className="box"
+            style={{ background: 'var(--danger-bg)', color: 'var(--ink)', borderColor: 'var(--danger)', marginBottom: 16 }}
+          >
+            <span>
+              <b>{medicamentoSelecionado.nome}</b> é antimicrobiano — paciente e prontuário são obrigatórios nesta
+              saída (vigilância de uso prolongado, mais de 7 dias).
+            </span>
+          </div>
+        )}
+
         <div className="grid">
+          <div className="field">
+            <label htmlFor="categoria-saida">Categoria</label>
+            <select id="categoria-saida" value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaSaida)}>
+              {CATEGORIAS.map((c) => (
+                <option key={c.valor} value={c.valor}>
+                  {c.rotulo}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="field">
             <label htmlFor="qtd-saida">
               Quantidade <span className="req">*</span>
@@ -259,7 +296,12 @@ export function SaidaPage() {
           </div>
           <div className="field">
             <label htmlFor="prontuario-saida">
-              Prontuário <span className="tag">opcional</span>
+              Prontuário{' '}
+              {medicamentoSelecionado?.e_antimicrobiano ? (
+                <span className="req">*</span>
+              ) : (
+                <span className="tag">opcional</span>
+              )}
             </label>
             <input
               id="prontuario-saida"
@@ -267,6 +309,7 @@ export function SaidaPage() {
               placeholder="nº do prontuário"
               value={prontuario}
               onChange={(e) => aoMudarProntuario(e.target.value)}
+              required={medicamentoSelecionado?.e_antimicrobiano}
             />
             {buscandoPaciente && (
               <span style={{ color: 'var(--muted)', fontSize: 12 }}>Buscando paciente…</span>
@@ -274,7 +317,10 @@ export function SaidaPage() {
           </div>
           <div className="field">
             <label htmlFor="nome-paciente-saida">
-              Nome do paciente <span className="tag">{pacienteEncontrado ? 'já cadastrado' : 'opcional'}</span>
+              Nome do paciente{' '}
+              <span className="tag">
+                {pacienteEncontrado ? 'já cadastrado' : medicamentoSelecionado?.e_antimicrobiano ? 'obrigatório' : 'opcional'}
+              </span>
             </label>
             <input
               id="nome-paciente-saida"
@@ -283,6 +329,7 @@ export function SaidaPage() {
               value={pacienteNome}
               readOnly={pacienteEncontrado}
               onChange={(e) => setPacienteNome(e.target.value)}
+              required={medicamentoSelecionado?.e_antimicrobiano}
               style={{ textTransform: 'uppercase' }}
             />
           </div>

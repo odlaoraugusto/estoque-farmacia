@@ -70,3 +70,59 @@ class RelatorioEstoqueCriticoItem(BaseModel):
 class RelatorioEstoqueCriticoOut(BaseModel):
     metadados: RelatorioMetadados
     itens: list[RelatorioEstoqueCriticoItem]
+
+
+class DoseAntimicrobianoItem(BaseModel):
+    """Uma dispensação individual — a "dose" no sentido que dá pra
+    enxergar a partir do dado que a farmácia registra (evento de Saída,
+    não confirmação de administração à beira do leito)."""
+
+    data: date
+    quantidade: int
+    numero_lote: str
+
+
+class RelatorioAntimicrobianoItem(BaseModel):
+    """DOT (Days of Therapy) por paciente/medicamento — aproximação a
+    partir de dispensações da farmácia (não é registro de administração
+    real, o hospital não tem eMAR). `dias_consecutivos` conta datas
+    distintas de dispensação em sequência, sem furo, terminando na
+    dispensação mais recente."""
+
+    paciente_prontuario: str
+    paciente_nome: str
+    medicamento_id: int
+    medicamento_nome: str
+    dias_consecutivos: int
+    data_inicio: date
+    data_fim: date
+    doses: list[DoseAntimicrobianoItem]
+
+
+class RelatorioAntimicrobianoOut(BaseModel):
+    metadados: RelatorioMetadados
+    dias_minimo: int
+    itens: list[RelatorioAntimicrobianoItem]
+
+
+class AtividadeRecenteItem(BaseModel):
+    """Um evento de Descarte/Ajuste/Saída-empréstimo-doação recente —
+    alimenta a notificação do Coordenador (2026-08-19). Todo o "log de
+    quem fez" já existe na trilha de auditoria (`usuario_id`); isto só
+    expõe de forma direta, sem precisar abrir a Trilha de Auditoria
+    completa pra achar."""
+
+    movimentacao_id: int
+    tipo: str
+    detalhe: str
+    medicamento_nome: str
+    quantidade: int
+    usuario_nome: str
+    unidade_nome: str
+    data_hora: datetime
+
+
+class RelatorioAtividadeRecenteOut(BaseModel):
+    metadados: RelatorioMetadados
+    dias_considerados: int
+    itens: list[AtividadeRecenteItem]

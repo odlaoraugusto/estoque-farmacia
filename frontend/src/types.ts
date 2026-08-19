@@ -24,6 +24,10 @@ export type Apresentacao =
 
 export type Origem = 'compra' | 'doacao';
 
+/** Categoria de uma Saída (2026-08-19) — normal (default) ou empréstimo/
+ * doação pra fora do hospital, usado pra notificar o Coordenador. */
+export type CategoriaSaida = 'normal' | 'emprestimo' | 'doacao';
+
 export type StatusTransferencia = 'em_transito' | 'recebido';
 
 export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte' | 'ajuste';
@@ -79,6 +83,10 @@ export interface MedicamentoOut {
   acondicionamento: Acondicionamento;
   estoque_minimo: number;
   ativo: boolean;
+  // Programa de uso racional de antimicrobianos (2026-08-19) — quando
+  // true, Saída desse item exige paciente/prontuário (SaidaPage e
+  // SaidaService validam isso, cada um do seu lado).
+  e_antimicrobiano: boolean;
 }
 
 export interface LoteOut {
@@ -113,6 +121,7 @@ export interface MovimentacaoOut {
   unidade_destino_id: number | null;
   quantidade_recebida: number | null;
   setor_consumidor: string | null;
+  categoria_saida: CategoriaSaida | null;
   motivo_descarte: string | null;
   motivo_ajuste: string | null;
   status: StatusDescarte | null;
@@ -201,4 +210,44 @@ export interface RelatorioEstoqueCriticoItem {
 export interface RelatorioEstoqueCriticoOut {
   metadados: RelatorioMetadados;
   itens: RelatorioEstoqueCriticoItem[];
+}
+
+export interface DoseAntimicrobianoItem {
+  data: string;
+  quantidade: number;
+  numero_lote: string;
+}
+
+export interface RelatorioAntimicrobianoItem {
+  paciente_prontuario: string;
+  paciente_nome: string;
+  medicamento_id: number;
+  medicamento_nome: string;
+  dias_consecutivos: number;
+  data_inicio: string;
+  data_fim: string;
+  doses: DoseAntimicrobianoItem[];
+}
+
+export interface RelatorioAntimicrobianoOut {
+  metadados: RelatorioMetadados;
+  dias_minimo: number;
+  itens: RelatorioAntimicrobianoItem[];
+}
+
+export interface AtividadeRecenteItem {
+  movimentacao_id: number;
+  tipo: string;
+  detalhe: string;
+  medicamento_nome: string;
+  quantidade: number;
+  usuario_nome: string;
+  unidade_nome: string;
+  data_hora: string;
+}
+
+export interface RelatorioAtividadeRecenteOut {
+  metadados: RelatorioMetadados;
+  dias_considerados: number;
+  itens: AtividadeRecenteItem[];
 }

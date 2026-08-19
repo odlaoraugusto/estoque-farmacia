@@ -9,6 +9,7 @@ class MedicamentoCreate(BaseModel):
     concentracao: str
     acondicionamento: AcondicionamentoEnum
     estoque_minimo: int = 0
+    e_antimicrobiano: bool = False
 
 
 class MedicamentoUpdate(BaseModel):
@@ -18,6 +19,7 @@ class MedicamentoUpdate(BaseModel):
     acondicionamento: AcondicionamentoEnum | None = None
     estoque_minimo: int | None = None
     ativo: bool | None = None
+    e_antimicrobiano: bool | None = None
 
 
 class MedicamentoOut(BaseModel):
@@ -28,5 +30,6 @@ class MedicamentoOut(BaseModel):
     acondicionamento: AcondicionamentoEnum
     estoque_minimo: int
     ativo: bool
+    e_antimicrobiano: bool
 
     model_config = ConfigDict(from_attributes=True)

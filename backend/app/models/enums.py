@@ -41,6 +41,18 @@ class OrigemEnum(str, enum.Enum):
     doacao = "doacao"
 
 
+class CategoriaSaidaEnum(str, enum.Enum):
+    """Categoria de uma Saída (2026-08-19) — além do setor consumidor de
+    sempre, marca quando a saída é um empréstimo/doação pra fora (outro
+    hospital/instituição) em vez de dispensação normal pra um setor do
+    próprio hospital. Não é um fluxo novo — mesma Saída de sempre, só com
+    esse metadado a mais, usado pra notificar o Coordenador."""
+
+    normal = "normal"
+    emprestimo = "emprestimo"
+    doacao = "doacao"
+
+
 class StatusTransferenciaEnum(str, enum.Enum):
     em_transito = "em_transito"
     recebido = "recebido"

@@ -5,16 +5,24 @@ from app.models.enums import StatusDescarteEnum, TipoMovimentacaoEnum
 from app.models.movimentacao import Movimentacao
 from app.repositories.lote_repository import LoteRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
-from app.schemas.movimentacao import DescarteRejeitarCreate, DescarteSolicitarCreate
+from app.schemas.movimentacao import DescarteCreate
 from app.schemas.usuario import UsuarioMe
 
 
 class DescarteService:
-    """Regra 6: fluxo de duas etapas — Farmacêutico solicita (não
-    decrementa estoque), Coordenador aprova (decrementa) ou rejeita
-    (não mexe no estoque). Solicitação aceita lote na unidade ativa OU num
-    carrinho de emergência filho dela (2026-08-13), mesma lógica de
-    `SaidaService`."""
+    """Descarte (2026-08-19) — ação direta, sem fluxo de aprovação: quem
+    registra (Farmacêutico ou Coordenador) já decrementa o estoque na
+    hora, igual Entrada/Saída/Ajuste. Antes disso era um fluxo de 2
+    etapas (Farmacêutico solicitava, Coordenador aprovava/rejeitava);
+    virou 1 etapa a pedido do cliente — em troca, o Coordenador passou a
+    ser notificado de todo descarte registrado (ver
+    `RelatorioService.atividade_recente`), então a supervisão continua
+    existindo, só que depois do fato em vez de travando antes.
+
+    `status` fica sempre `aprovado` nos registros novos — o campo
+    continua existindo no model só por causa dos registros antigos
+    (criados quando o fluxo ainda era de aprovação), que preservam o
+    status histórico que tinham."""
 
     def __init__(self):
         self.lote_repository = LoteRepository()
@@ -27,14 +35,14 @@ class DescarteService:
             or lote.unidade.unidade_pai_id == unidade_ativa_id
         )
 
-    def solicitar(
+    def registrar(
         self,
         db: Session,
         usuario: UsuarioMe,
         unidade_ativa_id: int,
-        dados: DescarteSolicitarCreate,
+        dados: DescarteCreate,
     ) -> Movimentacao:
-        lote = self.lote_repository.get_by_id(db, dados.lote_id)
+        lote = self.lote_repository.get_by_id_for_update(db, dados.lote_id)
 
         if lote is None:
             raise HTTPException(
@@ -63,82 +71,17 @@ class DescarteService:
                 ),
             )
 
+        lote.quantidade_atual -= dados.quantidade
+        self.lote_repository.salvar(db, lote)
+
         movimentacao = Movimentacao(
             tipo=TipoMovimentacaoEnum.descarte,
             lote_id=lote.id,
             quantidade=dados.quantidade,
             unidade_origem_id=unidade_ativa_id,
             motivo_descarte=dados.motivo_descarte.strip(),
-            status=StatusDescarteEnum.pendente_aprovacao,
+            status=StatusDescarteEnum.aprovado,
             usuario_id=usuario.id,
-            usuario_solicitante_id=usuario.id,
         )
 
         return self.movimentacao_repository.create(db, movimentacao)
-
-    def aprovar(self, db: Session, usuario: UsuarioMe, movimentacao_id: int) -> Movimentacao:
-        movimentacao = self._buscar_pendente(db, movimentacao_id)
-
-        lote = self.lote_repository.get_by_id_for_update(db, movimentacao.lote_id)
-        if lote is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Lote não encontrado."
-            )
-
-        if movimentacao.quantidade > lote.quantidade_atual:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "O saldo do lote mudou desde a solicitação e não é mais "
-                    "suficiente para este descarte. Rejeite e peça nova solicitação."
-                ),
-            )
-
-        lote.quantidade_atual -= movimentacao.quantidade
-        self.lote_repository.salvar(db, lote)
-
-        movimentacao.status = StatusDescarteEnum.aprovado
-        movimentacao.usuario_aprovador_id = usuario.id
-
-        return self.movimentacao_repository.salvar(db, movimentacao)
-
-    def rejeitar(
-        self,
-        db: Session,
-        usuario: UsuarioMe,
-        movimentacao_id: int,
-        dados: DescarteRejeitarCreate | None = None,
-    ) -> Movimentacao:
-        movimentacao = self._buscar_pendente(db, movimentacao_id)
-
-        movimentacao.status = StatusDescarteEnum.rejeitado
-        movimentacao.usuario_aprovador_id = usuario.id
-
-        if dados is not None and dados.motivo_rejeicao:
-            movimentacao.motivo_descarte = (
-                f"{movimentacao.motivo_descarte}\n\nRejeitado: {dados.motivo_rejeicao}"
-            )
-
-        return self.movimentacao_repository.salvar(db, movimentacao)
-
-    def listar_pendentes(self, db: Session, unidade_id: int | None):
-        return self.movimentacao_repository.listar_descartes_pendentes(db, unidade_id)
-
-    def _buscar_pendente(self, db: Session, movimentacao_id: int) -> Movimentacao:
-        movimentacao = self.movimentacao_repository.get_by_id_for_update(
-            db, movimentacao_id
-        )
-
-        if movimentacao is None or movimentacao.tipo != TipoMovimentacaoEnum.descarte:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Solicitação de descarte não encontrada.",
-            )
-
-        if movimentacao.status != StatusDescarteEnum.pendente_aprovacao:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Esta solicitação já foi analisada.",
-            )
-
-        return movimentacao

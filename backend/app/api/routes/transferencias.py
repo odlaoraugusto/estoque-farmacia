@@ -26,14 +26,14 @@ service = TransferenciaService()
 # Regra 3: enviar é restrito a farmacêutico/coordenador.
 _PODE_ENVIAR = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
 
-# Regra 1 dos carrinhos: reposição de carrinho é exclusiva do farmacêutico
-# (diferente do envio de Transferência normal, que também aceita
-# coordenador) — Coordenador NÃO repõe carrinho.
-_PODE_REPOR_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico)
+# Regra 1 dos carrinhos: reposição de carrinho — farmacêutico e
+# coordenador (2026-08-19, ampliado; até então era exclusiva do
+# farmacêutico, "Coordenador NÃO repõe carrinho").
+_PODE_REPOR_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
 
-# Devolução de carrinho -> CAF (seção 22 do doc): mesma exclusividade da
-# reposição — só farmacêutico, coordenador não devolve.
-_PODE_DEVOLVER_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico)
+# Devolução de carrinho -> CAF (seção 22 do doc): mesma ampliação da
+# reposição (2026-08-19).
+_PODE_DEVOLVER_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
 
 
 @router.post("/enviar", response_model=MovimentacaoDetalhadaOut)

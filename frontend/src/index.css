@@ -1095,3 +1095,12 @@ tbody tr:hover {
   max-width: 280px;
 }
 .alerta-vencendo h3 { color: var(--info); }
+
+/* Atividade recente (2026-08-19) — bloco neutro (não é uma urgência tipo
+   crítico/vencido, é só transparência: "isso aconteceu, foi fulano"). */
+.alerta-atividade {
+  background: var(--surface-2);
+  border-left-color: var(--muted);
+}
+.alerta-atividade h3 { color: var(--ink); }
+.alerta-atividade li i { color: var(--muted); font-style: normal; }

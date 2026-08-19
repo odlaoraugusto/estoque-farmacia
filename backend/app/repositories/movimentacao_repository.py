@@ -2,7 +2,9 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
-from app.models.enums import StatusDescarteEnum, TipoMovimentacaoEnum
+from app.models.enums import CategoriaSaidaEnum, StatusDescarteEnum, TipoMovimentacaoEnum
+from app.models.lote import Lote
+from app.models.medicamento import Medicamento
 from app.models.movimentacao import Movimentacao
 
 
@@ -118,5 +120,59 @@ class MovimentacaoRepository:
             query = query.filter(
                 Movimentacao.data_hora <= datetime.combine(data_fim, datetime.max.time())
             )
+
+        return query.order_by(Movimentacao.data_hora.desc()).all()
+
+    def listar_saidas_antimicrobianos(
+        self, db: Session, unidade_id: int | list[int] | None = None
+    ) -> list[Movimentacao]:
+        """Alimenta o DOT (Days of Therapy, 2026-08-19): toda Saída de um
+        medicamento marcado `e_antimicrobiano`, com paciente vinculado
+        (sem paciente não dá pra agrupar por paciente — na prática nunca
+        deveria faltar aqui, `SaidaService` já exige isso na origem)."""
+        query = (
+            db.query(Movimentacao)
+            .join(Lote, Movimentacao.lote_id == Lote.id)
+            .join(Medicamento, Lote.medicamento_id == Medicamento.id)
+            .filter(
+                Movimentacao.tipo == TipoMovimentacaoEnum.saida,
+                Medicamento.e_antimicrobiano.is_(True),
+                Movimentacao.paciente_prontuario.isnot(None),
+            )
+        )
+
+        if isinstance(unidade_id, list):
+            query = query.filter(Movimentacao.unidade_origem_id.in_(unidade_id))
+        elif unidade_id is not None:
+            query = query.filter(Movimentacao.unidade_origem_id == unidade_id)
+
+        return query.order_by(Movimentacao.data_hora.asc()).all()
+
+    def listar_atividade_recente(
+        self,
+        db: Session,
+        desde: datetime,
+        unidade_id: int | list[int] | None = None,
+    ) -> list[Movimentacao]:
+        """Alimenta a notificação do Coordenador (2026-08-19): descartes,
+        ajustes e saídas de empréstimo/doação a partir de `desde`."""
+        query = db.query(Movimentacao).filter(
+            Movimentacao.data_hora >= desde,
+            (
+                (Movimentacao.tipo == TipoMovimentacaoEnum.descarte)
+                | (Movimentacao.tipo == TipoMovimentacaoEnum.ajuste)
+                | (
+                    (Movimentacao.tipo == TipoMovimentacaoEnum.saida)
+                    & Movimentacao.categoria_saida.in_(
+                        [CategoriaSaidaEnum.emprestimo, CategoriaSaidaEnum.doacao]
+                    )
+                )
+            ),
+        )
+
+        if isinstance(unidade_id, list):
+            query = query.filter(Movimentacao.unidade_origem_id.in_(unidade_id))
+        elif unidade_id is not None:
+            query = query.filter(Movimentacao.unidade_origem_id == unidade_id)
 
         return query.order_by(Movimentacao.data_hora.desc()).all()

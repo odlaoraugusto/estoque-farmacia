@@ -25,43 +25,51 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // Saída/dispensação — qualquer perfil autenticado.
     saida: true,
 
-    // Descarte — solicitar é exclusivo do Farmacêutico (nem o Coordenador
-    // solicita, só aprova/rejeita — ver descartes.py); aprovar é exclusivo
-    // do Coordenador. A tela some inteira só para o Atendente.
-    descarteSolicitar: perfil === 'farmaceutico',
-    descarteAprovar: perfil === 'coordenador',
+    // Descarte — ação direta desde 2026-08-19 (era fluxo de 2 etapas
+    // solicitar/aprovar), Farmacêutico e Coordenador têm o mesmo acesso.
+    // A tela some inteira só para o Atendente.
+    descarte: farmaceuticoOuCoordenador,
 
     // Relatórios — vencimentos-próximos é liberado a todos; os demais têm
     // regras próprias por aba.
     relatoriosFinanceiro: farmaceuticoOuCoordenador,
     relatoriosAuditoria: perfil === 'coordenador',
 
-    // Consolidado multi-unidade nos relatórios/estoque — só Coordenador.
-    consolidadoTodasUnidades: perfil === 'coordenador',
+    // Consolidado multi-unidade nos relatórios/estoque — Farmacêutico e
+    // Coordenador (2026-08-19, ampliado; era só Coordenador). Atendente
+    // continua restrito à própria unidade ativa.
+    consolidadoTodasUnidades: farmaceuticoOuCoordenador,
 
     // Cadastro de medicamentos — Farmacêutico cadastra sozinho, sem
     // aprovação; Coordenador também tem acesso completo; Atendente sem
     // acesso (docs/00_PROJETO.md seção 9, ver app/api/routes/medicamentos.py).
     medicamentos: farmaceuticoOuCoordenador,
 
-    // Reposição de carrinho de emergência — exclusiva do Farmacêutico
-    // (Coordenador NÃO repõe carrinho, diferente do envio de Transferência
-    // normal) e só a partir da unidade CAF (regras 1/2 dos carrinhos,
-    // ver app/api/routes/transferencias.py, _PODE_REPOR_CARRINHO).
-    reporCarrinho: perfil === 'farmaceutico' && unidadeEhCaf(usuario),
+    // Reposição de carrinho de emergência — Farmacêutico e Coordenador
+    // (2026-08-19, ampliado; era só Farmacêutico) e só a partir da
+    // unidade CAF (regras 1/2 dos carrinhos, ver app/api/routes/
+    // transferencias.py, _PODE_REPOR_CARRINHO).
+    reporCarrinho: farmaceuticoOuCoordenador && unidadeEhCaf(usuario),
 
-    // Devolução de carrinho -> CAF (seção 22 do doc) — mesma exclusividade
-    // da reposição (só Farmacêutico, Coordenador não devolve), mas SEM
-    // restrição de unidade: qualquer unidade real pode ter carrinhos
-    // filhos com saldo pra devolver, diferente da reposição que exige CAF
-    // como origem (ver _PODE_DEVOLVER_CARRINHO em
-    // app/api/routes/transferencias.py).
-    devolverCarrinho: perfil === 'farmaceutico',
+    // Devolução de carrinho -> CAF (seção 22 do doc) — mesma ampliação da
+    // reposição (2026-08-19), mas SEM restrição de unidade: qualquer
+    // unidade real pode ter carrinhos filhos com saldo pra devolver,
+    // diferente da reposição que exige CAF como origem (ver
+    // _PODE_DEVOLVER_CARRINHO em app/api/routes/transferencias.py).
+    devolverCarrinho: farmaceuticoOuCoordenador,
 
-    // Ajuste de estoque (2026-08-14) — exclusivo do Coordenador, pedido
-    // explícito do cliente. Corrige saldo fora dos fluxos normais (ex.:
-    // divergência de contagem física); ver app/api/routes/ajustes.py.
-    ajustarEstoque: perfil === 'coordenador',
+    // Ajuste de estoque (2026-08-14) — Farmacêutico e Coordenador desde
+    // 2026-08-19 (era exclusivo do Coordenador). Corrige saldo fora dos
+    // fluxos normais (ex.: divergência de contagem física); ver
+    // app/api/routes/ajustes.py.
+    ajustarEstoque: farmaceuticoOuCoordenador,
+
+    // Notificação de atividade recente ao Coordenador (2026-08-19) —
+    // descartes, ajustes e saídas de empréstimo/doação, com quem fez.
+    // Substitui a antiga autorização prévia de Descarte: a supervisão
+    // agora é depois do fato, não mais travando antes. Exclusiva do
+    // Coordenador (é vigilância, não uma ação operacional).
+    notificacaoAtividade: perfil === 'coordenador',
 
     // Notificação de estoque crítico/vencendo ao logar (2026-08-15,
     // pedido do cliente) — mesmo par de perfis que já vê financeiro

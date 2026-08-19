@@ -70,6 +70,22 @@ class SaidaService:
                 ),
             )
 
+        # Programa de uso racional de antimicrobianos / DOT (2026-08-19):
+        # sem paciente/prontuário não dá pra contar dias de uso por
+        # paciente, então aqui a regra geral de "opcional" não vale —
+        # checagem no service (não no schema) porque só aqui já temos o
+        # medicamento do lote carregado.
+        if lote.medicamento.e_antimicrobiano and not (
+            dados.paciente_prontuario and dados.paciente_nome
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"{lote.medicamento.nome} é antimicrobiano — paciente e "
+                    "prontuário são obrigatórios nesta saída."
+                ),
+            )
+
         lote.quantidade_atual -= dados.quantidade
         self.lote_repository.salvar(db, lote)
 
@@ -79,6 +95,7 @@ class SaidaService:
             quantidade=dados.quantidade,
             unidade_origem_id=unidade_ativa_id,
             setor_consumidor=dados.setor_consumidor.strip(),
+            categoria_saida=dados.categoria,
             usuario_id=usuario.id,
         )
 

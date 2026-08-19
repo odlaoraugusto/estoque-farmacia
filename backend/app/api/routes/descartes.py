@@ -1,14 +1,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import exigir_perfis, get_unidade_ativa_id, resolver_unidade_escopo
+from app.api.deps import exigir_perfis, get_unidade_ativa_id
 from app.database.session import get_db
 from app.models.enums import PerfilEnum
-from app.schemas.movimentacao import (
-    DescarteRejeitarCreate,
-    DescarteSolicitarCreate,
-    MovimentacaoDetalhadaOut,
-)
+from app.schemas.movimentacao import DescarteCreate, MovimentacaoDetalhadaOut
 from app.schemas.usuario import UsuarioMe
 from app.services.descarte_service import DescarteService
 
@@ -16,53 +12,19 @@ router = APIRouter(prefix="/descartes", tags=["Descartes"])
 
 service = DescarteService()
 
-# Regra 6/7: só Farmacêutico solicita (Coordenador NÃO solicita, só aprova/rejeita).
-_PODE_SOLICITAR = exigir_perfis(PerfilEnum.farmaceutico)
-# Só Coordenador aprova/rejeita.
-_PODE_APROVAR = exigir_perfis(PerfilEnum.coordenador)
-# Consulta de pendentes: Farmacêutico (própria unidade) e Coordenador (qualquer/todas).
-_PODE_CONSULTAR = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
+# Descarte é ação direta desde 2026-08-19 — Farmacêutico e Coordenador têm
+# o mesmo acesso (fluxo de aprovação de 2 etapas foi removido a pedido do
+# cliente; supervisão agora é via notificação, ver /relatorios/atividade-
+# recente, exclusivo do Coordenador).
+_PODE_DESCARTAR = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
 
 
-@router.post("/solicitar", response_model=MovimentacaoDetalhadaOut)
-def solicitar_descarte(
-    dados: DescarteSolicitarCreate,
-    usuario: UsuarioMe = Depends(_PODE_SOLICITAR),
+@router.post("", response_model=MovimentacaoDetalhadaOut)
+def registrar_descarte(
+    dados: DescarteCreate,
+    usuario: UsuarioMe = Depends(_PODE_DESCARTAR),
     unidade_ativa_id: int = Depends(get_unidade_ativa_id),
     db: Session = Depends(get_db),
 ):
-    movimentacao = service.solicitar(db, usuario, unidade_ativa_id, dados)
+    movimentacao = service.registrar(db, usuario, unidade_ativa_id, dados)
     return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
-
-
-@router.post("/{movimentacao_id}/aprovar", response_model=MovimentacaoDetalhadaOut)
-def aprovar_descarte(
-    movimentacao_id: int,
-    usuario: UsuarioMe = Depends(_PODE_APROVAR),
-    db: Session = Depends(get_db),
-):
-    movimentacao = service.aprovar(db, usuario, movimentacao_id)
-    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
-
-
-@router.post("/{movimentacao_id}/rejeitar", response_model=MovimentacaoDetalhadaOut)
-def rejeitar_descarte(
-    movimentacao_id: int,
-    dados: DescarteRejeitarCreate | None = None,
-    usuario: UsuarioMe = Depends(_PODE_APROVAR),
-    db: Session = Depends(get_db),
-):
-    movimentacao = service.rejeitar(db, usuario, movimentacao_id, dados)
-    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
-
-
-@router.get("/pendentes", response_model=list[MovimentacaoDetalhadaOut])
-def listar_descartes_pendentes(
-    unidade_id: int | None = None,
-    usuario: UsuarioMe = Depends(_PODE_CONSULTAR),
-    db: Session = Depends(get_db),
-):
-    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
-
-    pendentes = service.listar_pendentes(db, unidade_escopo)
-    return [MovimentacaoDetalhadaOut.visivel_para(m, usuario) for m in pendentes]

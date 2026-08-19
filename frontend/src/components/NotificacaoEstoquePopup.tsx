@@ -1,38 +1,52 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { diasAteVencer, formatarData } from '../lib/formato';
+import { diasAteVencer, formatarData, formatarDataHora, labelTipoMovimentacao } from '../lib/formato';
 import { permissoesDe } from '../lib/permissoes';
-import type { RelatorioEstoqueCriticoOut, RelatorioVencimentosProximosOut } from '../types';
+import type {
+  RelatorioAtividadeRecenteOut,
+  RelatorioEstoqueCriticoOut,
+  RelatorioVencimentosProximosOut,
+} from '../types';
 
 /** Popup de alerta ao entrar no sistema (pedido do cliente, 2026-08-15) —
  * mesmas informações que já existiam nos tiles da tela Estoque atual,
  * agora com a descrição de cada item e mostradas automaticamente ao
- * logar (não só um número passivo). Só Farmacêutico/Coordenador (mesma
- * regra de app/api/routes/relatorios.py). Aparece uma vez por sessão —
- * o componente só monta uma vez dentro do `Layout` (não remonta ao
- * navegar entre telas, só num login/F5 novo). */
+ * logar (não só um número passivo). Estoque crítico/vencendo: Farmacêutico
+ * e Coordenador. Atividade recente (2026-08-19, substitui a autorização
+ * prévia de Descarte): só Coordenador — é vigilância, não some do menu
+ * pro Farmacêutico "porque sim", é porque a supervisão é papel de quem
+ * coordena. Aparece uma vez por sessão — o componente só monta uma vez
+ * dentro do `Layout` (não remonta ao navegar entre telas, só num
+ * login/F5 novo). */
 export function NotificacaoEstoquePopup() {
   const { usuario, token } = useAuth();
   const permissoes = permissoesDe(usuario);
 
   const [critico, setCritico] = useState<RelatorioEstoqueCriticoOut | null>(null);
   const [vencendo, setVencendo] = useState<RelatorioVencimentosProximosOut | null>(null);
+  const [atividade, setAtividade] = useState<RelatorioAtividadeRecenteOut | null>(null);
   const [aberto, setAberto] = useState(false);
 
   useEffect(() => {
     if (!token || !permissoes.notificacaoEstoqueCritico || usuario?.unidade_ativa_id == null) return;
 
     let cancelado = false;
+    const buscarAtividade = permissoes.notificacaoAtividade
+      ? api.get<RelatorioAtividadeRecenteOut>('/relatorios/atividade-recente', { token })
+      : Promise.resolve(null);
+
     Promise.all([
       api.get<RelatorioEstoqueCriticoOut>('/relatorios/estoque-critico', { token }),
       api.get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', { token }),
+      buscarAtividade,
     ])
-      .then(([critico, vencendo]) => {
+      .then(([critico, vencendo, atividade]) => {
         if (cancelado) return;
         setCritico(critico);
         setVencendo(vencendo);
-        if (critico.itens.length > 0 || vencendo.itens.length > 0) {
+        setAtividade(atividade);
+        if (critico.itens.length > 0 || vencendo.itens.length > 0 || (atividade?.itens.length ?? 0) > 0) {
           setAberto(true);
         }
       })
@@ -111,6 +125,22 @@ export function NotificacaoEstoquePopup() {
                 <li key={lote.id}>
                   <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
                   {diasAteVencer(lote.data_validade)}d)
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {atividade && atividade.itens.length > 0 && (
+          <div className="alerta-bloco alerta-atividade">
+            <h3>
+              Atividade recente (últimos {atividade.dias_considerados} dias) — {atividade.itens.length} evento(s)
+            </h3>
+            <ul>
+              {atividade.itens.map((item) => (
+                <li key={item.movimentacao_id}>
+                  <b>{labelTipoMovimentacao(item.tipo)}</b> · {item.medicamento_nome} ({item.quantidade}) —{' '}
+                  {item.detalhe} · <i>{item.usuario_nome}</i>, {item.unidade_nome} em {formatarDataHora(item.data_hora)}
                 </li>
               ))}
             </ul>

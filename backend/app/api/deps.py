@@ -80,12 +80,14 @@ def get_unidade_ativa_id(
 def resolver_unidade_escopo(
     usuario: UsuarioMe, unidade_id_solicitado: int | None
 ) -> int | None:
-    """Aplica a regra "só Coordenador enxerga consolidado de todas as
-    unidades" (docs/00_PROJETO.md seção 9, default 3): os demais perfis
-    são sempre restritos à própria unidade ativa nos relatórios/listagens
-    escopadas por unidade, mesmo que tentem informar outro `unidade_id`
-    na query string — o valor da query é ignorado nesse caso."""
-    if usuario.perfil == PerfilEnum.coordenador:
+    """Aplica a regra "Farmacêutico e Coordenador enxergam consolidado de
+    todas as unidades" (docs/00_PROJETO.md seção 9, default 3 — ampliada
+    em 2026-08-19, era só Coordenador até então): Atendente é o único
+    perfil sempre restrito à própria unidade ativa nos relatórios/
+    listagens escopadas por unidade, mesmo que tente informar outro
+    `unidade_id` na query string — o valor da query é ignorado nesse
+    caso."""
+    if usuario.perfil in (PerfilEnum.coordenador, PerfilEnum.farmaceutico):
         return unidade_id_solicitado
 
     if usuario.unidade_ativa_id is None:

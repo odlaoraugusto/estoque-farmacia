@@ -1,11 +1,12 @@
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.enums import TipoMovimentacaoEnum
+from app.models.movimentacao import Movimentacao
 from app.repositories.lote_repository import LoteRepository
 from app.repositories.medicamento_repository import MedicamentoRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
@@ -13,6 +14,11 @@ from app.repositories.unidade_repository import UnidadeRepository
 from app.schemas.lote import LoteDetalhadoOut
 from app.schemas.movimentacao import MovimentacaoDetalhadaOut
 from app.schemas.relatorio import (
+    AtividadeRecenteItem,
+    DoseAntimicrobianoItem,
+    RelatorioAntimicrobianoItem,
+    RelatorioAntimicrobianoOut,
+    RelatorioAtividadeRecenteOut,
     RelatorioAuditoriaOut,
     RelatorioCustoPorSetorItem,
     RelatorioCustoPorSetorOut,
@@ -229,6 +235,140 @@ class RelatorioService:
 
         return RelatorioEstoqueCriticoOut(
             metadados=self._metadados(usuario, "Estoque Crítico", unidade_id, db),
+            itens=itens,
+        )
+
+    def antimicrobianos_uso_prolongado(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_id: int | None,
+        dias_minimo: int = 7,
+    ) -> RelatorioAntimicrobianoOut:
+        """DOT (Days of Therapy) — programa de uso racional de
+        antimicrobianos (2026-08-19). Aproximação: conta DATAS DISTINTAS
+        de dispensação (Saída) por paciente+medicamento, não confirmação
+        real de administração (o hospital não tem eMAR) — é a mesma
+        limitação assumida em todo o resto do sistema, que só enxerga o
+        que passa pela farmácia.
+
+        "Em uso" = a dispensação mais recente daquele paciente+
+        medicamento aconteceu nos últimos `RECENCIA_DIAS` dias (senão é
+        histórico, não uso corrente). "Dias consecutivos" = tamanho da
+        sequência de datas sem furo terminando na dispensação mais
+        recente — só entra na lista quem passar de `dias_minimo`."""
+        RECENCIA_DIAS = 2
+
+        escopo = self._expandir_escopo(db, unidade_id)
+        saidas = self.movimentacao_repository.listar_saidas_antimicrobianos(db, escopo)
+
+        grupos: dict[tuple[str, int], list[Movimentacao]] = defaultdict(list)
+        for mov in saidas:
+            grupos[(mov.paciente_prontuario, mov.lote.medicamento_id)].append(mov)
+
+        hoje = datetime.now(timezone.utc).date()
+        itens = []
+
+        for (prontuario, medicamento_id), movs in grupos.items():
+            datas = sorted({m.data_hora.date() for m in movs})
+            data_fim = datas[-1]
+
+            if (hoje - data_fim).days > RECENCIA_DIAS:
+                continue  # última dispensação é antiga demais — não é uso corrente
+
+            dias_consecutivos = 1
+            cursor = data_fim
+            for d in reversed(datas[:-1]):
+                if (cursor - d).days != 1:
+                    break
+                dias_consecutivos += 1
+                cursor = d
+            data_inicio = cursor
+
+            if dias_consecutivos <= dias_minimo:
+                continue
+
+            ultimo_mov = max(movs, key=lambda m: m.data_hora)
+            doses = [
+                DoseAntimicrobianoItem(
+                    data=m.data_hora.date(),
+                    quantidade=m.quantidade,
+                    numero_lote=m.lote.numero_lote,
+                )
+                for m in sorted(movs, key=lambda m: m.data_hora)
+            ]
+
+            itens.append(
+                RelatorioAntimicrobianoItem(
+                    paciente_prontuario=prontuario,
+                    paciente_nome=ultimo_mov.paciente_nome or "",
+                    medicamento_id=medicamento_id,
+                    medicamento_nome=ultimo_mov.lote.medicamento.nome,
+                    dias_consecutivos=dias_consecutivos,
+                    data_inicio=data_inicio,
+                    data_fim=data_fim,
+                    doses=doses,
+                )
+            )
+
+        itens.sort(key=lambda item: -item.dias_consecutivos)
+
+        return RelatorioAntimicrobianoOut(
+            metadados=self._metadados(
+                usuario, "Uso Prolongado de Antimicrobianos", unidade_id, db
+            ),
+            dias_minimo=dias_minimo,
+            itens=itens,
+        )
+
+    @staticmethod
+    def _detalhe_atividade(m: Movimentacao) -> str:
+        if m.tipo == TipoMovimentacaoEnum.descarte:
+            return m.motivo_descarte or "—"
+        if m.tipo == TipoMovimentacaoEnum.ajuste:
+            sinal = f"+{m.quantidade}" if m.quantidade > 0 else str(m.quantidade)
+            return f"{sinal} un. — {m.motivo_ajuste or '—'}"
+        if m.tipo == TipoMovimentacaoEnum.saida:
+            categoria = m.categoria_saida.value if m.categoria_saida else "—"
+            return f"{categoria} — setor {m.setor_consumidor or '—'}"
+        return "—"
+
+    def atividade_recente(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_id: int | None,
+        dias: int = 7,
+    ) -> RelatorioAtividadeRecenteOut:
+        """Notificação ao Coordenador (2026-08-19) — substitui a antiga
+        autorização prévia de Descarte: supervisão passa a ser depois do
+        fato, não mais travando antes. Descartes, Ajustes e Saídas de
+        empréstimo/doação dos últimos `dias` dias, com quem fez (já
+        gravado em `usuario_id` desde sempre — isto só expõe de forma
+        direta, sem precisar abrir a Trilha de Auditoria completa)."""
+        escopo = self._expandir_escopo(db, unidade_id)
+        desde = datetime.now(timezone.utc) - timedelta(days=dias)
+        movimentacoes = self.movimentacao_repository.listar_atividade_recente(
+            db, desde, escopo
+        )
+
+        itens = [
+            AtividadeRecenteItem(
+                movimentacao_id=m.id,
+                tipo=m.tipo.value,
+                detalhe=self._detalhe_atividade(m),
+                medicamento_nome=m.lote.medicamento.nome,
+                quantidade=m.quantidade,
+                usuario_nome=m.usuario.nome,
+                unidade_nome=m.unidade_origem.nome if m.unidade_origem else "—",
+                data_hora=m.data_hora,
+            )
+            for m in movimentacoes
+        ]
+
+        return RelatorioAtividadeRecenteOut(
+            metadados=self._metadados(usuario, "Atividade Recente", unidade_id, db),
+            dias_considerados=dias,
             itens=itens,
         )
 

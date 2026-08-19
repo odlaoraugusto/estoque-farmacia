@@ -190,11 +190,12 @@ class TransferenciaService:
         dados: ReporCarrinhoCreate,
     ) -> Movimentacao:
         """Reposição de carrinho de emergência (regras 1/2 dos carrinhos):
-        só a CAF pode repor, só farmacêutico (checado no router), e é um
-        fluxo de UMA ETAPA SÓ — o estoque já entra "recebido" no carrinho
-        destino no mesmo ato, sem confirmação separada. Caminho dedicado,
-        deliberadamente à parte de `enviar`/`confirmar` (que têm a
-        semântica de duas etapas da Transferência normal)."""
+        só a CAF pode repor, farmacêutico ou coordenador (checado no
+        router — 2026-08-19, ampliado), e é um fluxo de UMA ETAPA SÓ — o
+        estoque já entra "recebido" no carrinho destino no mesmo ato, sem
+        confirmação separada. Caminho dedicado, deliberadamente à parte
+        de `enviar`/`confirmar` (que têm a semântica de duas etapas da
+        Transferência normal)."""
         unidade_ativa = self.unidade_repository.get_by_id(db, unidade_ativa_id)
 
         if unidade_ativa is None or unidade_ativa.nome.strip().upper() != NOME_UNIDADE_CAF:
@@ -282,8 +283,8 @@ class TransferenciaService:
         reaproveita `confirmar()` sem alteração nenhuma (o destino
         sendo CAF é só mais uma unidade normal de sessão).
 
-        Só farmacêutico (checado no router, igual reposição — Coordenador
-        não devolve). O farmacêutico logado na unidade real só pode
+        Farmacêutico ou Coordenador (checado no router, igual reposição —
+        2026-08-19, ampliado). Quem estiver logado na unidade real só pode
         devolver lotes de carrinhos que são FILHOS dela — não pode
         devolver o carrinho de outra unidade só por saber o `lote_id`."""
         lote = self.lote_repository.get_by_id_for_update(db, dados.lote_id)

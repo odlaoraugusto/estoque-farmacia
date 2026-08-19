@@ -4,7 +4,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.permissoes import pode_ver_dados_paciente
-from app.models.enums import StatusDescarteEnum, TipoMovimentacaoEnum
+from app.models.enums import CategoriaSaidaEnum, StatusDescarteEnum, TipoMovimentacaoEnum
 from app.schemas.lote import LoteDetalhadoOut
 from app.schemas.unidade import UnidadeOut
 from app.schemas.usuario import UsuarioMe, UsuarioResumo
@@ -44,14 +44,22 @@ class SaidaCreate(BaseModel):
     quantidade: int = Field(gt=0)
     setor_consumidor: str
 
-    # Paciente/prontuário (seção 22 do doc): opcional, adicional ao
-    # setor consumidor (que continua obrigatório). Quando informado, os
-    # dois campos viajam juntos — não faz sentido gravar um nome de
-    # paciente sem prontuário para linkar (perderia o autopreenchimento)
-    # nem um prontuário sem nome (não daria para cadastrar um paciente
-    # novo). O nome em si é normalizado para CAIXA ALTA no service
-    # (`PacienteService`), não aqui — este validador só garante que os
-    # dois vêm juntos.
+    # Categoria (2026-08-19): normal (default) ou empréstimo/doação pra
+    # fora do hospital — mesma Saída de sempre, só com esse metadado a
+    # mais, usado pra notificar o Coordenador (ver RelatorioService.
+    # atividade_recente).
+    categoria: CategoriaSaidaEnum = CategoriaSaidaEnum.normal
+
+    # Paciente/prontuário (seção 22 do doc): opcional em geral, mas
+    # OBRIGATÓRIO quando o medicamento do lote é antimicrobiano (programa
+    # de uso racional / DOT, 2026-08-19 — checado em SaidaService, que é
+    # quem tem acesso ao medicamento do lote; o schema sozinho não
+    # enxerga isso). Quando informado, os dois campos viajam juntos — não
+    # faz sentido gravar um nome de paciente sem prontuário para linkar
+    # (perderia o autopreenchimento) nem um prontuário sem nome (não
+    # daria para cadastrar um paciente novo). O nome em si é normalizado
+    # para CAIXA ALTA no service (`PacienteService`), não aqui — este
+    # validador só garante que os dois vêm juntos.
     paciente_nome: str | None = None
     paciente_prontuario: str | None = None
 
@@ -69,21 +77,22 @@ class SaidaCreate(BaseModel):
         return self
 
 
-class DescarteSolicitarCreate(BaseModel):
+class DescarteCreate(BaseModel):
+    """Descarte (2026-08-19): ação direta, sem fluxo de aprovação — quem
+    registra (Farmacêutico ou Coordenador) já decrementa o estoque na
+    hora, igual Entrada/Saída. Antes disso era um fluxo de 2 etapas
+    (solicitar → aprovar); virou 1 etapa a pedido do cliente."""
+
     lote_id: int
     quantidade: int = Field(gt=0)
     motivo_descarte: str
 
 
-class DescarteRejeitarCreate(BaseModel):
-    motivo_rejeicao: str | None = None
-
-
 class AjusteCreate(BaseModel):
-    """Ajuste de estoque — exclusivo do Coordenador (regra de negócio,
-    aplicada em `AjusteService`/`app/api/routes/ajustes.py`). `quantidade_
-    nova` é o saldo correto do lote depois de uma contagem física; o
-    service calcula o delta contra o saldo atual, não o cliente."""
+    """Ajuste de estoque — Farmacêutico ou Coordenador (2026-08-19; era
+    exclusivo do Coordenador até então). `quantidade_nova` é o saldo
+    correto do lote depois de uma contagem física; o service calcula o
+    delta contra o saldo atual, não o cliente."""
 
     lote_id: int
     quantidade_nova: int = Field(ge=0)
@@ -101,6 +110,7 @@ class MovimentacaoOut(BaseModel):
     quantidade_recebida: int | None
 
     setor_consumidor: str | None
+    categoria_saida: CategoriaSaidaEnum | None
     motivo_descarte: str | None
     motivo_ajuste: str | None
     status: StatusDescarteEnum | None
