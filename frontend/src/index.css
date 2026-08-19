@@ -1076,4 +1076,22 @@ tbody tr:hover {
   background: var(--info-bg);
   border-left-color: var(--info);
 }
+
+/* Busca de estoque (2026-08-19) — evita ter que rolar a lista inteira de
+   lotes pra achar um medicamento. Reaproveita o input de texto padrão,
+   só limita a largura pra não esticar sozinho no cabeçalho do painel. */
+.panel-head-busca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.panel-head-busca h2 {
+  margin-bottom: 0;
+}
+.busca-estoque {
+  max-width: 280px;
+}
 .alerta-vencendo h3 { color: var(--info); }

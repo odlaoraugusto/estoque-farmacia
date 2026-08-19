@@ -29,6 +29,7 @@ export function EstoquePage() {
   const [consolidado, setConsolidado] = useState<RelatorioEstoqueConsolidadoOut | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -103,6 +104,19 @@ export function EstoquePage() {
     return idsVencendo;
   }, [vencimentos]);
 
+  // Busca client-side — os lotes da unidade já estão todos carregados,
+  // não precisa de mais uma chamada à API. Casa por nome do medicamento
+  // ou número do lote, pra achar sem precisar rolar a lista inteira.
+  const lotesFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return lotes;
+    return lotes.filter(
+      (lote) =>
+        lote.medicamento.nome.toLowerCase().includes(termo) ||
+        lote.numero_lote.toLowerCase().includes(termo),
+    );
+  }, [lotes, busca]);
+
   const tituloUnidade = ehCoordenador ? 'todas as unidades' : usuario?.unidade_ativa_nome ?? '—';
 
   return (
@@ -143,7 +157,17 @@ export function EstoquePage() {
       </div>
 
       <div className={`panel ${ehCoordenador ? '' : classeRailUnidade(usuario?.unidade_ativa_nome)}`}>
-        <h2>Lotes {ehCoordenador ? '— todas as unidades' : '— unidade ativa'}</h2>
+        <div className="panel-head-busca">
+          <h2>Lotes {ehCoordenador ? '— todas as unidades' : '— unidade ativa'}</h2>
+          <input
+            type="text"
+            className="busca-estoque"
+            placeholder="Buscar medicamento ou nº do lote…"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            aria-label="Buscar medicamento ou número do lote"
+          />
+        </div>
         {carregando && <p className="carregando">Carregando lotes…</p>}
         {!carregando && (
           <div className="table-wrap">
@@ -161,14 +185,14 @@ export function EstoquePage() {
                 </tr>
               </thead>
               <tbody>
-                {lotes.length === 0 && (
+                {lotesFiltrados.length === 0 && (
                   <tr>
                     <td colSpan={8} className="vazio-tabela">
-                      Nenhum lote disponível.
+                      {busca.trim() ? `Nenhum lote encontrado para "${busca.trim()}".` : 'Nenhum lote disponível.'}
                     </td>
                   </tr>
                 )}
-                {lotes.map((lote) => {
+                {lotesFiltrados.map((lote) => {
                   const dias = diasAteVencer(lote.data_validade);
                   const vencendo = vencidosEmBreve.has(lote.id);
                   return (

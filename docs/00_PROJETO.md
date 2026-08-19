@@ -317,3 +317,7 @@ Pedido do cliente: os tiles "itens em risco de ruptura" e "vencendo em 30 dias" 
 Testado: `/relatorios/estoque-critico` via curl (Coordenador vê corretamente, Atendente barrado com 403) e ponta a ponta no navegador (popup abre ao logar, cores conferidas via `getComputedStyle`, botão Fechar dispensa).
 
 **Ajuste fino (2026-08-15, mesmo dia):** lote já vencido (`diasAteVencer < 0`) é mais grave que "vencendo em breve" — virou seu próprio bloco vermelho ("Vencidos", borda esquerda de 5px + itens em negrito para destacar de `.alerta-critico`), separado do bloco azul "Validade próxima" que continua só com quem ainda está dentro do prazo (`diasAteVencer >= 0`).
+
+## 26. Busca de medicamento na tela Estoque atual (2026-08-19)
+
+Pedido do cliente: não depender de rolar a lista inteira de lotes pra saber se um item existe no estoque. Campo de texto no cabeçalho do painel "Lotes", filtra client-side (os lotes da unidade já estão todos carregados, não precisa de chamada nova à API) por nome do medicamento OU número do lote, case-insensitive. Mensagem de "nenhum resultado" distingue lista vazia de busca sem resultado. Testado no navegador: "Insulina" (sem estoque) → mensagem de nada encontrado; "dipirona" → 12 linhas; "qa-conc" (por número de lote) → achou o lote certo; campo vazio → volta pras 17 linhas.
