@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -79,20 +79,47 @@ def relatorio_custo_por_setor(
     return exportar_relatorio(formato, "custo-por-setor", tabela_custo_por_setor(relatorio))
 
 
+_AUDITORIA_LIMITE_MAXIMO = 5000  # trava pra "carregar mais" não virar a mesma consulta sem fim de volta
+
+
 @router.get("/auditoria", response_model=RelatorioAuditoriaOut)
 def relatorio_auditoria(
     tipo: TipoMovimentacaoEnum | None = None,
     unidade_id: int | None = None,
     data_inicio: date | None = None,
     data_fim: date | None = None,
+    limit: int | None = None,
+    offset: int = 0,
     formato: FormatoExportacao | None = None,
     usuario: UsuarioMe = Depends(_PODE_VER_AUDITORIA),
     db: Session = Depends(get_db),
 ):
     """Regra 7: só Coordenador — filtro de unidade aqui é livre (não
     passa por `resolver_unidade_escopo`, pois quem chega até aqui já é
-    coordenador e pode ver qualquer unidade ou todas)."""
-    relatorio = service.auditoria(db, usuario, tipo, unidade_id, data_inicio, data_fim)
+    coordenador e pode ver qualquer unidade ou todas).
+
+    Período padrão + paginação (2026-08-19, diagnóstico de carga): sem
+    nenhuma data informada, aplica `RELATORIO_AUDITORIA_DIAS_PADRAO` em
+    vez de devolver a trilha inteira desde o início (no teste de volume,
+    1192 linhas / 1,7MB / ~250ms — 5-10x mais lento que qualquer outro
+    relatório, só piora com uso real acumulado). `limit` explícito (usado
+    pelo "carregar mais" da tela) sobrepõe o padrão, até um teto; sem
+    `limit` nenhum a tela cai no padrão `RELATORIO_AUDITORIA_LIMITE_PADRAO`.
+    Exportação (`formato` != None) ignora limite sempre — devolve tudo que
+    bate com o período, nunca trunca silenciosamente um PDF/Excel."""
+    if data_inicio is None and data_fim is None:
+        data_inicio = date.today() - timedelta(days=settings.RELATORIO_AUDITORIA_DIAS_PADRAO)
+
+    if formato is not None:
+        limite = None
+    elif limit is not None:
+        limite = min(limit, _AUDITORIA_LIMITE_MAXIMO)
+    else:
+        limite = settings.RELATORIO_AUDITORIA_LIMITE_PADRAO
+
+    relatorio = service.auditoria(
+        db, usuario, tipo, unidade_id, data_inicio, data_fim, limite, offset
+    )
 
     if formato is None:
         return relatorio

@@ -48,6 +48,12 @@ class RelatorioCustoPorSetorOut(BaseModel):
 
 class RelatorioAuditoriaOut(BaseModel):
     metadados: RelatorioMetadados
+    # Paginação (2026-08-19, diagnóstico de carga): `total` é quanto bate
+    # com o filtro aplicado (pode ser bem maior que `len(itens)`); `limit`
+    # é `None` só na exportação (PDF/Excel), que devolve tudo sem truncar.
+    total: int
+    limit: int | None
+    offset: int
     itens: list[MovimentacaoDetalhadaOut]
 
 

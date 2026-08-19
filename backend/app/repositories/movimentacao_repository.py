@@ -99,7 +99,14 @@ class MovimentacaoRepository:
         unidade_id: int | None = None,
         data_inicio: date | None = None,
         data_fim: date | None = None,
-    ) -> list[Movimentacao]:
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> tuple[list[Movimentacao], int]:
+        """`limit=None` devolve tudo que bate com o filtro, sem paginar —
+        usado só na exportação (PDF/Excel), onde truncar silenciosamente
+        seria pior que a tela lenta que a paginação existe pra evitar. A
+        tela (JSON puro) sempre manda um `limit`. `total` é a contagem
+        ANTES de aplicar limit/offset, pra a tela saber quanto falta."""
         query = db.query(Movimentacao)
 
         if tipo is not None:
@@ -121,7 +128,13 @@ class MovimentacaoRepository:
                 Movimentacao.data_hora <= datetime.combine(data_fim, datetime.max.time())
             )
 
-        return query.order_by(Movimentacao.data_hora.desc()).all()
+        total = query.count()
+
+        query = query.order_by(Movimentacao.data_hora.desc())
+        if limit is not None:
+            query = query.offset(offset).limit(limit)
+
+        return query.all(), total
 
     def listar_saidas_antimicrobianos(
         self, db: Session, unidade_id: int | list[int] | None = None

@@ -39,6 +39,19 @@ const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
 // de verdade, não construído especulativamente.
 const ABAS_SEM_EXPORTACAO: AbaRelatorio[] = ['antimicrobianos'];
 
+// Espelha RELATORIO_AUDITORIA_DIAS_PADRAO/LIMITE_PADRAO (backend/app/core/
+// config.py) — só pra pré-preencher o filtro de período na tela (o backend
+// já aplica esse padrão sozinho se a data vier vazia; isto aqui é só pra
+// o Coordenador VER o período aplicado em vez de ele acontecer invisível).
+const AUDITORIA_DIAS_PADRAO = 90;
+const AUDITORIA_LIMITE_PASSO = 200;
+
+function dataIsoHaDias(dias: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - dias);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Relatórios — 4 abas com o cabeçalho institucional acima delas
  * (docs/00_PROJETO.md seção 14). Cada aba some do menu de abas quando o
  * perfil não tem acesso (financeiro: farmacêutico/coordenador; auditoria:
@@ -78,6 +91,27 @@ export function RelatoriosPage() {
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimentacao | ''>('');
   const [dias, setDias] = useState('');
   const [diasMinimoAntimicrobiano, setDiasMinimoAntimicrobiano] = useState('');
+  const [limiteAuditoria, setLimiteAuditoria] = useState(AUDITORIA_LIMITE_PASSO);
+
+  // Ao entrar na aba de Auditoria, pré-preenche o período com os últimos
+  // 90 dias — o mesmo padrão que o backend aplicaria de qualquer forma se
+  // a data viesse vazia, só que aqui fica visível e ajustável em vez de
+  // acontecer escondido (2026-08-19, achado do diagnóstico de carga: sem
+  // isso a trilha inteira — 1192 linhas / 1,7MB no teste — vinha de uma
+  // vez só). Só preenche se o campo ainda estiver vazio, pra não pisar
+  // numa data que o usuário já tenha escolhido.
+  useEffect(() => {
+    if (abaAtiva === 'auditoria' && !dataInicio) {
+      setDataInicio(dataIsoHaDias(AUDITORIA_DIAS_PADRAO));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [abaAtiva]);
+
+  // Trocar de aba/filtro/unidade reseta quanto já foi "carregado a mais"
+  // na Auditoria — senão um "carregar mais" antigo vazaria pro filtro novo.
+  useEffect(() => {
+    setLimiteAuditoria(AUDITORIA_LIMITE_PASSO);
+  }, [abaAtiva, unidadeFiltro, dataInicio, dataFim, tipoFiltro]);
 
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -114,6 +148,7 @@ export function RelatoriosPage() {
                     tipo: tipoFiltro || undefined,
                     data_inicio: dataInicio || undefined,
                     data_fim: dataFim || undefined,
+                    limit: limiteAuditoria,
                   },
                 })
                 .then(setAuditoria)
@@ -135,7 +170,7 @@ export function RelatoriosPage() {
       .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar o relatório.')))
       .finally(() => setCarregando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [abaAtiva, token, unidadeFiltro, dataInicio, dataFim, tipoFiltro, dias, diasMinimoAntimicrobiano]);
+  }, [abaAtiva, token, unidadeFiltro, dataInicio, dataFim, tipoFiltro, dias, diasMinimoAntimicrobiano, limiteAuditoria]);
 
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null);
 
@@ -278,7 +313,9 @@ export function RelatoriosPage() {
           <TabelaConsolidado dados={consolidado} ehCoordenador={ehCoordenador} />
         )}
         {!carregando && abaAtiva === 'custo' && <TabelaCusto dados={custo} />}
-        {!carregando && abaAtiva === 'auditoria' && <TabelaAuditoria dados={auditoria} />}
+        {!carregando && abaAtiva === 'auditoria' && (
+          <TabelaAuditoria dados={auditoria} onCarregarMais={() => setLimiteAuditoria((l) => l + AUDITORIA_LIMITE_PASSO)} />
+        )}
         {!carregando && abaAtiva === 'vencimentos' && <TabelaVencimentos dados={vencimentos} ehCoordenador={ehCoordenador} />}
         {!carregando && abaAtiva === 'antimicrobianos' && <TabelaAntimicrobianos dados={antimicrobianos} />}
 
@@ -413,40 +450,54 @@ function detalheMovimentacao(mov: MovimentacaoDetalhadaOut): string {
   }
 }
 
-function TabelaAuditoria({ dados }: { dados: RelatorioAuditoriaOut | null }) {
+function TabelaAuditoria({ dados, onCarregarMais }: { dados: RelatorioAuditoriaOut | null; onCarregarMais: () => void }) {
   if (!dados) return null;
+  const temMais = dados.itens.length < dados.total;
   return (
-    <div className="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Data/hora</th>
-            <th>Tipo</th>
-            <th>Lote</th>
-            <th>Usuário</th>
-            <th>Detalhe</th>
-          </tr>
-        </thead>
-        <tbody>
-          {dados.itens.length === 0 && (
+    <>
+      <p className="note" style={{ marginTop: 0 }}>
+        Mostrando {dados.itens.length} de {dados.total} movimentação(ões) no período selecionado. Sem data
+        informada, o período padrão é os últimos 90 dias — digite uma data mais antiga pra ver além disso.
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead>
             <tr>
-              <td colSpan={5} className="vazio-tabela">
-                Nenhuma movimentação no período.
-              </td>
+              <th>Data/hora</th>
+              <th>Tipo</th>
+              <th>Lote</th>
+              <th>Usuário</th>
+              <th>Detalhe</th>
             </tr>
-          )}
-          {dados.itens.map((mov) => (
-            <tr key={mov.id}>
-              <td className="mono">{formatarDataHora(mov.data_hora)}</td>
-              <td>{labelTipoMovimentacao(mov.tipo)}</td>
-              <td className="mono">{mov.lote.numero_lote}</td>
-              <td>{mov.usuario.nome}</td>
-              <td>{detalheMovimentacao(mov)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {dados.itens.length === 0 && (
+              <tr>
+                <td colSpan={5} className="vazio-tabela">
+                  Nenhuma movimentação no período.
+                </td>
+              </tr>
+            )}
+            {dados.itens.map((mov) => (
+              <tr key={mov.id}>
+                <td className="mono">{formatarDataHora(mov.data_hora)}</td>
+                <td>{labelTipoMovimentacao(mov.tipo)}</td>
+                <td className="mono">{mov.lote.numero_lote}</td>
+                <td>{mov.usuario.nome}</td>
+                <td>{detalheMovimentacao(mov)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {temMais && (
+        <div className="actions" style={{ marginTop: 12 }}>
+          <button type="button" className="btn ghost" onClick={onCarregarMais}>
+            Carregar mais {Math.min(200, dados.total - dados.itens.length)}
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 

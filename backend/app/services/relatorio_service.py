@@ -159,16 +159,27 @@ class RelatorioService:
         unidade_id: int | None,
         data_inicio: date | None,
         data_fim: date | None,
+        limit: int | None,
+        offset: int = 0,
     ) -> RelatorioAuditoriaOut:
         """Só coordenador acessa (garantido no router) — trilha completa,
         nunca filtrada por unidade do usuário logado, só por filtro
-        explícito escolhido na tela."""
-        movimentacoes = self.movimentacao_repository.listar_auditoria(
-            db, tipo, unidade_id, data_inicio, data_fim
+        explícito escolhido na tela.
+
+        Paginação (2026-08-19, diagnóstico de carga): `limit=None` só na
+        exportação, que devolve tudo sem truncar; a tela sempre paginada
+        (o router já aplica um período padrão quando nenhuma data vem
+        informada, então a paginação aqui é sobretudo pro pior caso de
+        alguém pedir um período bem largo mesmo assim)."""
+        movimentacoes, total = self.movimentacao_repository.listar_auditoria(
+            db, tipo, unidade_id, data_inicio, data_fim, limit, offset
         )
 
         return RelatorioAuditoriaOut(
             metadados=self._metadados(usuario, "Trilha de Auditoria", unidade_id, db),
+            total=total,
+            limit=limit,
+            offset=offset,
             # `visivel_para` aplica a regra de paciente/prontuário
             # (seção 22 do doc) — hoje este relatório só é acessível ao
             # Coordenador (regra 7, router `relatorios.py`), então na

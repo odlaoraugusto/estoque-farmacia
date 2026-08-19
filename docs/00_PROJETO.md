@@ -343,3 +343,16 @@ Pacote grande, duas frentes pedidas juntas pelo cliente.
 - **Nova categoria de Saída** (`categoria_saida`: normal/emprestimo/doacao) — mesmo fluxo de Saída de sempre, só um metadado a mais pra alimentar a notificação acima. Sem tabela nova, sem tela nova.
 
 Testado via curl cobrindo cada mudança de permissão isoladamente (Farmacêutico ajusta e repõe carrinho, Coordenador repõe carrinho, Atendente continua barrado de tudo, Farmacêutico continua barrado de Auditoria, Farmacêutico vê consolidado) e ponta a ponta no navegador (popup com os 3 blocos, aba Antimicrobianos, checkbox no cadastro, tela de Descarte simplificada). **Achado no processo**: o comando de typecheck usado a sessão inteira (`tsc --noEmit`, sem `-p`) estava checando um `tsconfig.json` vazio (`files: []`) e nunca acusou erro nenhum, mesmo com bugs reais de tipo introduzidos nesta rodada (`Layout.tsx`/`DescartePage.tsx` referenciando uma permissão removida) — corrigido usando `tsc -p tsconfig.app.json --noEmit` daqui pra frente, que aponta pro config de verdade do app.
+
+## 28. Diagnóstico de carga + correção da Trilha de Auditoria (2026-08-19, mesmo dia)
+
+Teste de volume local (dataset ~25× maior, script fora do repositório — só no scratchpad da sessão) apontou um achado real: `GET /relatorios/auditoria` sem paginação nem período padrão devolvia a tabela `movimentacoes` inteira — 1192 linhas, 1,7MB, ~250ms no backend (5-10× mais lento que qualquer outro relatório) e ~1,3s do clique até a tela renderizar. Não bloqueava ninguém hoje (só Coordenador usa), mas cresce sem limite com uso real acumulado.
+
+**Correção implementada:**
+- `RELATORIO_AUDITORIA_DIAS_PADRAO` (90) e `RELATORIO_AUDITORIA_LIMITE_PADRAO` (200) em `app/core/config.py`.
+- `GET /relatorios/auditoria` sem `data_inicio`/`data_fim`: aplica os últimos 90 dias em vez do histórico inteiro. Tela sempre pagina em 200 (aceita `limit`/`offset` explícitos, teto de 5000, pra "carregar mais"). **Exportação (PDF/Excel) ignora o limite sempre** — nunca trunca um arquivo exportado silenciosamente, só o período (padrão ou escolhido) filtra.
+- `MovimentacaoRepository.listar_auditoria` agora devolve `(itens, total)` — `total` é a contagem antes de paginar, pra tela saber "quanto falta".
+- Frontend: ao entrar na aba, pré-preenche o campo de período com os últimos 90 dias (visível e editável, não um default escondido); mensagem "Mostrando X de Y"; botão "Carregar mais" cresce o `limit` em 200.
+- **Bug pego no processo**: a primeira versão do endpoint não expunha `limit` como parâmetro de query nenhum — o "carregar mais" do frontend mandava `limit=400` e o backend simplesmente ignorava, sempre voltando 200. Corrigido antes de ir pro ar.
+
+**Resultado remedido, mesmo dataset de carga**: 1277ms → 353ms do clique até renderizar (mesma metodologia de medição, ~3,6× mais rápido), payload de 1,72MB → 290KB sem filtro nenhum. "Carregar mais" testado (200→400 linhas). Exportação Excel confirmada sem truncar (todas as 1192 movimentações,~1198 linhas na planilha contando cabeçalho institucional). Zero saldo negativo após todos os testes.

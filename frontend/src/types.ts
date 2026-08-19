@@ -191,6 +191,9 @@ export interface RelatorioCustoPorSetorOut {
 
 export interface RelatorioAuditoriaOut {
   metadados: RelatorioMetadados;
+  total: number;
+  limit: number | null;
+  offset: number;
   itens: MovimentacaoDetalhadaOut[];
 }
 
