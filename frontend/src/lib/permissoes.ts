@@ -71,6 +71,12 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // Coordenador (é vigilância, não uma ação operacional).
     notificacaoAtividade: perfil === 'coordenador',
 
+    // Gestão de usuários (2026-08-20) — exclusiva do Coordenador. Ação
+    // administrativa mais sensível do sistema (controla quem tem acesso a
+    // tudo o mais); não entrou na equalização Farmacêutico=Coordenador da
+    // seção 27 do doc. Ver app/api/routes/usuarios.py.
+    gestaoUsuarios: perfil === 'coordenador',
+
     // Notificação de estoque crítico/vencendo ao logar (2026-08-15,
     // pedido do cliente) — mesmo par de perfis que já vê financeiro
     // (ver app/api/routes/relatorios.py, _PODE_VER_FINANCEIRO), mas é

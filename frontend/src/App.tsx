@@ -12,6 +12,7 @@ import { RelatoriosPage } from './pages/RelatoriosPage';
 import { MedicamentosPage } from './pages/MedicamentosPage';
 import { ReposicaoCarrinhoPage } from './pages/ReposicaoCarrinhoPage';
 import { AjustePage } from './pages/AjustePage';
+import { UsuariosPage } from './pages/UsuariosPage';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
               <Route path="/ajuste" element={<AjustePage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/medicamentos" element={<MedicamentosPage />} />
+              <Route path="/usuarios" element={<UsuariosPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -66,15 +66,16 @@ Editar o `.env` com os valores **reais** de produção:
 | `CORS_ORIGINS` | manter `*` é aceitável dado o contexto de rede interna sem internet (avaliado na revisão de segurança, seção 17), ou restringir ao IP/host do frontend se quiser mais rigor |
 | `HOSPITAL_NOME` / `HOSPITAL_ORGANIZACAO` | já vêm com o default correto |
 
-Rodar as migrations e criar os usuários reais da farmácia (substituindo os de teste):
+Rodar as migrations e criar **o primeiro usuário coordenador** (instalação nova não tem ninguém cadastrado ainda, então precisa desse passo manual único — depois disso, os demais usuários reais da equipe são cadastrados pela própria tela **Usuários** do sistema, logado como esse coordenador, não mais pelo script):
 
 ```bash
 alembic upgrade head
 
 python scripts/seed_usuarios.py --nome "Nome Completo" --login usuario.login \
     --senha "SenhaTemporariaForte!" --perfil coordenador --crf 12345-SP
-# repetir para cada farmacêutico/atendente real da equipe
 ```
+
+O script continua existindo (2026-08-20) só pra esse bootstrap inicial — ele também garante a existência das 4 unidades padrão (CAF/UTI/Centro Cirúrgico/Emergência), então rodar de novo não tem problema se precisar recriar o primeiro acesso. Farmacêuticos/atendentes reais da equipe: cadastrar depois pela tela **Usuários** (menu lateral, exclusiva do Coordenador) — cobre criar, promover/rebaixar perfil, desativar e resetar senha, sem precisar de acesso ao servidor.
 
 ### Rodar o backend como serviço (não como processo manual num terminal aberto)
 

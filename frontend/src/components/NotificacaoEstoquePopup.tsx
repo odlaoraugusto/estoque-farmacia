@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../lib/api';
-import { diasAteVencer, formatarData, formatarDataHora, labelTipoMovimentacao } from '../lib/formato';
+import { diasAteVencer, formatarData, formatarDataHora, labelTipoMovimentacao, nivelValidade } from '../lib/formato';
 import { permissoesDe } from '../lib/permissoes';
 import type {
   RelatorioAtividadeRecenteOut,
@@ -38,7 +38,11 @@ export function NotificacaoEstoquePopup() {
 
     Promise.all([
       api.get<RelatorioEstoqueCriticoOut>('/relatorios/estoque-critico', { token }),
-      api.get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', { token }),
+      // dias=60 (2026-08-20, ajuste de alertas): a régua agora tem 3
+      // níveis — vencido, menos de 30 dias, entre 30 e 60 — então a busca
+      // precisa cobrir a janela inteira, a divisão em níveis é feita no
+      // cliente a partir de `diasAteVencer` (ver nivelValidade em formato.ts).
+      api.get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', { token, params: { dias: 60 } }),
       buscarAtividade,
     ])
       .then(([critico, vencendo, atividade]) => {
@@ -65,13 +69,16 @@ export function NotificacaoEstoquePopup() {
   if (!aberto) return null;
 
   const itensCriticos = critico?.itens ?? [];
-  const dias = vencendo?.dias_considerados ?? 30;
 
-  // Já vencido é mais grave que "vencendo em breve" — vermelho e
-  // destacado, separado da lista azul de quem ainda está dentro do
-  // prazo (pedido do cliente, 2026-08-15).
-  const itensVencidos = (vencendo?.itens ?? []).filter((lote) => diasAteVencer(lote.data_validade) < 0);
-  const itensAVencer = (vencendo?.itens ?? []).filter((lote) => diasAteVencer(lote.data_validade) >= 0);
+  // 3 níveis de proximidade de vencimento (2026-08-20, ajuste pedido pelo
+  // cliente): vencido (vermelho) é o mais grave; menos de 30 dias
+  // (amarelo) e entre 30 e 60 dias (roxo) são avisos antecipados, cada
+  // um com destaque visual diferente — mesma régua de `nivelValidade`
+  // usada na tela Estoque atual, pra não divergir os limites em dois
+  // lugares.
+  const itensVencidos = (vencendo?.itens ?? []).filter((lote) => nivelValidade(diasAteVencer(lote.data_validade)) === 'vencido');
+  const itensAmarelo = (vencendo?.itens ?? []).filter((lote) => nivelValidade(diasAteVencer(lote.data_validade)) === 'amarelo');
+  const itensRoxo = (vencendo?.itens ?? []).filter((lote) => nivelValidade(diasAteVencer(lote.data_validade)) === 'roxo');
 
   return (
     <div className="modal-overlay" role="presentation" onClick={() => setAberto(false)}>
@@ -115,13 +122,25 @@ export function NotificacaoEstoquePopup() {
           </div>
         )}
 
-        {itensAVencer.length > 0 && (
-          <div className="alerta-bloco alerta-vencendo">
-            <h3>
-              Validade próxima (menos de {dias} dias) — {itensAVencer.length} lote(s)
-            </h3>
+        {itensAmarelo.length > 0 && (
+          <div className="alerta-bloco alerta-amarelo">
+            <h3>Vence em menos de 30 dias — {itensAmarelo.length} lote(s)</h3>
             <ul>
-              {itensAVencer.map((lote) => (
+              {itensAmarelo.map((lote) => (
+                <li key={lote.id}>
+                  <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
+                  {diasAteVencer(lote.data_validade)}d)
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {itensRoxo.length > 0 && (
+          <div className="alerta-bloco alerta-roxo">
+            <h3>Vence entre 30 e 60 dias — {itensRoxo.length} lote(s)</h3>
+            <ul>
+              {itensRoxo.map((lote) => (
                 <li key={lote.id}>
                   <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
                   {diasAteVencer(lote.data_validade)}d)

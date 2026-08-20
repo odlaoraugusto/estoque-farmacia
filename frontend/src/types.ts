@@ -61,6 +61,16 @@ export interface UsuarioResumo {
   crf: string | null;
 }
 
+export interface UsuarioOut {
+  id: number;
+  nome: string;
+  login: string;
+  perfil: Perfil;
+  crf: string | null;
+  ativo: boolean;
+  created_at: string;
+}
+
 export interface TokenResponse {
   access_token: string;
   token_type: string;

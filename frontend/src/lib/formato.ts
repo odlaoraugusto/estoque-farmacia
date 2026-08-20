@@ -36,6 +36,19 @@ export function diasAteVencer(dataValidade: string): number {
   return Math.round((validade.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+/** Nível de alerta de vencimento (2026-08-20, pedido do cliente) — mesma
+ * régua usada no popup de login e na tela Estoque atual, pra não
+ * duplicar os limites em dois lugares: vencido (vermelho), menos de 30
+ * dias (amarelo), entre 30 e 60 dias (roxo), fora disso não é alerta. */
+export type NivelValidade = 'vencido' | 'amarelo' | 'roxo' | 'ok';
+
+export function nivelValidade(dias: number): NivelValidade {
+  if (dias < 0) return 'vencido';
+  if (dias < 30) return 'amarelo';
+  if (dias <= 60) return 'roxo';
+  return 'ok';
+}
+
 const ORIGEM_LABEL: Record<string, string> = { compra: 'Compra', doacao: 'Doação' };
 export function labelOrigem(origem: string): string {
   return ORIGEM_LABEL[origem] ?? origem;

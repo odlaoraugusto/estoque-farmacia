@@ -356,3 +356,35 @@ Teste de volume local (dataset ~25× maior, script fora do repositório — só 
 - **Bug pego no processo**: a primeira versão do endpoint não expunha `limit` como parâmetro de query nenhum — o "carregar mais" do frontend mandava `limit=400` e o backend simplesmente ignorava, sempre voltando 200. Corrigido antes de ir pro ar.
 
 **Resultado remedido, mesmo dataset de carga**: 1277ms → 353ms do clique até renderizar (mesma metodologia de medição, ~3,6× mais rápido), payload de 1,72MB → 290KB sem filtro nenhum. "Carregar mais" testado (200→400 linhas). Exportação Excel confirmada sem truncar (todas as 1192 movimentações,~1198 linhas na planilha contando cabeçalho institucional). Zero saldo negativo após todos os testes.
+
+## 29. Gestão de usuários (2026-08-20)
+
+Cadastro de usuário era só via script de linha de comando (`scripts/seed_usuarios.py`), pensado pro bootstrap inicial na instalação — sem tela pra cadastrar gente nova depois do sistema no ar. Pedido do cliente: precisa disso pelo próprio sistema.
+
+- `GET/POST/PUT /usuarios` — **exclusivo do Coordenador** (não entrou na equalização Farmacêutico=Coordenador da seção 27 — é a ação administrativa mais sensível do sistema, controla quem tem acesso a tudo o mais).
+- Mesma regra de CRF do script: obrigatório quando o perfil resultante é farmacêutico ou coordenador (checado tanto na criação quanto na edição, considerando o perfil NOVO se estiver sendo trocado).
+- **Sem DELETE** — mesmo padrão de Medicamentos: "excluir" é marcar `ativo=false`, preserva a autoria de movimentações históricas (`usuario_id`) que referenciam esse usuário.
+- **`login` não é editável** depois de criado — só existe em `UsuarioCreate`, nunca em `UsuarioUpdate`. Evita alguém digitar errado na hora de editar e "perder" a própria conta.
+- **Reset de senha** embutido na edição — campo opcional, só reescreve o hash quando vem preenchido.
+- **Trava de auto-edição**: um Coordenador não consegue se auto-desativar nem mudar o próprio perfil por essa tela (bloqueado no service, não só escondido na UI) — numa farmácia pequena pode não ter um segundo coordenador pra desfazer um erro desses. Nome/CRF do próprio usuário continuam editáveis. Botão "Desativar" da própria linha vem desabilitado direto na tabela, além da checagem do backend.
+- Tela segue o mesmo padrão visual de Medicamentos (formulário de cadastro/edição + tabela com Editar/Desativar, checkbox "Mostrar inativos").
+
+Script `seed_usuarios.py` continua existindo só pro cadastro do **primeiro** coordenador numa instalação nova (instalação zerada não tem ninguém logado pra usar a tela ainda) — `docs/03_DEPLOY.md` atualizado pra deixar isso claro.
+
+Testado via curl: CRF obrigatório barrando criação/promoção sem ele, login duplicado rejeitado, as duas travas de auto-edição (desativar e mudar perfil), reset de senha confirmado via login real (senha antiga rejeitada, nova aceita, bloqueado corretamente por estar inativo até reativar). Ponta a ponta no navegador: item "Usuários" só aparece pro Coordenador, cadastro pela UI funcionando, campos Login/Perfil corretamente travados ao editar a própria conta, usuário criado pela tela conseguiu logar de verdade depois.
+
+## 30. Ajuste de alertas — 3 níveis de vencimento (2026-08-20)
+
+Pedido do cliente: a régua de "validade próxima" tinha só 2 estados (vencido = vermelho, a vencer em <30 dias = azul). Virou 3 níveis, cor por gravidade:
+
+- **Vencido** — vermelho (`--danger`, já existia).
+- **Menos de 30 dias** — amarelo (reaproveita `--warn`, já existia pro tile "risco de ruptura" e pro pill `.pend`).
+- **Entre 30 e 60 dias** — roxo, token novo (`--roxo`/`--roxo-bg`, luz e escuro).
+
+`nivelValidade(dias)` centralizado em `lib/formato.ts` — usado tanto no popup de login (`NotificacaoEstoquePopup.tsx`, 3 blocos: vermelho/amarelo/roxo) quanto na tabela "Estoque atual" (pill colorido por linha: `pill danger`/`pill pend`/`pill roxo`/`pill muted`), pra não duplicar os limites (30/60 dias) em dois lugares. A busca de `/relatorios/vencimentos-proximos` nesses dois pontos passou de `dias=30` (implícito, default do backend) pra `dias=60` explícito — a classificação em 3 níveis é feita no cliente a partir da data de validade, o backend não mudou (endpoint já aceitava `dias` como parâmetro).
+
+Rótulo do vencido na tabela também ficou mais claro: "venceu há Xd" em vez do confuso "vence em -Xd" que existia antes.
+
+`vencidosEmBreve` (Set de ids, computado só pra saber "está no pill colorido ou não") virou código morto depois dessa mudança — removido; `nivelValidade` já cobre a mesma checagem direto a partir de `diasAteVencer`.
+
+Testado no navegador: os 4 blocos do popup (crítico vermelho, vencidos vermelho, amarelo, roxo) com cores confirmadas via `getComputedStyle` batendo com os tokens certos; tabela Estoque atual com as 4 variantes de pill (24 vencidos, 29 amarelos, 6 roxos, 200 ok) nos mesmos números do popup.

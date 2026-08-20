@@ -107,6 +107,12 @@ export function Layout() {
               <span className="ic">▦</span>
               <span className="lbl">Relatórios</span>
             </NavLink>
+            {permissoes.gestaoUsuarios && (
+              <NavLink to="/usuarios" className="nav-btn">
+                <span className="ic">⚉</span>
+                <span className="lbl">Usuários</span>
+              </NavLink>
+            )}
           </nav>
 
           <div className="sidebar-foot">

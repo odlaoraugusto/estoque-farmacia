@@ -10,6 +10,7 @@ import {
   formatarMoeda,
   labelOrigem,
   labelAcondicionamento,
+  nivelValidade,
 } from '../lib/formato';
 import type { LoteDetalhadoOut, MedicamentoOut, RelatorioEstoqueConsolidadoOut, RelatorioVencimentosProximosOut, MovimentacaoDetalhadaOut } from '../types';
 
@@ -44,7 +45,11 @@ export function EstoquePage() {
       api.get<MedicamentoOut[]>('/medicamentos', { token }).then((r) => {
         if (!cancelado) setMedicamentos(r);
       }),
-      api.get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', { token }).then((r) => {
+      // dias=60 (2026-08-20, ajuste de alertas): a régua de vencimento
+      // tem 3 níveis agora (vencido / <30d amarelo / 30-60d roxo, ver
+      // nivelValidade em lib/formato.ts), então a busca precisa cobrir a
+      // janela inteira de 60 dias.
+      api.get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', { token, params: { dias: 60 } }).then((r) => {
         if (!cancelado) setVencimentos(r);
       }),
       api.get<MovimentacaoDetalhadaOut[]>('/transferencias/pendentes', { token }).then((r) => {
@@ -98,11 +103,6 @@ export function EstoquePage() {
     }
     return [...somaPorMedicamento.values()].filter((m) => m.minimo > 0 && m.total < m.minimo);
   }, [lotes, medicamentos]);
-
-  const vencidosEmBreve = useMemo(() => {
-    const idsVencendo = new Set((vencimentos?.itens ?? []).map((l) => l.id));
-    return idsVencendo;
-  }, [vencimentos]);
 
   // Busca client-side — os lotes da unidade já estão todos carregados,
   // não precisa de mais uma chamada à API. Casa por nome do medicamento
@@ -194,7 +194,7 @@ export function EstoquePage() {
                 )}
                 {lotesFiltrados.map((lote) => {
                   const dias = diasAteVencer(lote.data_validade);
-                  const vencendo = vencidosEmBreve.has(lote.id);
+                  const nivel = nivelValidade(dias);
                   return (
                     <tr key={lote.id}>
                       <td>{lote.medicamento.nome}</td>
@@ -207,8 +207,12 @@ export function EstoquePage() {
                       <td>
                         {lote.status_transferencia === 'em_transito' ? (
                           <span className="pill pend">em trânsito</span>
-                        ) : vencendo ? (
+                        ) : nivel === 'vencido' ? (
+                          <span className="pill danger">venceu há {Math.abs(dias)}d</span>
+                        ) : nivel === 'amarelo' ? (
                           <span className="pill pend">vence em {dias}d</span>
+                        ) : nivel === 'roxo' ? (
+                          <span className="pill roxo">vence em {dias}d</span>
                         ) : (
                           <span className="pill muted">ok</span>
                         )}

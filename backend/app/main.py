@@ -14,6 +14,7 @@ from app.api.routes.relatorios import router as relatorios_router
 from app.api.routes.saidas import router as saidas_router
 from app.api.routes.transferencias import router as transferencias_router
 from app.api.routes.unidades import router as unidades_router
+from app.api.routes.usuarios import router as usuarios_router
 from app.core.config import settings
 from app.database.database import engine
 
@@ -51,6 +52,7 @@ app.include_router(ajustes_router)
 app.include_router(lotes_router)
 app.include_router(relatorios_router)
 app.include_router(pacientes_router)
+app.include_router(usuarios_router)
 
 
 @app.get("/")
