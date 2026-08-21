@@ -222,7 +222,7 @@ export function EstoquePage() {
                         ) : nivel === 'amarelo' ? (
                           <span className="pill pend">vence em {dias}d</span>
                         ) : nivel === 'roxo' ? (
-                          <span className="pill roxo">vence em {dias}d</span>
+                          <span className="pill pend">OK</span>
                         ) : (
                           <span className="pill muted">ok</span>
                         )}

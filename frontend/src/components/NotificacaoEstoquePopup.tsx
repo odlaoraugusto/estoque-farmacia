@@ -133,6 +133,9 @@ export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAle
           <ul>
             {alertas.itensRoxo.map((lote) => (
               <li key={lote.id}>
+                <span className="pill pend" style={{ marginRight: 6 }}>
+                  OK
+                </span>
                 <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
                 {diasAteVencer(lote.data_validade)}d)
               </li>
