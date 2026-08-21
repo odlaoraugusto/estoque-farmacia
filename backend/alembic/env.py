@@ -13,6 +13,7 @@ from app.models import (  # noqa: F401
     medicamento,
     movimentacao,
     paciente,
+    solicitacao_transferencia,
     unidade,
     usuario,
 )

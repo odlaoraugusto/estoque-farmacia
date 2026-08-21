@@ -4,7 +4,7 @@ import { permissoesDe } from '../lib/permissoes';
 import { classeRailUnidade, labelPerfil } from '../lib/formato';
 import { NotificacaoEstoquePopup } from './NotificacaoEstoquePopup';
 
-/** Casca da aplicação pós-login: barra institucional FESFSUS no topo +
+/** Casca da aplicação pós-login: barra institucional no topo +
  * sidebar de navegação + conteúdo da tela. Itens de menu sem permissão
  * somem da lista (não aparecem desabilitados) — pedido explícito do
  * cliente, replicado do protótipo aprovado. */
@@ -12,12 +12,11 @@ export function Layout() {
   const { config, usuario, trocarUnidade, sair } = useAuth();
   const permissoes = permissoesDe(usuario);
 
-  const hospitalNome = config?.hospital_nome ?? 'Hospital Materno Infantil Dr. Joaquim Sampaio';
-  const organizacao = config?.organizacao ?? 'Fundação Estatal Saúde da Família';
+  const hospitalNome = config?.hospital_nome ?? 'Hospital Exemplo';
+  const organizacao = config?.organizacao ?? 'Rede de Saúde Exemplo';
 
   return (
     <div className="shell">
-      <NotificacaoEstoquePopup />
       <div className="topbar">
         <div className="fesf-id">
           <span className="fesf-org">{organizacao}</span>
@@ -25,6 +24,7 @@ export function Layout() {
         </div>
         <span className="fesf-div" />
         <span className="fesf-app">Estoque Farmácia — Farmácia Hospitalar</span>
+        <NotificacaoEstoquePopup />
       </div>
 
       <div className="app">
@@ -85,16 +85,16 @@ export function Layout() {
                 <span className="lbl">Saída / Dispensação</span>
               </NavLink>
             )}
+            {permissoes.saidaExterna && (
+              <NavLink to="/saida-externa" className="nav-btn">
+                <span className="ic">⇥</span>
+                <span className="lbl">Empréstimo / Doação</span>
+              </NavLink>
+            )}
             {permissoes.reporCarrinho && (
               <NavLink to="/reposicao-carrinho" className="nav-btn">
                 <span className="ic">↻</span>
                 <span className="lbl">Reposição de Carrinhos</span>
-              </NavLink>
-            )}
-            {permissoes.descarte && (
-              <NavLink to="/descarte" className="nav-btn">
-                <span className="ic">✕</span>
-                <span className="lbl">Descarte</span>
               </NavLink>
             )}
             {permissoes.ajustarEstoque && (

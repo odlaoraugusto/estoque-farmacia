@@ -10,6 +10,7 @@ class MedicamentoCreate(BaseModel):
     acondicionamento: AcondicionamentoEnum
     estoque_minimo: int = 0
     e_antimicrobiano: bool = False
+    e_controlado: bool = False
 
 
 class MedicamentoUpdate(BaseModel):
@@ -20,6 +21,7 @@ class MedicamentoUpdate(BaseModel):
     estoque_minimo: int | None = None
     ativo: bool | None = None
     e_antimicrobiano: bool | None = None
+    e_controlado: bool | None = None
 
 
 class MedicamentoOut(BaseModel):
@@ -31,5 +33,6 @@ class MedicamentoOut(BaseModel):
     estoque_minimo: int
     ativo: bool
     e_antimicrobiano: bool
+    e_controlado: bool
 
     model_config = ConfigDict(from_attributes=True)

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.database.session import get_db
-from app.schemas.auth import LoginRequest, SelecionarUnidadeRequest, TokenResponse
+from app.schemas.auth import LoginRequest, SelecionarUnidadeRequest, TokenResponse, TrocarSenhaRequest
 from app.schemas.usuario import UsuarioMe
 from app.services.auth_service import AuthService
 
@@ -31,3 +31,15 @@ def selecionar_unidade(
 @router.get("/me", response_model=UsuarioMe)
 def me(usuario: UsuarioMe = Depends(get_current_user)):
     return usuario
+
+
+@router.post("/trocar-senha", status_code=204)
+def trocar_senha(
+    dados: TrocarSenhaRequest,
+    usuario: UsuarioMe = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Troca de senha obrigatória no primeiro login (senha padrão ou
+    resetada pelo Coordenador) — não exige unidade ativa selecionada,
+    só sessão válida."""
+    service.trocar_senha(db, usuario, dados)

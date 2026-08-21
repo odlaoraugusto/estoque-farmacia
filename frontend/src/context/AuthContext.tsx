@@ -11,7 +11,9 @@ interface AuthContextValue {
   token: string | null;
   usuario: UsuarioMe | null;
   precisaSelecionarUnidade: boolean;
+  precisaTrocarSenha: boolean;
   entrar: (login: string, senha: string) => Promise<void>;
+  trocarSenha: (senhaAtual: string, senhaNova: string) => Promise<void>;
   selecionarUnidade: (unidadeId: number) => Promise<void>;
   trocarUnidade: () => void;
   sair: () => void;
@@ -36,8 +38,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(setConfig)
       .catch(() => {
         setConfig({
-          hospital_nome: 'Hospital Materno Infantil Dr. Joaquim Sampaio',
-          organizacao: 'Fundação Estatal Saúde da Família',
+          hospital_nome: 'Hospital Exemplo',
+          organizacao: 'Rede de Saúde Exemplo',
         });
       });
   }, []);
@@ -66,6 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(resposta.usuario);
     setForcarSelecaoUnidade(false);
   }, []);
+
+  const trocarSenha = useCallback(
+    async (senhaAtual: string, senhaNova: string) => {
+      await api.post('/auth/trocar-senha', { senha_atual: senhaAtual, senha_nova: senhaNova }, { token });
+      // Backend não reemite token (o flag não vive no JWT) — atualiza só
+      // o estado local, que é o que a tela de login consulta pra decidir
+      // se ainda precisa mostrar o passo de troca de senha.
+      setUsuario((atual) => (atual ? { ...atual, deve_trocar_senha: false } : atual));
+    },
+    [token],
+  );
 
   const selecionarUnidade = useCallback(
     async (unidadeId: number) => {
@@ -98,12 +111,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       token,
       usuario,
       precisaSelecionarUnidade: !!token && (usuario?.unidade_ativa_id == null || forcarSelecaoUnidade),
+      precisaTrocarSenha: !!token && usuario?.deve_trocar_senha === true,
       entrar,
+      trocarSenha,
       selecionarUnidade,
       trocarUnidade,
       sair,
     }),
-    [carregandoSessao, config, token, usuario, forcarSelecaoUnidade, entrar, selecionarUnidade, trocarUnidade, sair],
+    [
+      carregandoSessao,
+      config,
+      token,
+      usuario,
+      forcarSelecaoUnidade,
+      entrar,
+      trocarSenha,
+      selecionarUnidade,
+      trocarUnidade,
+      sair,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

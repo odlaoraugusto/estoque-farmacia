@@ -4,10 +4,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Configurações da instalação, lidas de variáveis de ambiente/.env.
 
-    Cada hospital da rede FESFSUS roda uma instalação própria (um
-    servidor local por hospital, sem multi-tenant — ver docs/00_PROJETO.md
-    seção 2), então nome do hospital e organização são configuração fixa
-    da instalação, não uma tabela no banco.
+    Cada hospital da rede roda uma instalação própria (um servidor local
+    por hospital, sem multi-tenant — ver docs/00_PROJETO.md seção 2),
+    então nome do hospital e organização são configuração fixa da
+    instalação (via `.env`, nunca hardcoded aqui), não uma tabela no
+    banco. Os valores abaixo são só placeholder genérico — cada
+    instalação real define os seus em `.env`.
     """
 
     DATABASE_URL: str
@@ -20,8 +22,8 @@ class Settings(BaseSettings):
 
     # Identificação institucional (barra superior do frontend + cabeçalho
     # dos relatórios).
-    HOSPITAL_NOME: str = "Hospital Materno Infantil Dr. Joaquim Sampaio"
-    HOSPITAL_ORGANIZACAO: str = "Fundação Estatal Saúde da Família"
+    HOSPITAL_NOME: str = "Hospital Exemplo"
+    HOSPITAL_ORGANIZACAO: str = "Rede de Saúde Exemplo"
 
     # Janela padrão do relatório de vencimentos próximos.
     RELATORIO_VENCIMENTO_DIAS: int = 30

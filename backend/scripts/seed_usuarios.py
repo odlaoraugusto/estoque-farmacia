@@ -18,7 +18,7 @@ Perfis válidos: coordenador | farmaceutico | atendente
 farmacêuticos por formação — docs/00_PROJETO.md seção 6).
 
 Este script também garante a existência das 4 unidades padrão da rede
-FESFSUS (CAF, UTI, Centro Cirúrgico, Emergência) caso ainda não existam.
+da rede (CAF, UTI, Centro Cirúrgico, Emergência) caso ainda não existam.
 """
 
 import argparse
@@ -69,6 +69,10 @@ def criar_usuario(nome: str, login: str, senha: str, perfil: str, crf: str | Non
             perfil=perfil_enum,
             crf=crf,
             ativo=True,
+            # Mesma regra da tela de Usuários (2026-08-20): senha
+            # informada aqui é temporária, obrigatória a trocar no
+            # primeiro login (POST /auth/trocar-senha).
+            deve_trocar_senha=True,
         )
         db.add(usuario)
         db.commit()

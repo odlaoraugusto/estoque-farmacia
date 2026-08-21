@@ -22,13 +22,27 @@ class EntradaCreate(BaseModel):
     numero_nota_fiscal: str | None = None
     numero_afm: str | None = None
 
+    # Procedência externa (2026-08-20): obrigatória quando origem é
+    # empréstimo — de qual instituição veio o item. Espelha
+    # `destino_externo` da Saída (pra onde vai um empréstimo/doação).
+    procedencia_externa: str | None = None
+
     @model_validator(mode="after")
     def normalizar_por_origem(self) -> "EntradaCreate":
         """Nunca confia no que o cliente manda para valor/nota fiscal:
-        doação sempre zera o valor e dispensa nota fiscal; compra exige
-        ambos."""
-        if self.origem == OrigemEnum.doacao:
+        doação/empréstimo sempre zeram o valor e dispensam nota fiscal;
+        compra exige ambos. Empréstimo exige procedência (de onde veio)."""
+        if self.origem in (OrigemEnum.doacao, OrigemEnum.emprestimo):
             self.valor_unitario = Decimal("0")
+
+            if self.origem == OrigemEnum.emprestimo and not (
+                self.procedencia_externa and self.procedencia_externa.strip()
+            ):
+                raise ValueError(
+                    "procedencia_externa é obrigatória para entrada com "
+                    "origem=emprestimo."
+                )
+
             return self
 
         if self.origem == OrigemEnum.compra:
@@ -56,6 +70,7 @@ class LoteOut(BaseModel):
     origem: OrigemEnum
     numero_nota_fiscal: str | None
     numero_afm: str | None
+    procedencia_externa: str | None
     data_entrada: datetime
     usuario_entrada_id: int
     status_transferencia: StatusTransferenciaEnum | None

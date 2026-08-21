@@ -2,7 +2,12 @@ from datetime import date, datetime
 
 from sqlalchemy.orm import Session
 
-from app.models.enums import CategoriaSaidaEnum, StatusDescarteEnum, TipoMovimentacaoEnum
+from app.models.enums import (
+    CATEGORIAS_SAIDA_EXTERNA,
+    CategoriaSaidaEnum,
+    StatusDescarteEnum,
+    TipoMovimentacaoEnum,
+)
 from app.models.lote import Lote
 from app.models.medicamento import Medicamento
 from app.models.movimentacao import Movimentacao
@@ -136,20 +141,28 @@ class MovimentacaoRepository:
 
         return query.all(), total
 
-    def listar_saidas_antimicrobianos(
-        self, db: Session, unidade_id: int | list[int] | None = None
+    def listar_saidas_vigilancia(
+        self,
+        db: Session,
+        categoria: str,
+        unidade_id: int | list[int] | None = None,
     ) -> list[Movimentacao]:
-        """Alimenta o DOT (Days of Therapy, 2026-08-19): toda Saída de um
-        medicamento marcado `e_antimicrobiano`, com paciente vinculado
-        (sem paciente não dá pra agrupar por paciente — na prática nunca
-        deveria faltar aqui, `SaidaService` já exige isso na origem)."""
+        """Alimenta os relatórios de vigilância diária por paciente —
+        antimicrobiano (DOT, 2026-08-19) e controlado (2026-08-20, mesma
+        mecânica, sem o corte de "uso prolongado" do DOT). `categoria`
+        escolhe qual coluna booleana do medicamento filtrar. Só saídas
+        com paciente vinculado (sem paciente não dá pra agrupar — na
+        prática nunca deveria faltar aqui, `SaidaService` já exige isso
+        na origem para ambas as classes)."""
+        coluna = Medicamento.e_antimicrobiano if categoria == "antimicrobiano" else Medicamento.e_controlado
+
         query = (
             db.query(Movimentacao)
             .join(Lote, Movimentacao.lote_id == Lote.id)
             .join(Medicamento, Lote.medicamento_id == Medicamento.id)
             .filter(
                 Movimentacao.tipo == TipoMovimentacaoEnum.saida,
-                Medicamento.e_antimicrobiano.is_(True),
+                coluna.is_(True),
                 Movimentacao.paciente_prontuario.isnot(None),
             )
         )
@@ -161,14 +174,53 @@ class MovimentacaoRepository:
 
         return query.order_by(Movimentacao.data_hora.asc()).all()
 
+    def listar_transferencias(
+        self,
+        db: Session,
+        unidade_id: int | None = None,
+        data_inicio: date | None = None,
+        data_fim: date | None = None,
+    ) -> list[Movimentacao]:
+        """Rastreabilidade de transferências entre unidades (2026-08-20) —
+        toda transferência (pendente ou já confirmada), não só as
+        pendentes (`listar_transferencias_pendentes` já cobre essas).
+        `unidade_id` bate em origem OU destino, pra a satélite conseguir
+        ver tanto o que pediu quanto o que já recebeu."""
+        query = db.query(Movimentacao).filter(
+            Movimentacao.tipo == TipoMovimentacaoEnum.transferencia
+        )
+
+        if unidade_id is not None:
+            query = query.filter(
+                (Movimentacao.unidade_origem_id == unidade_id)
+                | (Movimentacao.unidade_destino_id == unidade_id)
+            )
+
+        if data_inicio is not None:
+            query = query.filter(
+                Movimentacao.data_hora >= datetime.combine(data_inicio, datetime.min.time())
+            )
+
+        if data_fim is not None:
+            query = query.filter(
+                Movimentacao.data_hora <= datetime.combine(data_fim, datetime.max.time())
+            )
+
+        return query.order_by(Movimentacao.data_hora.desc()).all()
+
     def listar_atividade_recente(
         self,
         db: Session,
         desde: datetime,
         unidade_id: int | list[int] | None = None,
     ) -> list[Movimentacao]:
-        """Alimenta a notificação do Coordenador (2026-08-19): descartes,
-        ajustes e saídas de empréstimo/doação a partir de `desde`."""
+        """Alimenta a notificação do Coordenador (2026-08-19): ajustes e
+        saídas de empréstimo/doação/permuta/vencimento a partir de
+        `desde` (`descarte` continua no filtro só por causa de registros
+        históricos anteriores a 2026-08-20 — a tela que criava esse tipo
+        foi removida, substituída pela categoria `vencimento` de
+        Saída)."""
+        categorias_notificaveis = (*CATEGORIAS_SAIDA_EXTERNA, CategoriaSaidaEnum.vencimento)
         query = db.query(Movimentacao).filter(
             Movimentacao.data_hora >= desde,
             (
@@ -176,9 +228,7 @@ class MovimentacaoRepository:
                 | (Movimentacao.tipo == TipoMovimentacaoEnum.ajuste)
                 | (
                     (Movimentacao.tipo == TipoMovimentacaoEnum.saida)
-                    & Movimentacao.categoria_saida.in_(
-                        [CategoriaSaidaEnum.emprestimo, CategoriaSaidaEnum.doacao]
-                    )
+                    & Movimentacao.categoria_saida.in_(categorias_notificaveis)
                 )
             ),
         )

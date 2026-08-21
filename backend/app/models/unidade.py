@@ -10,7 +10,7 @@ class Unidade(Base):
     id = Column(Integer, primary_key=True)
 
     # CAF | UTI | Centro Cirúrgico | Emergência (livre, não é enum fechado
-    # para não exigir migração se a rede FESFSUS abrir mais unidades) —
+    # para não exigir migração se o hospital abrir mais unidades) —
     # mais, desde 2026-08-13, os 18 carrinhos de emergência (tipo=carrinho).
     # String(150): alguns nomes de carrinho passam de 50 caracteres.
     nome = Column(String(150), unique=True, nullable=False)

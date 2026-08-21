@@ -13,16 +13,22 @@ from app.schemas.relatorio import (
     RelatorioAntimicrobianoOut,
     RelatorioAtividadeRecenteOut,
     RelatorioAuditoriaOut,
+    RelatorioConsumoMedicamentosOut,
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoOut,
     RelatorioEstoqueCriticoOut,
+    RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
 from app.schemas.usuario import UsuarioMe
 from app.services.exportacao.relatorio_tabela_builder import (
+    tabela_antimicrobianos,
     tabela_auditoria,
+    tabela_consumo_medicamentos,
     tabela_custo_por_setor,
     tabela_estoque_consolidado,
+    tabela_estoque_critico,
+    tabela_transferencias,
     tabela_vencimentos_proximos,
 )
 from app.services.relatorio_service import RelatorioService
@@ -79,6 +85,29 @@ def relatorio_custo_por_setor(
     return exportar_relatorio(formato, "custo-por-setor", tabela_custo_por_setor(relatorio))
 
 
+@router.get("/consumo-medicamentos", response_model=RelatorioConsumoMedicamentosOut)
+def relatorio_consumo_medicamentos(
+    unidade_id: int | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    formato: FormatoExportacao | None = None,
+    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
+    db: Session = Depends(get_db),
+):
+    """Série histórica mensal de consumo de medicamentos (2026-08-20) —
+    quanto foi efetivamente dispensado (Saída normal) por mês, sem
+    filtro de data aplica a tudo que existir."""
+    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
+    relatorio = service.consumo_medicamentos(db, usuario, unidade_escopo, data_inicio, data_fim)
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(
+        formato, "consumo-medicamentos", tabela_consumo_medicamentos(relatorio)
+    )
+
+
 _AUDITORIA_LIMITE_MAXIMO = 5000  # trava pra "carregar mais" não virar a mesma consulta sem fim de volta
 
 
@@ -130,6 +159,7 @@ def relatorio_auditoria(
 @router.get("/estoque-critico", response_model=RelatorioEstoqueCriticoOut)
 def relatorio_estoque_critico(
     unidade_id: int | None = None,
+    formato: FormatoExportacao | None = None,
     usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
     db: Session = Depends(get_db),
 ):
@@ -138,13 +168,19 @@ def relatorio_estoque_critico(
     perfil de quem já vê o financeiro, embora o dado em si (quantidade
     de medicamento) não seja sensível como paciente/prontuário."""
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
-    return service.estoque_critico(db, usuario, unidade_escopo)
+    relatorio = service.estoque_critico(db, usuario, unidade_escopo)
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(formato, "estoque-critico", tabela_estoque_critico(relatorio))
 
 
 @router.get("/antimicrobianos", response_model=RelatorioAntimicrobianoOut)
 def relatorio_antimicrobianos(
     unidade_id: int | None = None,
     dias_minimo: int = 7,
+    formato: FormatoExportacao | None = None,
     usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
     db: Session = Depends(get_db),
 ):
@@ -155,7 +191,32 @@ def relatorio_antimicrobianos(
     pelo construtor `visivel_para` (não tem "consultar com dado
     oculto" aqui, é tudo ou nada pelo próprio endpoint)."""
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
-    return service.antimicrobianos_uso_prolongado(db, usuario, unidade_escopo, dias_minimo)
+    relatorio = service.antimicrobianos_uso_prolongado(db, usuario, unidade_escopo, dias_minimo)
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(formato, "antimicrobianos", tabela_antimicrobianos(relatorio))
+
+
+@router.get("/controlados", response_model=RelatorioAntimicrobianoOut)
+def relatorio_controlados(
+    unidade_id: int | None = None,
+    dias_minimo: int = 0,
+    formato: FormatoExportacao | None = None,
+    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
+    db: Session = Depends(get_db),
+):
+    """Vigilância diária de medicamentos controlados (2026-08-20) — mesma
+    mecânica do relatório de antimicrobianos, mas sem o corte de "uso
+    prolongado" (padrão `dias_minimo=0`: toda dispensação aparece)."""
+    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
+    relatorio = service.controlados_dispensacao(db, usuario, unidade_escopo, dias_minimo)
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(formato, "controlados", tabela_antimicrobianos(relatorio))
 
 
 @router.get("/atividade-recente", response_model=RelatorioAtividadeRecenteOut)
@@ -170,6 +231,29 @@ def relatorio_atividade_recente(
     Coordenador (reaproveita `_PODE_VER_AUDITORIA`: é vigilância, não
     uma tela operacional)."""
     return service.atividade_recente(db, usuario, unidade_id, dias)
+
+
+@router.get("/transferencias", response_model=RelatorioTransferenciasOut)
+def relatorio_transferencias(
+    unidade_id: int | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    formato: FormatoExportacao | None = None,
+    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
+    db: Session = Depends(get_db),
+):
+    """Rastreabilidade de transferências entre unidades (2026-08-20) —
+    confirma se um medicamento realmente saiu de uma unidade e chegou na
+    outra, com quem enviou/confirmou e eventual divergência de
+    quantidade. `unidade_id` bate em origem OU destino (ver
+    resolver_unidade_escopo: Atendente só vê a própria unidade ativa)."""
+    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
+    relatorio = service.transferencias(db, usuario, unidade_escopo, data_inicio, data_fim)
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(formato, "transferencias", tabela_transferencias(relatorio))
 
 
 @router.get("/vencimentos-proximos", response_model=RelatorioVencimentosProximosOut)

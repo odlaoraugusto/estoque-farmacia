@@ -25,6 +25,14 @@ class Usuario(Base):
 
     ativo = Column(Boolean, nullable=False, default=True, server_default="true")
 
+    # Senha padrão obrigatória a trocar (2026-08-20): todo usuário novo
+    # (criado pela tela de Usuários ou pelo script de bootstrap) nasce
+    # com este flag True e a senha padrão "Senha123!" — o backend recusa
+    # `POST /auth/selecionar-unidade` até passar por `POST /auth/
+    # trocar-senha`, que zera o flag. Reset manual de senha pelo
+    # Coordenador (UsuarioUpdate.senha) também liga este flag de novo.
+    deve_trocar_senha = Column(Boolean, nullable=False, default=False, server_default="false")
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),

@@ -48,6 +48,13 @@ class Medicamento(Base):
     # com um campo irmão, sem precisar generalizar isso agora.
     e_antimicrobiano = Column(Boolean, nullable=False, default=False, server_default="false")
 
+    # Medicamento controlado (2026-08-20) — a classe "irmã" antecipada no
+    # comentário acima: mesma regra de paciente/prontuário obrigatório na
+    # Saída (SaidaService), mesmo relatório de vigilância diária
+    # (RelatorioService, mas sem o corte de "dias mínimo" do DOT — aqui
+    # todo dia de dispensação importa, não só uso prolongado).
+    e_controlado = Column(Boolean, nullable=False, default=False, server_default="false")
+
     # Não faz parte do doc original, mas evita exclusão física do
     # cadastro (que quebraria FK de lotes históricos) — descontinuar um
     # medicamento vira "inativo" em vez de DELETE.

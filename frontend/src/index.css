@@ -1,15 +1,16 @@
 /* Estoque Farmácia — design system unificado sob a paleta oficial da
-   FESFSUS (docs/04_IDENTIDADE_VISUAL.md e Manual de Identidade Visual,
-   ambos derivados de "Manual de Aplicação de Marca - FESFSUS - 2024").
-   As 5 cores institucionais (roxo, lis, verde-água, menta, cinza) foram
-   suavizadas em tom pastel para uso denso de tela; os hexadecimais
-   oficiais ficam intactos na barra institucional e no rodapé de
-   relatórios, como manda o manual de marca. Mesmos nomes de classe do
-   protótipo aprovado — só os valores de cor mudaram. */
+   rede/cliente (docs/04_IDENTIDADE_VISUAL.md e Manual de Identidade
+   Visual, ambos derivados do manual de marca fornecido pelo cliente —
+   não incluído neste repositório público). As 5 cores institucionais
+   (roxo, lis, verde-água, menta, cinza) foram suavizadas em tom pastel
+   para uso denso de tela; os hexadecimais oficiais ficam intactos na
+   barra institucional e no rodapé de relatórios, como manda o manual de
+   marca. Mesmos nomes de classe do protótipo aprovado — só os valores
+   de cor mudaram. */
 
 :root {
-  /* cores oficiais da marca FESFSUS — não suavizar, usar só em contexto
-     institucional (barra superior, régua de 4 cores, letterhead) */
+  /* cores oficiais da marca do cliente — não suavizar, usar só em
+     contexto institucional (barra superior, régua de 4 cores, letterhead) */
   --fesf-purple: #61358c;
   --fesf-lavender: #7572a7;
   --fesf-teal: #79bfb4;
@@ -170,6 +171,33 @@ a {
   color: #e3d6ec;
   margin-left: auto;
   white-space: nowrap;
+}
+
+.sino-alertas {
+  position: relative;
+  background: none;
+  border: none;
+  color: #f7f3fa;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  margin-left: 12px;
+  flex: none;
+}
+.sino-alertas:hover { opacity: 0.8; }
+.sino-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  min-width: 14px;
 }
 
 .app {

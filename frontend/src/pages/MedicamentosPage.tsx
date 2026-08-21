@@ -14,6 +14,7 @@ const FORM_VAZIO = {
   acondicionamento: 'ambiente' as Acondicionamento,
   estoqueMinimo: '',
   eAntimicrobiano: false,
+  eControlado: false,
 };
 
 /** Cadastro de medicamentos — Farmacêutico cadastra sozinho, sem fluxo de
@@ -76,6 +77,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
       acondicionamento: m.acondicionamento,
       estoqueMinimo: String(m.estoque_minimo),
       eAntimicrobiano: m.e_antimicrobiano,
+      eControlado: m.e_controlado,
     });
     setErro(null);
     setSucesso(null);
@@ -99,6 +101,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
         acondicionamento: form.acondicionamento,
         estoque_minimo: Number(form.estoqueMinimo || 0),
         e_antimicrobiano: form.eAntimicrobiano,
+        e_controlado: form.eControlado,
       };
       if (editandoId == null) {
         await api.post('/medicamentos', corpo, { token });
@@ -133,7 +136,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
     <section>
       <div className="screen-head">
         <h1>Medicamentos</h1>
-        <span className="screen-tag">cadastro genérico — não é o estoque em si</span>
+        <span className="screen-tag">cadastro de medicamentos</span>
       </div>
       <p className="screen-sub">
         Cadastro base usado na busca da tela de Entrada. Desativar um item não apaga o histórico de lotes já
@@ -227,6 +230,21 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
               Exige paciente/prontuário na Saída — vigilância de uso prolongado (mais de 7 dias).
             </span>
           </div>
+          <div className="field">
+            <label htmlFor="med-controlado" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                id="med-controlado"
+                type="checkbox"
+                style={{ width: 'auto' }}
+                checked={form.eControlado}
+                onChange={(e) => setForm((f) => ({ ...f, eControlado: e.target.checked }))}
+              />
+              É controlado
+            </label>
+            <span className="screen-sub" style={{ margin: 0, fontSize: 12 }}>
+              Exige paciente/prontuário na Saída — controle diário de dispensação.
+            </span>
+          </div>
         </div>
         <div className="actions">
           <button type="submit" className="btn" disabled={enviando}>
@@ -260,6 +278,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
                   <th>Acondicionamento</th>
                   <th className="num">Estoque mínimo</th>
                   <th>Antimicrobiano</th>
+                  <th>Controlado</th>
                   <th>Status</th>
                   <th></th>
                 </tr>
@@ -267,7 +286,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
               <tbody>
                 {medicamentos.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="vazio-tabela">
+                    <td colSpan={9} className="vazio-tabela">
                       Nenhum medicamento cadastrado.
                     </td>
                   </tr>
@@ -281,6 +300,9 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
                     <td className="num">{m.estoque_minimo}</td>
                     <td>
                       {m.e_antimicrobiano ? <span className="pill pend">sim</span> : <span className="pill muted">não</span>}
+                    </td>
+                    <td>
+                      {m.e_controlado ? <span className="pill pend">sim</span> : <span className="pill muted">não</span>}
                     </td>
                     <td>
                       <span className={`pill ${m.ativo ? 'ok' : 'muted'}`}>{m.ativo ? 'ativo' : 'inativo'}</span>

@@ -49,6 +49,11 @@ class Lote(Base):
     numero_nota_fiscal = Column(String(50), nullable=True)
     numero_afm = Column(String(50), nullable=True)
 
+    # Procedência externa (2026-08-20) — obrigatório se origem=emprestimo
+    # (de qual instituição veio); espelha `Movimentacao.destino_externo`
+    # do lado da Saída. Nulo para compra/doação.
+    procedencia_externa = Column(String(200), nullable=True)
+
     data_entrada = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     usuario_entrada_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
 

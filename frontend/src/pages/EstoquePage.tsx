@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
+import { ConteudoAlertas } from '../components/NotificacaoEstoquePopup';
+import { useAlertasEstoque } from '../hooks/useAlertasEstoque';
 import {
   classeRailUnidade,
   diasAteVencer,
@@ -118,12 +120,13 @@ export function EstoquePage() {
   }, [lotes, busca]);
 
   const tituloUnidade = ehCoordenador ? 'todas as unidades' : usuario?.unidade_ativa_nome ?? '—';
+  const alertas = useAlertasEstoque();
 
   return (
     <section>
       <div className="screen-head">
         <h1>Estoque atual — {tituloUnidade}</h1>
-        <span className="screen-tag">landing pós-login</span>
+        <span className="screen-tag">visão geral</span>
       </div>
       <p className="screen-sub">
         {ehCoordenador
@@ -135,7 +138,7 @@ export function EstoquePage() {
 
       <div className="tiles">
         <div className="tile">
-          <div className="k">Itens em risco de ruptura</div>
+          <div className="k">Estoque Crítico</div>
           <div className={`v ${itensEmRisco.length > 0 ? 'warn' : ''}`}>{carregando ? '—' : itensEmRisco.length}</div>
         </div>
         <div className="tile">
@@ -155,6 +158,13 @@ export function EstoquePage() {
           </div>
         )}
       </div>
+
+      {(alertas.total > 0 || (alertas.atividade?.itens.length ?? 0) > 0) && (
+        <div className="panel">
+          <h2>Alertas</h2>
+          <ConteudoAlertas alertas={alertas} />
+        </div>
+      )}
 
       <div className={`panel ${ehCoordenador ? '' : classeRailUnidade(usuario?.unidade_ativa_nome)}`}>
         <div className="panel-head-busca">

@@ -60,6 +60,15 @@ class Movimentacao(Base):
         nullable=True,
     )
 
+    # Destino externo da Saída (2026-08-20) — obrigatório quando
+    # categoria_saida é emprestimo/doacao/permuta (pra onde foi: outro
+    # hospital/instituição). Nulo pros demais tipos e categorias.
+    destino_externo = Column(String(200), nullable=True)
+
+    # Destinatário (2026-08-20) — pessoa responsável no destino que
+    # recebeu, além da instituição (`destino_externo`). Mesma obrigatoriedade.
+    destinatario = Column(String(200), nullable=True)
+
     motivo_descarte = Column(Text, nullable=True)  # obrigatório em descarte
 
     # Ajuste de estoque — exclusivo do Coordenador (docs/00_PROJETO.md,

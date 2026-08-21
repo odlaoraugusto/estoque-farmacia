@@ -114,14 +114,11 @@ function FormularioAjuste({ token, unidadeAtivaId }: { token: string | null; uni
     <section>
       <div className="screen-head">
         <h1>Ajuste de Estoque</h1>
-        <span className="screen-tag">
-          exclusivo <code>Coordenador</code>
-        </span>
+        <span className="screen-tag">Farmacêutico e Coordenador</span>
       </div>
       <p className="screen-sub">
-        Corrige o saldo de um lote fora dos fluxos normais de Entrada/Saída/Transferência/Descarte — use depois de uma
-        contagem física que bateu diferente do sistema. Fica registrado na trilha de auditoria como <code>ajuste</code>,
-        com motivo obrigatório.
+        Corrige o saldo de um lote fora dos fluxos normais — use depois de uma contagem física que bateu diferente
+        do sistema. Fica registrado na trilha de auditoria, com motivo obrigatório.
       </p>
 
       {erro && <Alerta tipo="erro">{erro}</Alerta>}

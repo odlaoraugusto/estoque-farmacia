@@ -25,6 +25,7 @@ class UsuarioMe(BaseModel):
     crf: str | None = None
     unidade_ativa_id: int | None = None
     unidade_ativa_nome: str | None = None
+    deve_trocar_senha: bool = False
 
 
 class UsuarioCreate(BaseModel):
@@ -32,11 +33,15 @@ class UsuarioCreate(BaseModel):
     só existe aqui, nunca em `UsuarioUpdate`: é a chave que toda a trilha
     de auditoria referencia indiretamente (via `usuario_id`), então não
     faz sentido deixar mudar depois de criado — evita alguém "perder" a
-    própria conta por um login digitado errado na hora de editar."""
+    própria conta por um login digitado errado na hora de editar.
+
+    Sem campo `senha` (2026-08-20): todo usuário novo nasce com a senha
+    padrão fixa (`UsuarioService.SENHA_PADRAO_NOVO_USUARIO`) e é
+    obrigado a trocá-la no primeiro login — o Coordenador não escolhe
+    nem vê a senha de ninguém."""
 
     nome: str
     login: str
-    senha: str
     perfil: PerfilEnum
     crf: str | None = None
 
@@ -58,6 +63,7 @@ class UsuarioOut(BaseModel):
     perfil: PerfilEnum
     crf: str | None = None
     ativo: bool
+    deve_trocar_senha: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

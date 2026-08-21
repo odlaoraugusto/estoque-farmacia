@@ -4,9 +4,13 @@ genérica, pronta para os exportadores desenharem."""
 
 from app.models.enums import ApresentacaoEnum, OrigemEnum, StatusDescarteEnum, TipoMovimentacaoEnum
 from app.schemas.relatorio import (
+    RelatorioAntimicrobianoOut,
     RelatorioAuditoriaOut,
+    RelatorioConsumoMedicamentosOut,
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoOut,
+    RelatorioEstoqueCriticoOut,
+    RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
 from app.services.exportacao.formatacao import (
@@ -121,6 +125,131 @@ def tabela_custo_por_setor(relatorio: RelatorioCustoPorSetorOut) -> TabelaRelato
         informacoes_extra=informacoes_extra,
         rodape=[f"Valor total geral: {formatar_moeda(relatorio.valor_total_geral)}"],
         larguras_relativas=[2.0, 1.0, 1.0],
+    )
+
+
+def tabela_consumo_medicamentos(relatorio: RelatorioConsumoMedicamentosOut) -> TabelaRelatorio:
+    colunas = ["Medicamento", "Mês", "Quantidade Consumida"]
+    linhas = [
+        [item.nome, item.mes, str(item.quantidade_total)]
+        for item in relatorio.itens
+    ]
+
+    informacoes_extra = []
+    if relatorio.periodo_inicio or relatorio.periodo_fim:
+        inicio = formatar_data(relatorio.periodo_inicio) or "início do histórico"
+        fim = formatar_data(relatorio.periodo_fim) or "hoje"
+        informacoes_extra.append(f"Período considerado: {inicio} até {fim}")
+    informacoes_extra.append(
+        "Só conta Saída de dispensação normal — baixa por vencimento e saídas de "
+        "empréstimo/doação/permuta não entram (não são consumo interno)."
+    )
+
+    return TabelaRelatorio(
+        metadados=relatorio.metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[2.0, 0.8, 1.0],
+    )
+
+
+def tabela_estoque_critico(relatorio: RelatorioEstoqueCriticoOut) -> TabelaRelatorio:
+    colunas = ["Medicamento", "Qtd. Atual", "Estoque Mínimo", "Déficit"]
+    linhas = [
+        [item.nome, str(item.quantidade_atual), str(item.estoque_minimo), str(item.estoque_minimo - item.quantidade_atual)]
+        for item in relatorio.itens
+    ]
+
+    return TabelaRelatorio(
+        metadados=relatorio.metadados,
+        colunas=colunas,
+        linhas=linhas,
+        larguras_relativas=[2.0, 1.0, 1.0, 1.0],
+    )
+
+
+def tabela_antimicrobianos(relatorio: RelatorioAntimicrobianoOut) -> TabelaRelatorio:
+    """Uma linha por DOSE (dispensação individual), não por paciente —
+    dado achatado (2026-08-20) pra caber numa planilha/PDF sem estrutura
+    aninhada; `dias_consecutivos`/`data_inicio`/`data_fim` se repetem em
+    toda dose do mesmo paciente+medicamento, pra contexto sem precisar
+    abrir duas tabelas."""
+    colunas = [
+        "Paciente",
+        "Prontuário",
+        "Medicamento",
+        "Data da Dose",
+        "Quantidade",
+        "Nº Lote",
+        "Dias Consecutivos",
+        "Início do Uso",
+        "Última Dose",
+    ]
+    linhas = [
+        [
+            item.paciente_nome,
+            item.paciente_prontuario,
+            item.medicamento_nome,
+            formatar_data(dose.data),
+            str(dose.quantidade),
+            dose.numero_lote,
+            str(item.dias_consecutivos),
+            formatar_data(item.data_inicio),
+            formatar_data(item.data_fim),
+        ]
+        for item in relatorio.itens
+        for dose in item.doses
+    ]
+
+    return TabelaRelatorio(
+        metadados=relatorio.metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=[f"Dias mínimo considerado: {relatorio.dias_minimo}"],
+        larguras_relativas=[1.4, 0.9, 1.6, 1.0, 0.8, 0.9, 1.0, 1.0, 1.0],
+    )
+
+
+def tabela_transferencias(relatorio: RelatorioTransferenciasOut) -> TabelaRelatorio:
+    colunas = [
+        "Data/Hora",
+        "Medicamento",
+        "Nº Lote",
+        "Origem",
+        "Destino",
+        "Qtd. Enviada",
+        "Qtd. Recebida",
+        "Enviado Por",
+        "Confirmado Por",
+    ]
+    linhas = [
+        [
+            formatar_data_hora(m.data_hora),
+            m.lote.medicamento.nome,
+            m.lote.numero_lote,
+            m.unidade_origem.nome if m.unidade_origem else "",
+            m.unidade_destino.nome if m.unidade_destino else "",
+            str(m.quantidade),
+            _texto(m.quantidade_recebida),
+            m.usuario.nome,
+            m.usuario_confirmacao.nome if m.usuario_confirmacao else "",
+        ]
+        for m in relatorio.itens
+    ]
+
+    informacoes_extra = []
+    if relatorio.periodo_inicio or relatorio.periodo_fim:
+        inicio = formatar_data(relatorio.periodo_inicio) or "início do histórico"
+        fim = formatar_data(relatorio.periodo_fim) or "hoje"
+        informacoes_extra.append(f"Período considerado: {inicio} até {fim}")
+
+    return TabelaRelatorio(
+        metadados=relatorio.metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[1.3, 1.6, 0.9, 1.0, 1.0, 0.8, 0.8, 1.1, 1.1],
     )
 
 

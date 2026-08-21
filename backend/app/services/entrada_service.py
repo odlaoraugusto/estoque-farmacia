@@ -64,6 +64,9 @@ class EntradaService:
             origem=dados.origem,
             numero_nota_fiscal=dados.numero_nota_fiscal,
             numero_afm=dados.numero_afm,
+            procedencia_externa=(
+                dados.procedencia_externa.strip() if dados.procedencia_externa else None
+            ),
             usuario_entrada_id=usuario.id,
         )
         lote = self.lote_repository.create(db, lote)

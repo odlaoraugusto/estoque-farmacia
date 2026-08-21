@@ -16,15 +16,22 @@ service = LoteService()
 def listar_estoque(
     unidade_id: int | None = None,
     medicamento_id: int | None = None,
+    numero_nota_fiscal: str | None = None,
     apenas_disponivel: bool = True,
     usuario: UsuarioMe = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Estoque atual — Coordenador pode ver qualquer unidade (ou todas);
-    os demais perfis são restritos à própria unidade ativa."""
+    os demais perfis são restritos à própria unidade ativa.
+
+    `numero_nota_fiscal` (2026-08-20): conferência dos itens já
+    registrados sob uma mesma nota fiscal, na tela de Entrada — ignora
+    `apenas_disponivel` (quer ver tudo que entrou, mesmo já consumido)."""
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
 
-    return service.listar_estoque(db, unidade_escopo, medicamento_id, apenas_disponivel)
+    return service.listar_estoque(
+        db, unidade_escopo, medicamento_id, numero_nota_fiscal, apenas_disponivel
+    )
 
 
 @router.get("/busca-fefo", response_model=list[LoteDetalhadoOut])

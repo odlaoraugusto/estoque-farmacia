@@ -128,7 +128,7 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
     <section>
       <div className="screen-head">
         <h1>Reposição de Carrinhos</h1>
-        <span className="screen-tag">1 etapa só · sem confirmação</span>
+        <span className="screen-tag">recebimento imediato</span>
       </div>
       <p className="screen-sub">
         Reabastece um carrinho de emergência a partir do estoque da CAF — sem etapa de confirmação, o lote já sai

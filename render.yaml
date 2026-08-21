@@ -10,6 +10,10 @@
 #
 # JWT_SECRET_KEY é gerado automaticamente pelo Render (generateValue) —
 # ninguém precisa inventar nem guardar esse valor manualmente.
+#
+# HOSPITAL_NOME/HOSPITAL_ORGANIZACAO também ficam em branco de propósito
+# (sync: false) — repositório é público, o nome real da instituição não
+# fica hardcoded aqui; preencher direto no painel do Render.
 services:
   - type: web
     name: estoquefarmacia-6b49d5
@@ -29,9 +33,9 @@ services:
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "480"
       - key: HOSPITAL_NOME
-        value: Hospital Materno Infantil Dr. Joaquim Sampaio
+        sync: false
       - key: HOSPITAL_ORGANIZACAO
-        value: Fundação Estatal Saúde da Família
+        sync: false
       - key: RELATORIO_VENCIMENTO_DIAS
         value: "30"
       - key: CORS_ORIGINS

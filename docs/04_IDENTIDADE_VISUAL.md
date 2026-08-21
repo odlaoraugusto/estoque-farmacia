@@ -1,20 +1,20 @@
 # Identidade Visual — Estoque Farmácia
 
-Rede FESFSUS · Hospital Materno Infantil Dr. Joaquim Sampaio
+Rede/organização e hospital do cliente (nomes reais omitidos deste repositório público)
 
 Versão 1.0 — agosto de 2026
 
 ## 1. De onde isso vem
 
-Este documento parte do **Manual de Aplicação de Marca — FESFSUS 2024** (arquivo fornecido pelo cliente, `Manual de Aplicação de Marca - FESFSUS - 2024.pdf`), que é a fonte oficial da marca da Fundação. Dali vêm três coisas que este sistema não pode reinventar: a paleta de cinco cores, a régua de assinatura institucional e a proibição de alterar a marca fora de campanhas aprovadas pela ASCOM da FESF.
+Este documento parte do **manual de aplicação de marca oficial da organização** (arquivo fornecido pelo cliente, não incluído neste repositório público), que é a fonte oficial da marca da organização. Dali vêm três coisas que este sistema não pode reinventar: a paleta de cinco cores, a régua de assinatura institucional e a proibição de alterar a marca fora de campanhas aprovadas pela equipe de comunicação do cliente.
 
-O que este documento faz é pegar essa paleta — pensada para papelaria, uniformes e material impresso — e adaptá-la para uma tela de sistema hospitalar usada por 6 a 15 pessoas ao mesmo tempo, várias horas por dia, em turnos que incluem madrugada. Uma paleta de marca institucional costuma ser mais saturada do que o ideal para uso denso e prolongado em tela; por isso as cores do produto aqui são versões suavizadas (pastel) das cinco cores oficiais, e não as cores cheias aplicadas diretamente em botão, tabela e formulário. A decisão de unificar tudo sob a paleta FESF — em vez do verde-salva que vinha sendo usado até a rodada anterior do protótipo — e de suavizar essas cores em tom pastel foi confirmada pelo cliente em 2026-08-03.
+O que este documento faz é pegar essa paleta — pensada para papelaria, uniformes e material impresso — e adaptá-la para uma tela de sistema hospitalar usada por 6 a 15 pessoas ao mesmo tempo, várias horas por dia, em turnos que incluem madrugada. Uma paleta de marca institucional costuma ser mais saturada do que o ideal para uso denso e prolongado em tela; por isso as cores do produto aqui são versões suavizadas (pastel) das cinco cores oficiais, e não as cores cheias aplicadas diretamente em botão, tabela e formulário. A decisão de unificar tudo sob a paleta oficial do cliente — em vez do verde-salva que vinha sendo usado até a rodada anterior do protótipo — e de suavizar essas cores em tom pastel foi confirmada pelo cliente em 2026-08-03.
 
-A régua de quatro cores e o roxo institucional continuam exatamente como no manual de marca — sem suavização — porque ali eles cumprem uma função diferente: identificar a Fundação, não decorar a interface.
+A régua de quatro cores e o roxo institucional continuam exatamente como no manual de marca — sem suavização — porque ali eles cumprem uma função diferente: identificar a organização, não decorar a interface.
 
 ## 2. Paleta oficial (herdada, não mexer)
 
-| Cor | Hex | Significado no manual FESFSUS |
+| Cor | Hex | Significado no manual de marca |
 |---|---|---|
 | Roxo | `#61358c` | Honra, feminino, criatividade, capacidade |
 | Lis (lavanda) | `#7572a7` | Honra, feminino, criatividade, capacidade |
@@ -26,7 +26,7 @@ Essas cinco cores seguem intactas em três lugares do sistema: a barra instituci
 
 ## 3. Paleta do produto (suavizada, tela)
 
-Cada token abaixo foi derivado do matiz (hue) da cor FESF correspondente, com saturação reduzida e luminosidade ajustada para funcionar como texto, botão ou fundo sem cansar a vista em uso prolongado. Todos os pares texto/fundo abaixo foram checados e passam WCAG AA (contraste ≥ 4,5:1 para texto normal).
+Cada token abaixo foi derivado do matiz (hue) da cor institucional correspondente, com saturação reduzida e luminosidade ajustada para funcionar como texto, botão ou fundo sem cansar a vista em uso prolongado. Todos os pares texto/fundo abaixo foram checados e passam WCAG AA (contraste ≥ 4,5:1 para texto normal).
 
 | Token | Hex (claro) | Hex (escuro) | Uso | Derivado de |
 |---|---|---|---|---|
@@ -41,16 +41,16 @@ Cada token abaixo foi derivado do matiz (hue) da cor FESF correspondente, com sa
 | `--accent-soft` | `#f0ebf4` | `#332442` | Fundo de tag/badge suave | Roxo `#61358c` |
 | `--ok` | `#397463` | `#80c6b2` | Status positivo, saldo ok, aprovado | Verde-água `#79bfb4` |
 | `--ok-bg` | `#e8f3ef` | `#1d302a` | Fundo de pill/alerta de sucesso | Verde-água `#79bfb4` |
-| `--warn` | `#886220` | `#dab981` | Alerta, pendência, vencimento próximo | âmbar (fora da paleta FESF — ver nota) |
+| `--warn` | `#886220` | `#dab981` | Alerta, pendência, vencimento próximo | âmbar (fora da paleta de marca — ver nota) |
 | `--warn-bg` | `#f7f0e3` | `#372d1b` | Fundo de pill/alerta de atenção | âmbar |
-| `--danger` | `#96404f` | `#dd9da7` | Erro, saldo negativo, rejeição | terracota (fora da paleta FESF — ver nota) |
+| `--danger` | `#96404f` | `#dd9da7` | Erro, saldo negativo, rejeição | terracota (fora da paleta de marca — ver nota) |
 | `--danger-bg` | `#f4e6e8` | `#381e23` | Fundo de pill/alerta de erro | terracota |
 
-**Nota sobre âmbar e terracota:** a paleta oficial da FESF não tem uma cor de alerta (amarelo/laranja) nem uma cor de erro (vermelho) — as cinco cores do manual são todas do campo roxo/verde. Semáforo de status (atenção/erro) precisa de cores que o olho reconheça como tal independentemente de contexto cultural, então mantivemos âmbar e terracota como no protótipo anterior, só ajustando a luminosidade para bater com o resto da paleta pastel. Isso é uma decisão deliberada, não um esquecimento: cor de alerta e cor de marca cumprem papéis diferentes, e forçar um roxo institucional a significar "erro" seria confuso e, ironicamente, um dos padrões genéricos que este documento tenta evitar.
+**Nota sobre âmbar e terracota:** a paleta oficial do cliente não tem uma cor de alerta (amarelo/laranja) nem uma cor de erro (vermelho) — as cinco cores do manual são todas do campo roxo/verde. Semáforo de status (atenção/erro) precisa de cores que o olho reconheça como tal independentemente de contexto cultural, então mantivemos âmbar e terracota como no protótipo anterior, só ajustando a luminosidade para bater com o resto da paleta pastel. Isso é uma decisão deliberada, não um esquecimento: cor de alerta e cor de marca cumprem papéis diferentes, e forçar um roxo institucional a significar "erro" seria confuso e, ironicamente, um dos padrões genéricos que este documento tenta evitar.
 
 ## 4. Cor por unidade (rail de contexto)
 
-O hospital opera quatro unidades (CAF, UTI, Centro Cirúrgico, Emergência) e o usuário troca de unidade ativa sem trocar de conta. Como a régua de marca da FESF já tem exatamente quatro cores, cada unidade herda uma delas — suavizada — como cor de identificação, aplicada numa borda esquerda de 3px em cards e no badge de unidade ativa da barra lateral.
+O hospital opera quatro unidades (CAF, UTI, Centro Cirúrgico, Emergência) e o usuário troca de unidade ativa sem trocar de conta. Como a régua de marca do cliente já tem exatamente quatro cores, cada unidade herda uma delas — suavizada — como cor de identificação, aplicada numa borda esquerda de 3px em cards e no badge de unidade ativa da barra lateral.
 
 | Unidade | Token | Hex | Origem |
 |---|---|---|---|
@@ -65,12 +65,12 @@ As classes CSS já existem em `frontend/src/index.css` (`.rail-caf`, `.rail-uti`
 
 ## 5. Tipografia
 
-O manual FESFSUS define duas fontes: **Arimo**, sans serif metricamente compatível com Arial, para uso corrente; e **De Rotterdam**, uma fonte display arredondada, para a marca e títulos de destaque. São papéis diferentes, e o sistema respeita essa divisão:
+O manual de marca do cliente define duas fontes: **Arimo**, sans serif metricamente compatível com Arial, para uso corrente; e uma fonte display arredondada licenciada, para a marca e títulos de destaque. São papéis diferentes, e o sistema respeita essa divisão:
 
 - **Arimo** é a fonte de todo o produto — formulários, tabelas, botões, texto de relatório. É a fonte "de trabalho": neutra, legível em tamanho pequeno, sem chamar atenção para si mesma. Já é metricamente compatível com Arial, então funciona como fallback confiável enquanto o arquivo da fonte não está embutido no build (ver nota abaixo).
-- **De Rotterdam** aparece só em momentos de marca: o logotipo FESFSUS em si (que é vetor, não precisa da fonte) e, opcionalmente, o nome do sistema na tela de login. Nunca em corpo de texto, tabela ou formulário — é uma fonte de título, não de uso denso.
+- A fonte display aparece só em momentos de marca: o logotipo institucional em si (que é vetor, não precisa da fonte) e, opcionalmente, o nome do sistema na tela de login. Nunca em corpo de texto, tabela ou formulário — é uma fonte de título, não de uso denso.
 
-**Nota de implementação:** nem Arimo nem De Rotterdam estão embutidas no build hoje (`frontend/src/index.css` ainda usa a pilha de fontes do sistema operacional como fallback seguro). Arimo é gratuita (Google Fonts, licença Apache) e pode ser adicionada sem custo. De Rotterdam é a fonte licenciada da FESF — precisa do arquivo `.woff2` cedido pela Fundação (ou pela ASCOM) para uso real; até lá, o nome do sistema na tela de login usa a mesma pilha de sistema, em negrito, como já era feito.
+**Nota de implementação:** nenhuma das duas está embutida no build hoje (`frontend/src/index.css` ainda usa a pilha de fontes do sistema operacional como fallback seguro). Arimo é gratuita (Google Fonts, licença Apache) e pode ser adicionada sem custo. A fonte display é licenciada pelo cliente — precisa do arquivo `.woff2` cedido por eles para uso real; até lá, o nome do sistema na tela de login usa a mesma pilha de sistema, em negrito, como já era feito.
 
 ## 6. Voz e tom
 
@@ -87,9 +87,9 @@ O sistema fala com quem trabalha em turno, muitas vezes cansado, muitas vezes so
 
 ## 8. A régua de assinatura institucional
 
-O manual de marca define uma ordem hierárquica fixa para quando a marca da FESF aparece ao lado de outras marcas: **Serviço → FESF → SUS → Governo do Estado**. No caso deste hospital, o exemplo já vem pronto no próprio manual (página 13): **Hospital Materno-Infantil Dr. Joaquim Sampaio · FESFSUS · SUS · Governo do Estado (Bahia)**.
+O manual de marca do cliente define uma ordem hierárquica fixa para quando a marca da organização aparece ao lado de outras marcas (serviço → organização → entidades de governo relacionadas), com um exemplo pronto de aplicação para o hospital real (nome omitido neste repositório público).
 
-Essa é exatamente a ordem que deve aparecer no cabeçalho de todo relatório exportado (PDF/Excel) e, futuramente, se o sistema ganhar uma versão impressa de etiqueta ou comprovante. Hoje o `Letterhead.tsx` mostra organização + hospital; a régua completa de 4 marcas (que inclui os logotipos do SUS e do Governo da Bahia, não só texto) é um item de acabamento que depende de receber os arquivos desses logotipos — registrado aqui como pendência, não implementado neste momento por não termos os arquivos.
+Essa é exatamente a ordem que deve aparecer no cabeçalho de todo relatório exportado (PDF/Excel) e, futuramente, se o sistema ganhar uma versão impressa de etiqueta ou comprovante. Hoje o `Letterhead.tsx` mostra organização + hospital; a régua completa de marcas (que inclui logotipos de entidades governamentais, não só texto) é um item de acabamento que depende de receber os arquivos desses logotipos — registrado aqui como pendência, não implementado neste momento por não termos os arquivos.
 
 ## 9. Modo escuro
 
@@ -141,6 +141,6 @@ Os valores abaixo já estão aplicados em `frontend/src/index.css` (`:root` e bl
 
 ## 13. Pendências
 
-1. Arquivo da fonte De Rotterdam (licenciado FESF) — solicitar à ASCOM para uso real na marca do sistema.
-2. Logotipos vetoriais do SUS e do Governo do Estado da Bahia — necessários para completar a régua de assinatura de 4 marcas no letterhead de relatórios (seção 8).
+1. Arquivo da fonte display licenciada pelo cliente — solicitar para uso real na marca do sistema.
+2. Logotipos vetoriais das entidades de governo relacionadas — necessários para completar a régua de assinatura institucional no letterhead de relatórios (seção 8).
 3. Aplicar as classes `.rail-*` (seção 4) nos componentes de tela que já exibem a unidade ativa — hoje elas existem no CSS, mas nenhum componente as usa ainda.

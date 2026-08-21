@@ -19,6 +19,7 @@ class LoteService:
         db: Session,
         unidade_id: int | None,
         medicamento_id: int | None = None,
+        numero_nota_fiscal: str | None = None,
         apenas_disponivel: bool = True,
     ) -> list[LoteDetalhadoOut]:
         """Quando `unidade_id` vem preenchido, o escopo é ampliado para
@@ -32,6 +33,7 @@ class LoteService:
             db,
             unidade_id=escopo,
             medicamento_id=medicamento_id,
+            numero_nota_fiscal=numero_nota_fiscal,
             apenas_disponivel=apenas_disponivel,
             ordenar_fefo=True,
         )

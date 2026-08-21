@@ -34,13 +34,19 @@ class LoteRepository:
         db: Session,
         unidade_id: int | list[int] | None = None,
         medicamento_id: int | None = None,
+        numero_nota_fiscal: str | None = None,
         apenas_disponivel: bool = True,
         ordenar_fefo: bool = True,
     ) -> list[Lote]:
         """`unidade_id` aceita uma lista (além de um único id) para cobrir o
         escopo ampliado unidade real + carrinhos-filho dela (carrinhos de
         emergência, docs/00_PROJETO.md) — quem decide se amplia ou não é a
-        camada de service, aqui só aplicamos o filtro que vier."""
+        camada de service, aqui só aplicamos o filtro que vier.
+
+        `numero_nota_fiscal` (2026-08-20): conferência de todos os itens
+        de uma mesma nota fiscal (Entrada) — várias linhas de compra
+        chegam sob o mesmo número, e não há tabela própria de nota
+        fiscal, só o campo de texto já existente em `Lote`."""
         query = db.query(Lote)
 
         if isinstance(unidade_id, list):
@@ -50,6 +56,10 @@ class LoteRepository:
 
         if medicamento_id is not None:
             query = query.filter(Lote.medicamento_id == medicamento_id)
+
+        if numero_nota_fiscal is not None:
+            query = query.filter(Lote.numero_nota_fiscal == numero_nota_fiscal)
+            apenas_disponivel = False  # conferência de NF quer ver tudo, mesmo já consumido
 
         if apenas_disponivel:
             query = query.filter(Lote.quantidade_atual > 0)

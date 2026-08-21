@@ -58,6 +58,7 @@ def get_current_user(
         crf=usuario.crf,
         unidade_ativa_id=payload.get("unidade_ativa_id"),
         unidade_ativa_nome=payload.get("unidade_ativa_nome"),
+        deve_trocar_senha=usuario.deve_trocar_senha,
     )
 
 

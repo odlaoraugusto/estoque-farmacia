@@ -2,7 +2,7 @@
 
 React + TypeScript + Vite. Consome a API real do backend (`../backend`)
 — sem dados mockados. Réplica fiel do protótipo aprovado
-(`../docs/02_PROTOTIPO.html`): barra institucional FESFSUS no topo,
+(`../docs/02_PROTOTIPO.html`): barra institucional no topo,
 paleta sóbria verde-azulada, sidebar de navegação e cabeçalho
 institucional em todo relatório.
 

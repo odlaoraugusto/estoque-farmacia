@@ -4,7 +4,12 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core.permissoes import pode_ver_dados_paciente
-from app.models.enums import CategoriaSaidaEnum, StatusDescarteEnum, TipoMovimentacaoEnum
+from app.models.enums import (
+    CATEGORIAS_SAIDA_EXTERNA,
+    CategoriaSaidaEnum,
+    StatusDescarteEnum,
+    TipoMovimentacaoEnum,
+)
 from app.schemas.lote import LoteDetalhadoOut
 from app.schemas.unidade import UnidadeOut
 from app.schemas.usuario import UsuarioMe, UsuarioResumo
@@ -50,6 +55,16 @@ class SaidaCreate(BaseModel):
     # atividade_recente).
     categoria: CategoriaSaidaEnum = CategoriaSaidaEnum.normal
 
+    # Destino externo (2026-08-20): obrigatório quando categoria é
+    # empréstimo/doação/permuta — pra onde o medicamento foi (outro
+    # hospital/instituição). Não se aplica a `normal`/`vencimento`
+    # (dispensação interna ou baixa, não têm "destino" fora do hospital).
+    destino_externo: str | None = None
+
+    # Destinatário (2026-08-20): pessoa responsável no destino que
+    # recebeu — mesma obrigatoriedade de `destino_externo`.
+    destinatario: str | None = None
+
     # Paciente/prontuário (seção 22 do doc): opcional em geral, mas
     # OBRIGATÓRIO quando o medicamento do lote é antimicrobiano (programa
     # de uso racional / DOT, 2026-08-19 — checado em SaidaService, que é
@@ -76,16 +91,22 @@ class SaidaCreate(BaseModel):
 
         return self
 
+    @model_validator(mode="after")
+    def validar_destino_externo(self) -> "SaidaCreate":
+        exige_destino = self.categoria in CATEGORIAS_SAIDA_EXTERNA
+        tem_destino = bool(self.destino_externo and self.destino_externo.strip())
+        tem_destinatario = bool(self.destinatario and self.destinatario.strip())
 
-class DescarteCreate(BaseModel):
-    """Descarte (2026-08-19): ação direta, sem fluxo de aprovação — quem
-    registra (Farmacêutico ou Coordenador) já decrementa o estoque na
-    hora, igual Entrada/Saída. Antes disso era um fluxo de 2 etapas
-    (solicitar → aprovar); virou 1 etapa a pedido do cliente."""
+        if exige_destino and not tem_destino:
+            raise ValueError(
+                "destino_externo é obrigatório para saída de empréstimo, doação ou permuta."
+            )
+        if exige_destino and not tem_destinatario:
+            raise ValueError(
+                "destinatario é obrigatório para saída de empréstimo, doação ou permuta."
+            )
 
-    lote_id: int
-    quantidade: int = Field(gt=0)
-    motivo_descarte: str
+        return self
 
 
 class AjusteCreate(BaseModel):
@@ -111,6 +132,8 @@ class MovimentacaoOut(BaseModel):
 
     setor_consumidor: str | None
     categoria_saida: CategoriaSaidaEnum | None
+    destino_externo: str | None
+    destinatario: str | None
     motivo_descarte: str | None
     motivo_ajuste: str | None
     status: StatusDescarteEnum | None

@@ -5,7 +5,8 @@ import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
-import type { LoteDetalhadoOut, MovimentacaoDetalhadaOut, UnidadeOut } from '../types';
+import { formatarData, formatarDataHora } from '../lib/formato';
+import type { LoteDetalhadoOut, MedicamentoOut, MovimentacaoDetalhadaOut, SolicitacaoOut, UnidadeOut } from '../types';
 
 /** Transferência entre unidades. "Enviar" é restrito a farmacêutico/
  * coordenador (regra do backend); "confirmar recebimento" é liberado a
@@ -20,16 +21,17 @@ export function TransferenciaPage() {
     <section>
       <div className="screen-head">
         <h1>Transferência entre unidades</h1>
-        <span className="screen-tag">envio → em_transito · confirmação → novo lote</span>
+        <span className="screen-tag">envio e confirmação de recebimento</span>
       </div>
       <p className="screen-sub">
-        Transferência parcial gera um segundo registro de lote no destino, ligado ao lote pai por{' '}
-        <code>lote_origem_id</code>.
+        Transferência parcial gera um segundo lote no destino, vinculado ao lote de origem para rastreabilidade.
       </p>
 
       {permissoes.transferenciaEnviar && <PainelEnviar token={token} unidadeAtivaId={unidadeAtivaId} />}
       {permissoes.devolverCarrinho && <PainelDevolverCarrinho token={token} unidadeAtivaId={unidadeAtivaId} />}
       <PainelConfirmar token={token} unidadeAtivaId={unidadeAtivaId} />
+      {permissoes.solicitarTransferencia && <PainelSolicitar token={token} />}
+      {permissoes.atenderSolicitacao && <PainelAtenderSolicitacoes token={token} />}
     </section>
   );
 }
@@ -397,6 +399,361 @@ function PainelConfirmar({ token, unidadeAtivaId }: { token: string | null; unid
         </div>
       )}
       <div className="note">Divergência entre enviado e recebido é registrada, não bloqueia a confirmação — só sinaliza para auditoria.</div>
+    </div>
+  );
+}
+
+const LABEL_STATUS_SOLICITACAO: Record<string, string> = {
+  pendente: 'Pendente',
+  aceita: 'Aceita',
+  recusada: 'Recusada',
+};
+
+/** Solicitação de transferência satélite -> CAF (2026-08-20): qualquer
+ * perfil de uma unidade que não seja CAF pode pedir um medicamento à
+ * CAF pelo sistema — antes disso só existia o fluxo push (a CAF decidia
+ * sozinha o que enviar). A CAF aceita (escolhendo o lote) ou recusa
+ * (com motivo) no painel `PainelAtenderSolicitacoes` logo abaixo. */
+function PainelSolicitar({ token }: { token: string | null }) {
+  const [medicamentos, setMedicamentos] = useState<MedicamentoOut[]>([]);
+  const [busca, setBusca] = useState('');
+  const [medicamentoSelecionado, setMedicamentoSelecionado] = useState<MedicamentoOut | null>(null);
+  const [quantidadeDesejada, setQuantidadeDesejada] = useState('');
+  const [observacao, setObservacao] = useState('');
+
+  const [minhasSolicitacoes, setMinhasSolicitacoes] = useState<SolicitacaoOut[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  const carregar = useCallback(() => {
+    if (!token) return;
+    setCarregando(true);
+    api
+      .get<SolicitacaoOut[]>('/solicitacoes', { token })
+      .then(setMinhasSolicitacoes)
+      .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar suas solicitações.')))
+      .finally(() => setCarregando(false));
+  }, [token]);
+
+  useEffect(() => {
+    carregar();
+    if (!token) return;
+    api.get<MedicamentoOut[]>('/medicamentos', { token }).then(setMedicamentos).catch(() => {});
+  }, [carregar, token]);
+
+  async function aoSubmeter(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    setSucesso(null);
+    if (!medicamentoSelecionado) {
+      setErro('Selecione um medicamento.');
+      return;
+    }
+    setEnviando(true);
+    try {
+      await api.post(
+        '/solicitacoes',
+        {
+          medicamento_id: medicamentoSelecionado.id,
+          quantidade_desejada: Number(quantidadeDesejada),
+          observacao: observacao.trim() || null,
+        },
+        { token },
+      );
+      setSucesso('Solicitação enviada à CAF.');
+      setBusca('');
+      setMedicamentoSelecionado(null);
+      setQuantidadeDesejada('');
+      setObservacao('');
+      carregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível enviar a solicitação.'));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <>
+      <form className="panel" onSubmit={aoSubmeter}>
+        <h2>Solicitar transferência à CAF</h2>
+        {erro && <Alerta tipo="erro">{erro}</Alerta>}
+        {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+        <div className="grid">
+          <div className="field span2">
+            <label htmlFor="busca-medicamento-solicitacao">
+              Medicamento <span className="req">*</span>
+            </label>
+            <BuscaAutocomplete
+              id="busca-medicamento-solicitacao"
+              itens={medicamentos}
+              valor={medicamentoSelecionado ? medicamentoSelecionado.nome : busca}
+              aoMudarValor={(v) => {
+                setBusca(v);
+                setMedicamentoSelecionado(null);
+              }}
+              rotulo={(m) => m.nome}
+              chave={(m) => m.id}
+              aoSelecionar={(m) => {
+                setMedicamentoSelecionado(m);
+                setBusca(m.nome);
+              }}
+              placeholder="buscar medicamento…"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="qtd-solicitacao">
+              Quantidade desejada <span className="req">*</span>
+            </label>
+            <input
+              id="qtd-solicitacao"
+              type="number"
+              min={1}
+              placeholder="0"
+              value={quantidadeDesejada}
+              onChange={(e) => setQuantidadeDesejada(e.target.value)}
+              required
+            />
+          </div>
+          <div className="field span2">
+            <label htmlFor="obs-solicitacao">
+              Observação <span className="tag">opcional</span>
+            </label>
+            <input
+              id="obs-solicitacao"
+              type="text"
+              placeholder="ex.: urgência, motivo…"
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="actions">
+          <button type="submit" className="btn" disabled={enviando}>
+            {enviando ? 'Enviando…' : 'Solicitar'}
+          </button>
+        </div>
+      </form>
+
+      <div className="panel">
+        <h2>Minhas solicitações</h2>
+        {carregando && <p className="carregando">Carregando…</p>}
+        {!carregando && (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Medicamento</th>
+                  <th className="num">Qtd. desejada</th>
+                  <th>Status</th>
+                  <th>Detalhe</th>
+                  <th>Solicitada em</th>
+                </tr>
+              </thead>
+              <tbody>
+                {minhasSolicitacoes.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="vazio-tabela">
+                      Nenhuma solicitação registrada.
+                    </td>
+                  </tr>
+                )}
+                {minhasSolicitacoes.map((s) => (
+                  <tr key={s.id}>
+                    <td>{s.medicamento.nome}</td>
+                    <td className="num">{s.quantidade_desejada}</td>
+                    <td>
+                      <span
+                        className={`pill ${s.status === 'aceita' ? 'ok' : s.status === 'recusada' ? 'danger' : 'pend'}`}
+                      >
+                        {LABEL_STATUS_SOLICITACAO[s.status]}
+                      </span>
+                    </td>
+                    <td>{s.status === 'recusada' ? s.motivo_recusa ?? '—' : s.status === 'aceita' ? 'transferência enviada' : '—'}</td>
+                    <td className="mono">{formatarDataHora(s.data_solicitacao)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** Atender (aceitar/recusar) solicitações — só na CAF, Farmacêutico/
+ * Coordenador (mesma regra de quem já pode enviar transferência normal,
+ * já que aceitar dispara exatamente essa ação). */
+function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
+  const [pendentes, setPendentes] = useState<SolicitacaoOut[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  const [atendendoId, setAtendendoId] = useState<number | null>(null);
+  const [lotesPorSolicitacao, setLotesPorSolicitacao] = useState<Record<number, LoteDetalhadoOut[]>>({});
+  const [loteEscolhido, setLoteEscolhido] = useState<Record<number, number>>({});
+  const [quantidadeEnvio, setQuantidadeEnvio] = useState<Record<number, string>>({});
+  const [motivoRecusa, setMotivoRecusa] = useState<Record<number, string>>({});
+  const [processandoId, setProcessandoId] = useState<number | null>(null);
+
+  const carregar = useCallback(() => {
+    if (!token) return;
+    setCarregando(true);
+    api
+      .get<SolicitacaoOut[]>('/solicitacoes', { token, params: { status: 'pendente' } })
+      .then(setPendentes)
+      .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar as solicitações pendentes.')))
+      .finally(() => setCarregando(false));
+  }, [token]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  async function abrirAtendimento(s: SolicitacaoOut) {
+    setAtendendoId(s.id);
+    setErro(null);
+    if (lotesPorSolicitacao[s.id] || !token) return;
+    try {
+      const lotes = await api.get<LoteDetalhadoOut[]>('/lotes/busca-fefo', {
+        token,
+        params: { medicamento_id: s.medicamento_id },
+      });
+      setLotesPorSolicitacao((atual) => ({ ...atual, [s.id]: lotes }));
+      const sugerido = lotes.find((l) => l.sugerido_fefo) ?? lotes[0];
+      if (sugerido) setLoteEscolhido((atual) => ({ ...atual, [s.id]: sugerido.id }));
+      setQuantidadeEnvio((atual) => ({ ...atual, [s.id]: String(s.quantidade_desejada) }));
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível buscar lotes disponíveis na CAF para este medicamento.'));
+    }
+  }
+
+  async function aceitar(s: SolicitacaoOut) {
+    const loteId = loteEscolhido[s.id];
+    const quantidade = Number(quantidadeEnvio[s.id]);
+    if (!loteId) {
+      setErro('Selecione um lote para enviar.');
+      return;
+    }
+    setProcessandoId(s.id);
+    setErro(null);
+    setSucesso(null);
+    try {
+      await api.post(`/solicitacoes/${s.id}/aceitar`, { lote_id: loteId, quantidade }, { token });
+      setSucesso(`Solicitação de ${s.unidade_solicitante.nome} atendida.`);
+      setAtendendoId(null);
+      carregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível aceitar a solicitação.'));
+    } finally {
+      setProcessandoId(null);
+    }
+  }
+
+  async function recusar(s: SolicitacaoOut) {
+    const motivo = (motivoRecusa[s.id] ?? '').trim();
+    if (!motivo) {
+      setErro('Informe o motivo da recusa.');
+      return;
+    }
+    setProcessandoId(s.id);
+    setErro(null);
+    setSucesso(null);
+    try {
+      await api.post(`/solicitacoes/${s.id}/recusar`, { motivo_recusa: motivo }, { token });
+      setSucesso(`Solicitação de ${s.unidade_solicitante.nome} recusada.`);
+      setAtendendoId(null);
+      carregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível recusar a solicitação.'));
+    } finally {
+      setProcessandoId(null);
+    }
+  }
+
+  return (
+    <div className="panel">
+      <h2>Solicitações pendentes de outras unidades</h2>
+      {erro && <Alerta tipo="erro">{erro}</Alerta>}
+      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      {carregando && <p className="carregando">Carregando…</p>}
+      {!carregando && pendentes.length === 0 && <p className="vazio-tabela">Nenhuma solicitação pendente.</p>}
+      {!carregando &&
+        pendentes.map((s) => (
+          <div key={s.id} className="box" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <span>
+                <b>{s.unidade_solicitante.nome}</b> pediu <b>{s.medicamento.nome}</b> · qtd. {s.quantidade_desejada}
+                {s.observacao ? ` · "${s.observacao}"` : ''}
+              </span>
+              <span className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>
+                {s.usuario_solicitante.nome} · {formatarData(s.data_solicitacao)}
+              </span>
+            </div>
+
+            {atendendoId !== s.id ? (
+              <div className="actions">
+                <button type="button" className="btn ghost sm" onClick={() => abrirAtendimento(s)}>
+                  Atender
+                </button>
+              </div>
+            ) : (
+              <div className="grid">
+                <div className="field span2">
+                  <label>Lote a enviar (estoque da CAF)</label>
+                  <select
+                    value={loteEscolhido[s.id] ?? ''}
+                    onChange={(e) => setLoteEscolhido((atual) => ({ ...atual, [s.id]: Number(e.target.value) }))}
+                  >
+                    <option value="">Selecione…</option>
+                    {(lotesPorSolicitacao[s.id] ?? []).map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.numero_lote} · vence {formatarData(l.data_validade)} · saldo {l.quantidade_atual}
+                        {l.sugerido_fefo ? ' · sugerido (FEFO)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {(lotesPorSolicitacao[s.id] ?? []).length === 0 && (
+                    <span className="tag">nenhum lote disponível na CAF para este medicamento</span>
+                  )}
+                </div>
+                <div className="field">
+                  <label>Quantidade a enviar</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantidadeEnvio[s.id] ?? ''}
+                    onChange={(e) => setQuantidadeEnvio((atual) => ({ ...atual, [s.id]: e.target.value }))}
+                  />
+                </div>
+                <div className="field span2">
+                  <label>Motivo da recusa (só se for recusar)</label>
+                  <input
+                    type="text"
+                    placeholder="ex.: sem saldo disponível"
+                    value={motivoRecusa[s.id] ?? ''}
+                    onChange={(e) => setMotivoRecusa((atual) => ({ ...atual, [s.id]: e.target.value }))}
+                  />
+                </div>
+                <div className="field span2 actions" style={{ marginTop: 0 }}>
+                  <button type="button" className="btn ok sm" disabled={processandoId === s.id} onClick={() => aceitar(s)}>
+                    {processandoId === s.id ? 'Enviando…' : 'Aceitar e enviar'}
+                  </button>
+                  <button type="button" className="btn danger sm" disabled={processandoId === s.id} onClick={() => recusar(s)}>
+                    Recusar
+                  </button>
+                  <button type="button" className="btn ghost sm" onClick={() => setAtendendoId(null)}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
     </div>
   );
 }

@@ -46,6 +46,25 @@ class RelatorioCustoPorSetorOut(BaseModel):
     valor_total_geral: Decimal
 
 
+class RelatorioConsumoMedicamentoItem(BaseModel):
+    medicamento_id: int
+    nome: str
+    mes: str  # "2026-08" — série histórica mensal
+    quantidade_total: int
+
+
+class RelatorioConsumoMedicamentosOut(BaseModel):
+    """Consumo por medicamento num período (2026-08-20) — só conta Saída
+    categoria `normal` (ou sem categoria, saídas antigas pré-2026-08-19):
+    baixa por vencimento é perda, não consumo; empréstimo/doação/permuta
+    saíram do hospital, não foram consumidos internamente."""
+
+    metadados: RelatorioMetadados
+    periodo_inicio: date | None
+    periodo_fim: date | None
+    itens: list[RelatorioConsumoMedicamentoItem]
+
+
 class RelatorioAuditoriaOut(BaseModel):
     metadados: RelatorioMetadados
     # Paginação (2026-08-19, diagnóstico de carga): `total` é quanto bate
@@ -132,3 +151,15 @@ class RelatorioAtividadeRecenteOut(BaseModel):
     metadados: RelatorioMetadados
     dias_considerados: int
     itens: list[AtividadeRecenteItem]
+
+
+class RelatorioTransferenciasOut(BaseModel):
+    """Rastreabilidade de transferências entre unidades (2026-08-20) —
+    confirma se um medicamento realmente saiu de uma unidade e chegou na
+    outra: origem, destino, quantidade enviada x recebida (divergência
+    fica visível comparando as duas), quem enviou/confirmou e quando."""
+
+    metadados: RelatorioMetadados
+    periodo_inicio: date | None
+    periodo_fim: date | None
+    itens: list[MovimentacaoDetalhadaOut]

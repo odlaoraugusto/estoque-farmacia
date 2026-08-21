@@ -37,8 +37,14 @@ class ApresentacaoEnum(str, enum.Enum):
 
 
 class OrigemEnum(str, enum.Enum):
+    """`emprestimo` (2026-08-20): item recebido de outra instituição por
+    empréstimo — mesma regra de valor zerado/nota fiscal dispensada que
+    `doacao`, mas exige `Lote.procedencia_externa` (de onde veio),
+    espelhando `destino_externo` do lado da Saída."""
+
     compra = "compra"
     doacao = "doacao"
+    emprestimo = "emprestimo"
 
 
 class CategoriaSaidaEnum(str, enum.Enum):
@@ -46,11 +52,47 @@ class CategoriaSaidaEnum(str, enum.Enum):
     sempre, marca quando a saída é um empréstimo/doação pra fora (outro
     hospital/instituição) em vez de dispensação normal pra um setor do
     próprio hospital. Não é um fluxo novo — mesma Saída de sempre, só com
-    esse metadado a mais, usado pra notificar o Coordenador."""
+    esse metadado a mais, usado pra notificar o Coordenador.
+
+    `vencimento` (2026-08-20): baixa de lote vencido — substitui o antigo
+    fluxo de Descarte (removido), que virou só mais uma categoria de
+    Saída em vez de uma tela própria.
+
+    `permuta` (2026-08-20): troca com outra instituição (sai um item,
+    volta outro depois, fora do sistema) — mesmo grupo de `emprestimo`/
+    `doacao` pra fins de tela (aba dedicada "Empréstimo/Doação/Permuta")
+    e de notificação ao Coordenador; todas as três exigem
+    `destino_externo`."""
 
     normal = "normal"
     emprestimo = "emprestimo"
     doacao = "doacao"
+    vencimento = "vencimento"
+    permuta = "permuta"
+
+
+# Categorias de Saída que saem do hospital pra outra instituição — exigem
+# `destino_externo` e alimentam a notificação de atividade ao Coordenador.
+# Grupo nomeado porque é referenciado em mais de um lugar (schema de
+# validação + repositório de atividade recente), sempre os mesmos três.
+CATEGORIAS_SAIDA_EXTERNA = (
+    CategoriaSaidaEnum.emprestimo,
+    CategoriaSaidaEnum.doacao,
+    CategoriaSaidaEnum.permuta,
+)
+
+
+class StatusSolicitacaoEnum(str, enum.Enum):
+    """Solicitação de transferência (2026-08-20): satélite pede um
+    medicamento à CAF pelo sistema, em vez de a CAF decidir sozinha o que
+    enviar. `aceita` só é atingido depois que a CAF de fato despacha a
+    transferência (`Movimentacao.tipo=transferencia` vinculada) — a
+    confirmação de recebimento em si continua sendo o fluxo já existente
+    de `TransferenciaService.confirmar`."""
+
+    pendente = "pendente"
+    aceita = "aceita"
+    recusada = "recusada"
 
 
 class StatusTransferenciaEnum(str, enum.Enum):

@@ -70,18 +70,19 @@ class SaidaService:
                 ),
             )
 
-        # Programa de uso racional de antimicrobianos / DOT (2026-08-19):
-        # sem paciente/prontuário não dá pra contar dias de uso por
-        # paciente, então aqui a regra geral de "opcional" não vale —
-        # checagem no service (não no schema) porque só aqui já temos o
-        # medicamento do lote carregado.
-        if lote.medicamento.e_antimicrobiano and not (
+        # Vigilância de uso por paciente — antimicrobiano (DOT, 2026-08-19)
+        # e controlado (2026-08-20, mesma regra): sem paciente/prontuário
+        # não dá pra rastrear por paciente, então aqui a regra geral de
+        # "opcional" não vale — checagem no service (não no schema)
+        # porque só aqui já temos o medicamento do lote carregado.
+        if (lote.medicamento.e_antimicrobiano or lote.medicamento.e_controlado) and not (
             dados.paciente_prontuario and dados.paciente_nome
         ):
+            classe = "antimicrobiano" if lote.medicamento.e_antimicrobiano else "controlado"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"{lote.medicamento.nome} é antimicrobiano — paciente e "
+                    f"{lote.medicamento.nome} é {classe} — paciente e "
                     "prontuário são obrigatórios nesta saída."
                 ),
             )
@@ -96,6 +97,8 @@ class SaidaService:
             unidade_origem_id=unidade_ativa_id,
             setor_consumidor=dados.setor_consumidor.strip(),
             categoria_saida=dados.categoria,
+            destino_externo=dados.destino_externo.strip() if dados.destino_externo else None,
+            destinatario=dados.destinatario.strip() if dados.destinatario else None,
             usuario_id=usuario.id,
         )
 

@@ -25,10 +25,10 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // Saída/dispensação — qualquer perfil autenticado.
     saida: true,
 
-    // Descarte — ação direta desde 2026-08-19 (era fluxo de 2 etapas
-    // solicitar/aprovar), Farmacêutico e Coordenador têm o mesmo acesso.
-    // A tela some inteira só para o Atendente.
-    descarte: farmaceuticoOuCoordenador,
+    // Empréstimo/Doação/Permuta (2026-08-20) — aba própria, separada da
+    // dispensação normal; qualquer perfil autenticado, mesma regra de
+    // acesso da Saída normal (é a mesma rota POST /saidas por trás).
+    saidaExterna: true,
 
     // Relatórios — vencimentos-próximos é liberado a todos; os demais têm
     // regras próprias por aba.
@@ -57,6 +57,18 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // diferente da reposição que exige CAF como origem (ver
     // _PODE_DEVOLVER_CARRINHO em app/api/routes/transferencias.py).
     devolverCarrinho: farmaceuticoOuCoordenador,
+
+    // Solicitação de transferência satélite -> CAF (2026-08-20) —
+    // qualquer perfil da unidade solicitante pode pedir (mesma lógica de
+    // quem já registra Saída/confirma recebimento); só não faz sentido a
+    // própria CAF se autossolicitar (ver SolicitacaoService.criar).
+    solicitarTransferencia: !unidadeEhCaf(usuario),
+
+    // Atender (aceitar/recusar) solicitação — só na CAF, e só
+    // Farmacêutico/Coordenador: aceitar dispara `enviar()`, mesma regra
+    // de quem já pode enviar uma transferência normal (ver
+    // app/api/routes/solicitacoes.py, _PODE_ATENDER).
+    atenderSolicitacao: farmaceuticoOuCoordenador && unidadeEhCaf(usuario),
 
     // Ajuste de estoque (2026-08-14) — Farmacêutico e Coordenador desde
     // 2026-08-19 (era exclusivo do Coordenador). Corrige saldo fora dos

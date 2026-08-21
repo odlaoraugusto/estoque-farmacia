@@ -196,8 +196,8 @@
 
 <div class="topbar">
   <div class="t-id">
-    <span class="t-org">Fundação Estatal Saúde da Família</span>
-    <span class="t-hospital">Hospital Materno Infantil Dr. Joaquim Sampaio</span>
+    <span class="t-org">Rede de Saúde Exemplo</span>
+    <span class="t-hospital">Hospital Exemplo</span>
   </div>
   <span class="t-app">Estoque Farmácia — guia de identidade visual</span>
   <button class="theme-toggle" onclick="document.body.toggleAttribute('data-theme'); this.textContent = document.body.hasAttribute('data-theme') ? '☀ modo claro' : '● modo escuro'" data-theme-btn>● modo escuro</button>
@@ -205,11 +205,11 @@
 
 <main>
   <h1 class="doc-title">Identidade Visual — Estoque Farmácia</h1>
-  <p class="doc-sub">Guia vivo — os tokens desta página são os mesmos de <code class="inline">frontend/src/index.css</code>. Derivado do Manual de Aplicação de Marca FESFSUS 2024. Ver <code class="inline">docs/04_IDENTIDADE_VISUAL.md</code> para o texto completo e justificativas.</p>
+  <p class="doc-sub">Guia vivo — os tokens desta página são os mesmos de <code class="inline">frontend/src/index.css</code>. Derivado do manual de marca do cliente. Ver <code class="inline">docs/04_IDENTIDADE_VISUAL.md</code> para o texto completo e justificativas.</p>
 
   <section id="marca">
     <h2>Herança de marca — não suavizado</h2>
-    <p class="lead">As cinco cores oficiais da FESFSUS, extraídas do manual de marca. Aparecem sem alteração na barra institucional, na régua de 4 cores e no letterhead de relatórios.</p>
+    <p class="lead">As cinco cores oficiais do manual de marca do cliente. Aparecem sem alteração na barra institucional, na régua de assinatura institucional e no letterhead de relatórios.</p>
     <div class="swatch-row">
       <div class="swatch"><div class="chip" style="background:#61358c"></div><div class="label"><b>Roxo</b><span>#61358c</span></div></div>
       <div class="swatch"><div class="chip" style="background:#7572a7"></div><div class="label"><b>Lis</b><span>#7572a7</span></div></div>
@@ -228,8 +228,8 @@
         <tr><td><code>--accent</code></td><td><span class="dot" style="background:var(--accent)"></span>botão / foco / links</td><td>Roxo suavizado</td></tr>
         <tr><td><code>--accent-strong</code></td><td><span class="dot" style="background:var(--accent-strong)"></span>hover</td><td>Roxo suavizado, escurecido</td></tr>
         <tr><td><code>--ok</code></td><td><span class="dot" style="background:var(--ok)"></span>status positivo</td><td>Verde-água suavizado</td></tr>
-        <tr><td><code>--warn</code></td><td><span class="dot" style="background:var(--warn)"></span>atenção / pendência</td><td>Âmbar (fora da paleta FESF, ver manual §3)</td></tr>
-        <tr><td><code>--danger</code></td><td><span class="dot" style="background:var(--danger)"></span>erro / rejeição</td><td>Terracota (fora da paleta FESF, ver manual §3)</td></tr>
+        <tr><td><code>--warn</code></td><td><span class="dot" style="background:var(--warn)"></span>atenção / pendência</td><td>Âmbar (fora da paleta de marca, ver manual §3)</td></tr>
+        <tr><td><code>--danger</code></td><td><span class="dot" style="background:var(--danger)"></span>erro / rejeição</td><td>Terracota (fora da paleta de marca, ver manual §3)</td></tr>
         <tr><td><code>--ink</code> / <code>--muted</code></td><td><span class="dot" style="background:var(--ink)"></span><span class="dot" style="background:var(--muted)"></span>texto</td><td>Roxo escurecido / dessaturado</td></tr>
       </tbody>
     </table>
@@ -248,7 +248,7 @@
 
   <section id="tipografia">
     <h2>Tipografia</h2>
-    <p class="lead">Arimo para todo o produto (compatível com Arial, fallback de sistema até embutir o arquivo). De Rotterdam reservado à marca — não replicado aqui por depender do arquivo licenciado da FESF.</p>
+    <p class="lead">Arimo para todo o produto (compatível com Arial, fallback de sistema até embutir o arquivo). Fonte display reservada à marca — não replicada aqui por depender do arquivo licenciado pelo cliente.</p>
     <div class="type-scale">
       <div><span class="t1">Estoque atual — CAF</span><small>título de tela · 21px · 650</small></div>
       <div><span class="t2">Entrada de lote</span><small>título de seção · 16px · 650</small></div>
@@ -293,11 +293,11 @@
 
   <section id="letterhead">
     <h2>Letterhead de relatórios</h2>
-    <p class="lead">Cabeçalho institucional, igual em tela e em PDF/Excel exportado. A régua de assinatura completa (Serviço → FESF → SUS → Governo do Estado) aguarda os arquivos de logotipo do SUS e do Governo da Bahia.</p>
+    <p class="lead">Cabeçalho institucional, igual em tela e em PDF/Excel exportado. A régua de assinatura completa (Serviço → Organização → entidades de governo relacionadas) aguarda os arquivos de logotipo dessas entidades.</p>
     <div class="letterhead">
       <div>
-        <div class="lh-org">Fundação Estatal Saúde da Família</div>
-        <div class="lh-hospital">Hospital Materno Infantil Dr. Joaquim Sampaio</div>
+        <div class="lh-org">Rede de Saúde Exemplo</div>
+        <div class="lh-hospital">Hospital Exemplo</div>
       </div>
       <div class="lh-meta">
         <div><b>Consolidado Geral de Estoque</b></div>
@@ -305,8 +305,8 @@
       </div>
     </div>
     <div class="signature-rule">
-      <b>Hospital Materno-Infantil Dr. Joaquim Sampaio</b>
-      <span class="arrow">→</span> FESFSUS <span class="arrow">→</span> SUS <span class="arrow">→</span> Governo do Estado (Bahia)
+      <b>Hospital Exemplo</b>
+      <span class="arrow">→</span> Rede de Saúde Exemplo <span class="arrow">→</span> SUS <span class="arrow">→</span> Governo do Estado
     </div>
   </section>
 
@@ -318,7 +318,7 @@
     </div>
   </section>
 
-  <footer>Estoque Farmácia · Rede FESFSUS · docs/04_IDENTIDADE_VISUAL.html — companheiro deste guia: docs/04_IDENTIDADE_VISUAL.md</footer>
+  <footer>Estoque Farmácia · docs/04_IDENTIDADE_VISUAL.html — companheiro deste guia: docs/04_IDENTIDADE_VISUAL.md</footer>
 </main>
 
 </body>

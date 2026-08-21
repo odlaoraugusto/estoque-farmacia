@@ -1,10 +1,10 @@
 # Estoque Farmácia — Backend
 
 API REST (FastAPI + PostgreSQL + SQLAlchemy/Alembic) do sistema de gestão
-de estoque de farmácia hospitalar do **Hospital Materno Infantil Dr.
-Joaquim Sampaio** (rede FESFSUS). Ver `docs/00_PROJETO.md` (raiz do
-repositório) para o planejamento completo — este README cobre só o
-"como rodar".
+de estoque de farmácia hospitalar, desenvolvido para um hospital de uma
+rede pública de saúde (nome da instituição omitido deste repositório —
+ver `.env.example`). Ver `docs/00_PROJETO.md` (raiz do repositório) para
+o planejamento completo — este README cobre só o "como rodar".
 
 Sem Docker: instalação direta no servidor da farmácia (Windows/Linux),
 como um serviço (systemd no Linux, Agendador de Tarefas/NSSM no
@@ -43,8 +43,8 @@ copy .env.example .env      # Windows
 | `JWT_SECRET_KEY` | sim | segredo de assinatura da sessão — gere com `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `JWT_ALGORITHM` | não (default `HS256`) | |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | não (default `480`, 8h) | duração do token/sessão |
-| `HOSPITAL_NOME` | não (tem default já preenchido) | nome exibido no cabeçalho institucional |
-| `HOSPITAL_ORGANIZACAO` | não (tem default já preenchido) | idem, para a organização (FESFSUS) |
+| `HOSPITAL_NOME` | não (tem default genérico, sobrescrever por instalação) | nome exibido no cabeçalho institucional |
+| `HOSPITAL_ORGANIZACAO` | não (tem default genérico, sobrescrever por instalação) | idem, para a organização/rede |
 | `RELATORIO_VENCIMENTO_DIAS` | não (default `30`) | janela do relatório de vencimentos próximos |
 | `CORS_ORIGINS` | não (default `*`) | lista separada por vírgula das origens do frontend, ou `*` |
 
@@ -105,8 +105,8 @@ do servidor principal. Ex. (Linux, cron diário às 2h):
 - **Enums**: implementados como `VARCHAR + CHECK CONSTRAINT`
   (`sa.Enum(..., native_enum=False)`), não `ENUM` nativo do Postgres —
   evita `ALTER TYPE ... ADD VALUE` (que não roda dentro de transação) se
-  a rede FESFSUS precisar adicionar um valor novo (ex. uma 5ª unidade)
-  no futuro.
+  a instalação precisar adicionar um valor novo (ex. uma 5ª unidade) no
+  futuro.
 - **Sessão/unidade ativa**: JWT assinado pelo servidor. O token do login
   não carrega unidade; `POST /auth/selecionar-unidade` valida a unidade
   no banco e emite um novo token com `unidade_ativa_id`/`unidade_ativa_nome`

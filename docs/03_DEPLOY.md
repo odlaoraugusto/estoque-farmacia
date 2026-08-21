@@ -1,6 +1,6 @@
 # Deploy — Instalação no Servidor do Hospital
 
-Guia de instalação para quando houver acesso à máquina definitiva da farmácia (Hospital Materno Infantil Dr. Joaquim Sampaio). **Tudo aqui é local** — sem nuvem, sem Supabase, sem senha de serviço externo. O servidor roda PostgreSQL de verdade instalado na própria máquina, na rede interna do hospital, sem depender de internet (seção 2 do `00_PROJETO.md`).
+Guia de instalação para quando houver acesso à máquina definitiva da farmácia do hospital cliente. **Tudo aqui é local** — sem nuvem, sem Supabase, sem senha de serviço externo. O servidor roda PostgreSQL de verdade instalado na própria máquina, na rede interna do hospital, sem depender de internet (seção 2 do `00_PROJETO.md`).
 
 Diferença importante em relação ao ambiente de desenvolvimento usado até aqui: aqui (nesta máquina de dev) o Postgres é uma versão portátil sem instalador porque não havia privilégio de administrador disponível (ver memória do projeto). **No servidor real do hospital, instalar o Postgres da forma normal**, com instalador oficial e privilégio de administrador de verdade — é mais simples e é o suportado oficialmente.
 
@@ -176,6 +176,6 @@ Um backup nunca testado é uma suposição, não uma garantia.
 
 ## 7. Depois de tudo no ar
 
-- Trocar as senhas temporárias dos usuários reais no primeiro login (não há tela de "trocar senha" no MVP — se isso for necessário no dia 1, pode ser um próximo pedido de funcionalidade).
+- Usuários reais cadastrados pela tela **Usuários** (2026-08-20) já nascem com senha padrão `Senha123!` e são obrigados a trocá-la no primeiro login — nenhuma ação manual extra necessária aqui além de avisar cada pessoa da senha inicial.
 - Guardar a senha do banco e o `JWT_SECRET_KEY` em um cofre de senhas da equipe de TI do hospital, não em texto plano em lugar nenhum.
-- Repetir a validação manual básica: login de cada perfil, uma Entrada, uma Saída, uma Transferência, um Descarte solicitado/aprovado — os mesmos fluxos já testados em dev (seções 15.5, 17 e 18 do `00_PROJETO.md`), agora contra o banco de produção.
+- Repetir a validação manual básica: login de cada perfil (incluindo a troca de senha obrigatória no primeiro acesso), uma Entrada, uma Saída, uma Transferência — os mesmos fluxos já testados em dev (seções 15.5, 17 e 18 do `00_PROJETO.md`), agora contra o banco de produção.

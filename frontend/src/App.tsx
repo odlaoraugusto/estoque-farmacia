@@ -7,7 +7,7 @@ import { EstoquePage } from './pages/EstoquePage';
 import { EntradaPage } from './pages/EntradaPage';
 import { TransferenciaPage } from './pages/TransferenciaPage';
 import { SaidaPage } from './pages/SaidaPage';
-import { DescartePage } from './pages/DescartePage';
+import { EmprestimoDoacaoPage } from './pages/EmprestimoDoacaoPage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
 import { MedicamentosPage } from './pages/MedicamentosPage';
 import { ReposicaoCarrinhoPage } from './pages/ReposicaoCarrinhoPage';
@@ -26,8 +26,8 @@ function App() {
               <Route path="/entrada" element={<EntradaPage />} />
               <Route path="/transferencia" element={<TransferenciaPage />} />
               <Route path="/saida" element={<SaidaPage />} />
+              <Route path="/saida-externa" element={<EmprestimoDoacaoPage />} />
               <Route path="/reposicao-carrinho" element={<ReposicaoCarrinhoPage />} />
-              <Route path="/descarte" element={<DescartePage />} />
               <Route path="/ajuste" element={<AjustePage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/medicamentos" element={<MedicamentosPage />} />

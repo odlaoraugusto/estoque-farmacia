@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.enums import TipoMovimentacaoEnum
+from app.models.enums import CategoriaSaidaEnum, TipoMovimentacaoEnum
 from app.models.movimentacao import Movimentacao
 from app.repositories.lote_repository import LoteRepository
 from app.repositories.medicamento_repository import MedicamentoRepository
@@ -20,6 +20,8 @@ from app.schemas.relatorio import (
     RelatorioAntimicrobianoOut,
     RelatorioAtividadeRecenteOut,
     RelatorioAuditoriaOut,
+    RelatorioConsumoMedicamentoItem,
+    RelatorioConsumoMedicamentosOut,
     RelatorioCustoPorSetorItem,
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoItem,
@@ -27,6 +29,7 @@ from app.schemas.relatorio import (
     RelatorioEstoqueCriticoItem,
     RelatorioEstoqueCriticoOut,
     RelatorioMetadados,
+    RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
 from app.schemas.usuario import UsuarioMe
@@ -151,6 +154,57 @@ class RelatorioService:
             valor_total_geral=valor_total_geral,
         )
 
+    def consumo_medicamentos(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_id: int | None,
+        data_inicio: date | None,
+        data_fim: date | None,
+    ) -> RelatorioConsumoMedicamentosOut:
+        """Série histórica mensal de consumo por medicamento (2026-08-20)
+        — quanto foi efetivamente dispensado internamente, mês a mês. Só
+        conta Saída categoria `normal` (ou sem categoria, saídas antigas
+        pré-2026-08-19): baixa por vencimento é perda, não consumo;
+        empréstimo/doação/permuta saíram do hospital, não foram
+        consumidos internamente."""
+        saidas = self.movimentacao_repository.listar_saidas_por_periodo(
+            db, data_inicio, data_fim, unidade_id
+        )
+
+        agregados: dict[tuple[int, str], dict] = defaultdict(
+            lambda: {"nome": "", "quantidade_total": 0}
+        )
+
+        for movimentacao in saidas:
+            if movimentacao.categoria_saida not in (None, CategoriaSaidaEnum.normal):
+                continue
+
+            medicamento = movimentacao.lote.medicamento
+            mes = movimentacao.data_hora.strftime("%Y-%m")
+            agregado = agregados[(medicamento.id, mes)]
+            agregado["nome"] = medicamento.nome
+            agregado["quantidade_total"] += movimentacao.quantidade
+
+        itens = [
+            RelatorioConsumoMedicamentoItem(
+                medicamento_id=medicamento_id,
+                nome=dados["nome"],
+                mes=mes,
+                quantidade_total=dados["quantidade_total"],
+            )
+            for (medicamento_id, mes), dados in sorted(
+                agregados.items(), key=lambda kv: (kv[1]["nome"], kv[0][1])
+            )
+        ]
+
+        return RelatorioConsumoMedicamentosOut(
+            metadados=self._metadados(usuario, "Consumo de Medicamentos", unidade_id, db),
+            periodo_inicio=data_inicio,
+            periodo_fim=data_fim,
+            itens=itens,
+        )
+
     def auditoria(
         self,
         db: Session,
@@ -199,7 +253,7 @@ class RelatorioService:
         carrinhos filhos da unidade filtrada). Soma `quantidade_atual` de
         todos os lotes de cada medicamento no escopo e compara com
         `estoque_minimo` — mesma regra que já existia só no frontend
-        (tile "Itens em risco de ruptura" da tela Estoque atual);
+        (tile "Estoque Crítico" da tela Estoque atual);
         `estoque_minimo == 0` significa "sem controle de mínimo definido",
         nunca entra na lista (não é criticidade real, é ausência de
         configuração)."""
@@ -257,11 +311,40 @@ class RelatorioService:
         dias_minimo: int = 7,
     ) -> RelatorioAntimicrobianoOut:
         """DOT (Days of Therapy) — programa de uso racional de
-        antimicrobianos (2026-08-19). Aproximação: conta DATAS DISTINTAS
-        de dispensação (Saída) por paciente+medicamento, não confirmação
-        real de administração (o hospital não tem eMAR) — é a mesma
-        limitação assumida em todo o resto do sistema, que só enxerga o
-        que passa pela farmácia.
+        antimicrobianos (2026-08-19)."""
+        return self._vigilancia_paciente(
+            db, usuario, unidade_id, dias_minimo, "antimicrobiano", "Uso Prolongado de Antimicrobianos"
+        )
+
+    def controlados_dispensacao(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_id: int | None,
+        dias_minimo: int = 0,
+    ) -> RelatorioAntimicrobianoOut:
+        """Vigilância diária de medicamentos controlados (2026-08-20) —
+        mesma mecânica do DOT, mas sem exigir "uso prolongado": o padrão
+        é `dias_minimo=0`, então qualquer dispensação aparece, não só
+        sequências de vários dias (a farmácia quer ver TODA dispensação
+        de controlado, não só as recorrentes)."""
+        return self._vigilancia_paciente(
+            db, usuario, unidade_id, dias_minimo, "controlado", "Dispensação de Controlados"
+        )
+
+    def _vigilancia_paciente(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_id: int | None,
+        dias_minimo: int,
+        categoria: str,
+        titulo: str,
+    ) -> RelatorioAntimicrobianoOut:
+        """Aproximação: conta DATAS DISTINTAS de dispensação (Saída) por
+        paciente+medicamento, não confirmação real de administração (o
+        hospital não tem eMAR) — é a mesma limitação assumida em todo o
+        resto do sistema, que só enxerga o que passa pela farmácia.
 
         "Em uso" = a dispensação mais recente daquele paciente+
         medicamento aconteceu nos últimos `RECENCIA_DIAS` dias (senão é
@@ -271,7 +354,7 @@ class RelatorioService:
         RECENCIA_DIAS = 2
 
         escopo = self._expandir_escopo(db, unidade_id)
-        saidas = self.movimentacao_repository.listar_saidas_antimicrobianos(db, escopo)
+        saidas = self.movimentacao_repository.listar_saidas_vigilancia(db, categoria, escopo)
 
         grupos: dict[tuple[str, int], list[Movimentacao]] = defaultdict(list)
         for mov in saidas:
@@ -325,9 +408,7 @@ class RelatorioService:
         itens.sort(key=lambda item: -item.dias_consecutivos)
 
         return RelatorioAntimicrobianoOut(
-            metadados=self._metadados(
-                usuario, "Uso Prolongado de Antimicrobianos", unidade_id, db
-            ),
+            metadados=self._metadados(usuario, titulo, unidade_id, db),
             dias_minimo=dias_minimo,
             itens=itens,
         )
@@ -341,7 +422,12 @@ class RelatorioService:
             return f"{sinal} un. — {m.motivo_ajuste or '—'}"
         if m.tipo == TipoMovimentacaoEnum.saida:
             categoria = m.categoria_saida.value if m.categoria_saida else "—"
-            return f"{categoria} — setor {m.setor_consumidor or '—'}"
+            detalhe = f"{categoria} — setor {m.setor_consumidor or '—'}"
+            if m.destino_externo:
+                detalhe += f" — destino: {m.destino_externo}"
+                if m.destinatario:
+                    detalhe += f" (a/c {m.destinatario})"
+            return detalhe
         return "—"
 
     def atividade_recente(
@@ -381,6 +467,31 @@ class RelatorioService:
             metadados=self._metadados(usuario, "Atividade Recente", unidade_id, db),
             dias_considerados=dias,
             itens=itens,
+        )
+
+    def transferencias(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_id: int | None,
+        data_inicio: date | None,
+        data_fim: date | None,
+    ) -> RelatorioTransferenciasOut:
+        """Rastreabilidade de transferências entre unidades (2026-08-20) —
+        toda transferência no período (pendente ou já confirmada), pra
+        confirmar que um medicamento realmente saiu de uma unidade e
+        chegou na outra. Divergência entre `quantidade` (enviada) e
+        `quantidade_recebida` fica visível item a item, sem cálculo à
+        parte — o front decide como destacar."""
+        movimentacoes = self.movimentacao_repository.listar_transferencias(
+            db, unidade_id, data_inicio, data_fim
+        )
+
+        return RelatorioTransferenciasOut(
+            metadados=self._metadados(usuario, "Rastreabilidade de Transferências", unidade_id, db),
+            periodo_inicio=data_inicio,
+            periodo_fim=data_fim,
+            itens=[MovimentacaoDetalhadaOut.visivel_para(m, usuario) for m in movimentacoes],
         )
 
     def vencimentos_proximos(

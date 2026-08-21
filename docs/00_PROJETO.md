@@ -94,7 +94,7 @@ Essa estrutura resolve: valor total em estoque (Σ `quantidade_atual × valor_un
 - Sem componentes "infantilizados": nada de botões enormes, fontes grandes demais, cards com sombra pesada ou gradiente chamativo — visual sóbrio, denso o suficiente para uso profissional recorrente.
 - Tipografia e espaçamento discretos, mais próximos de um sistema hospitalar real (tipo AGHUse) do que de uma landing page.
 
-**Atualização (2026-07-31):** decisão revista — a identidade FESFSUS passou a ser aplicada na barra superior institucional (topo da tela, acima do menu lateral), com o roxo `#61358c` de fundo e uma régua de 4 cores (`#61358c #7572a7 #79bfb4 #73d9a8`) na base, identificando a Fundação. O restante do sistema (menu, telas, formulários) continua com a paleta sóbria verde-azulada definida para uso profissional — não houve re-tema geral, só a identificação institucional no topo. Tipografia da barra usa a stack de sistema (Arimo é metricamente compatível com Arial/system-ui); "De Rotterdam" exigiria o arquivo de fonte licenciado da FESF para uso real — não embutido no protótipo por não termos o arquivo.
+**Atualização (2026-07-31):** decisão revista — a identidade visual do cliente passou a ser aplicada na barra superior institucional (topo da tela, acima do menu lateral), com o roxo `#61358c` de fundo e uma régua de 4 cores (`#61358c #7572a7 #79bfb4 #73d9a8`) na base, identificando a organização. O restante do sistema (menu, telas, formulários) continua com a paleta sóbria verde-azulada definida para uso profissional — não houve re-tema geral, só a identificação institucional no topo. Tipografia da barra usa a stack de sistema (Arimo é metricamente compatível com Arial/system-ui); a fonte institucional do manual de marca exigiria o arquivo licenciado do cliente para uso real — não embutida no protótipo por não termos o arquivo.
 
 ## 8. Status
 
@@ -132,29 +132,30 @@ Entrada só ocorre na CAF (ver seção 3). Protótipo atualizado: agora simula a
 
 ## 12. Identificação do hospital (2026-07-31)
 
-**Hospital: Hospital Materno Infantil Dr. Joaquim Sampaio** (rede FESFSUS).
+**Hospital real do cliente** — nome omitido deste repositório público, ver `.env` da instalação (nunca commitado, sempre fora do controle de versão).
 
-Como a arquitetura é um servidor local por hospital (seção 2 — não é multi-tenant, cada instalação atende um hospital só), o nome do hospital não vira uma tabela no banco: é um valor de configuração fixo da instalação (ex.: variável de ambiente `HOSPITAL_NOME` lida no start do backend), exibido na barra superior junto com a marca FESFSUS. Aplicado no protótipo (`docs/02_PROTOTIPO.html`) na barra institucional.
+Como a arquitetura é um servidor local por hospital (seção 2 — não é multi-tenant, cada instalação atende um hospital só), o nome do hospital não vira uma tabela no banco: é um valor de configuração fixo da instalação (variável de ambiente `HOSPITAL_NOME` lida no start do backend), exibido na barra superior junto com a marca institucional. Aplicado no protótipo (`docs/02_PROTOTIPO.html`) na barra institucional.
 
 ## 13. Correção (2026-07-31, rodada 2)
 
 - Trilha de auditoria restrita à Coordenação (seção 6).
 - `usuarios.crf` também se aplica a perfil Coordenador (seção 6).
 - Padrão de UX definido: **quando um perfil/unidade não tem acesso a uma tela ou relatório, o item some do menu em vez de aparecer travado/marcado com X.** Aplicado a todos os itens de navegação e abas de relatório do protótipo — se a lista de "próximos passos" adicionar novas telas, seguir o mesmo padrão.
-- Identidade visual FESFSUS aplicada na barra superior (seção 7).
+- Identidade visual do cliente aplicada na barra superior (seção 7).
 
 ## 14. Correção (2026-07-31, rodada 3)
 
-Cabeçalho institucional (Fundação Estatal Saúde da Família + Hospital Materno Infantil Dr. Joaquim Sampaio) passa a aparecer também no topo de todo relatório gerado — tela e exportação (PDF/Excel) usam o mesmo cabeçalho, incluindo título do relatório, data/hora de geração, usuário e unidade. Aplicado em `docs/02_PROTOTIPO.html` na tela de Relatórios.
+Cabeçalho institucional (organização + hospital, configuráveis via `.env`) passa a aparecer também no topo de todo relatório gerado — tela e exportação (PDF/Excel) usam o mesmo cabeçalho, incluindo título do relatório, data/hora de geração, usuário e unidade. Aplicado em `docs/02_PROTOTIPO.html` na tela de Relatórios.
 
 ## 15.5 Teste local ponta a ponta (2026-08-01)
 
 Ambiente de teste local montado do zero (não havia Postgres nem Docker funcional na máquina):
 - **PostgreSQL 17 portátil** (zip de binários, sem instalador/serviço — não precisa de admin do Windows) em `C:\Users\arthu\pgportable`. Rodando na porta 5432, usuário `postgres`/senha `postgres`, banco `estoque_farmacia`. Iniciar: `C:\Users\arthu\pgportable\pgsql\bin\pg_ctl.exe -D C:\Users\arthu\pgportable\data -l pg.log start`. Parar: mesmo comando com `stop`.
 - Migrations aplicadas (`alembic upgrade head`) e 3 usuários de teste criados via `scripts/seed_usuarios.py`:
-  - `joao.souza` / `Senha123!` — coordenador (CRF 22711-SP)
-  - `ana.ribeiro` / `Senha123!` — farmacêutico (CRF 12345-SP)
-  - `carlos.moreira` / `Senha123!` — atendente
+  - `joao.souza` — coordenador (CRF 22711-SP)
+  - `ana.ribeiro` — farmacêutico (CRF 12345-SP)
+  - `carlos.moreira` — atendente
+  - (senha de teste combinada à parte, não documentada aqui — repositório é público)
 - Backend rodando em `http://localhost:8000` (`uvicorn app.main:app`), frontend em `http://localhost:5173` (`npm run dev`, config em `.claude/launch.json`).
 
 **Fluxo validado de ponta a ponta:** login → seleção de unidade (CAF) → Entrada de um lote real de Dipirona → aparece corretamente em Estoque atual com valor total calculado (340 × R$2,10 = R$714,00). Trocado para perfil Atendente/UTI: confirmado que Entrada e Descarte somem do menu (não aparecem travados), e que Relatórios cai automaticamente na única aba permitida (Vencimentos próximos), com o cabeçalho institucional correto.
@@ -169,7 +170,7 @@ Usuário aprovou o protótipo e os defaults. Início da implementação: `backen
 
 **Backend** (`backend/`): FastAPI + SQLAlchemy + Alembic, schema completo (migration `0001_schema_inicial`), todas as regras de negócio das seções 3/6 aplicadas server-side (Entrada só CAF, Compra/Doação, transferência com lote_origem_id em envio parcial, saída com bloqueio de saldo negativo + FEFO, descarte em 2 etapas, matriz de permissões em `app/api/deps.py`), config do hospital via variável de ambiente, seed script para usuários (cadastro de usuário continua fora do MVP). `SELECT ... FOR UPDATE` usado nos decrementos de saldo para lidar com concorrência (seção 2). JWT com unidade ativa embutida após `/auth/selecionar-unidade`.
 
-**Frontend** (`frontend/`): React + TypeScript + Vite, replica fielmente a paleta/tipografia/layout do protótipo aprovado (`docs/02_PROTOTIPO.html`), incluindo a barra institucional FESFSUS e o letterhead dos relatórios. Toda a visibilidade por perfil vem de `GET /auth/me` (não reimplementa a matriz, reflete o que a API já aplica).
+**Frontend** (`frontend/`): React + TypeScript + Vite, replica fielmente a paleta/tipografia/layout do protótipo aprovado (`docs/02_PROTOTIPO.html`), incluindo a barra institucional do cliente e o letterhead dos relatórios. Toda a visibilidade por perfil vem de `GET /auth/me` (não reimplementa a matriz, reflete o que a API já aplica).
 
 **Divergência resolvida a favor da API real:** o protótipo escondia a tela inteira de Transferência para o Atendente; o backend (regra 4, seção 6) permite Atendente confirmar recebimento — só o envio é restrito. Frontend implementado assim: item de menu "Transferência" visível a todos, painel "Enviar" condicional por perfil, "Confirmar recebimento" sempre visível.
 
@@ -215,7 +216,7 @@ Nenhum bug novo encontrado. Dados de teste (2 medicamentos) desativados após o 
 Fase temporária, sem custo (plano free dos dois), pra uso pessoal enquanto o sistema ainda é protótipo — não é a arquitetura de produção (essa continua sendo servidor local, `docs/03_DEPLOY.md`).
 
 - **Backend**: Render, via Blueprint (`render.yaml` na raiz do repo) — builda e roda `alembic upgrade head` automaticamente a cada deploy. URL: `https://estoquefarmacia-6b49d5.onrender.com`.
-- **Banco**: Neon (Postgres serverless free). Migrations e os 3 usuários de teste (mesmos do ambiente local: `joao.souza`/coordenador, `ana.ribeiro`/farmaceutico, `carlos.moreira`/atendente, senha `Senha123!`) já aplicados.
+- **Banco**: Neon (Postgres serverless free). Migrations e os mesmos 3 usuários de teste do ambiente local já aplicados (senha não documentada aqui — repositório é público).
 - **Frontend**: Vercel, projeto `estoque-a9697852` (nome aleatório de propósito — "URL secreta", só o usuário sabe). URL: `https://estoque-a9697852.vercel.app`.
 - **Limitação aceita**: instância free do Render "dorme" após inatividade — primeiro acesso depois de um tempo parado pode demorar até ~50s (cold start). Sem região no Brasil disponível no Render (só Oregon, Ohio, Virginia, Frankfurt, Singapura) — Oregon foi usada, latência mais alta mas aceitável pra uso pessoal de protótipo.
 
@@ -223,27 +224,27 @@ Fase temporária, sem custo (plano free dos dois), pra uso pessoal enquanto o si
 1. **404 em qualquer rota direta no Vercel** (`/login`, refresh de página, etc.) — faltava `frontend/vercel.json` com rewrite pra SPA (`{"source": "/(.*)", "destination": "/index.html"}`). Mesmo problema que o `try_files` do nginx já resolvia no deploy local — Vercel precisa da própria config.
 2. **Rótulo de perfil errado na tela de seleção de unidade** (`LoginPage.tsx`) — Coordenador aparecia como "Farmacêutico". Ternário binário (`atendente` vs tudo mais) nunca tratava coordenador como caso próprio; trocado pelo `labelPerfil()` já usado em todo o resto do app.
 
-## 19. Identidade visual — paleta oficial FESFSUS aplicada (2026-08-03/04)
+## 19. Identidade visual — paleta oficial do cliente aplicada (2026-08-03/04)
 
-Nova direção de identidade documentada em `docs/04_IDENTIDADE_VISUAL.md` (+ `.html` de referência viva dos tokens + `.docx`): a paleta do produto deixou de ser o verde-salva do protótipo original e passou a derivar das 5 cores oficiais do Manual de Marca FESFSUS (roxo, lis, verde-água, menta, cinza), suavizadas em tom pastel para uso denso de tela — as cores cheias da marca continuam intactas só na barra institucional, na régua de 4 cores e no letterhead dos relatórios, como manda o manual. `frontend/src/index.css` já veio com os tokens da nova paleta aplicados (confirmado 1:1 contra o doc, claro e escuro).
+Nova direção de identidade documentada em `docs/04_IDENTIDADE_VISUAL.md` (+ `.html` de referência viva dos tokens + `.docx`): a paleta do produto deixou de ser o verde-salva do protótipo original e passou a derivar das 5 cores oficiais do manual de marca do cliente (roxo, lis, verde-água, menta, cinza), suavizadas em tom pastel para uso denso de tela — as cores cheias da marca continuam intactas só na barra institucional, na régua de 4 cores e no letterhead dos relatórios, como manda o manual. `frontend/src/index.css` já veio com os tokens da nova paleta aplicados (confirmado 1:1 contra o doc, claro e escuro).
 
 Também: cada unidade (CAF/UTI/Centro Cirúrgico/Emergência) ganhou uma cor de identificação (rail de 3px na borda esquerda), derivada da régua de 4 cores da marca — implementado em 2026-08-04 no `session-card` da sidebar (`Layout.tsx`) e no painel de lotes da tela Estoque atual (`EstoquePage.tsx`), via helper `classeRailUnidade()` em `lib/formato.ts`. Cor nunca é a única pista — nome da unidade sempre visível ao lado, por design (seção 4 do doc de identidade).
 
 **Bug real encontrado e corrigido ao aplicar**: as classes `.rail-*` existiam no CSS mas nunca apareciam visualmente — `.panel`/`.session-card` definem `border` (shorthand, mesma especificidade) mais abaixo no arquivo, então venciam o empate de cascata e resetavam a borda esquerda de volta pra cor de linha padrão, em silêncio (sem erro, sem warning). Corrigido movendo o bloco `.rail-*` para o fim do arquivo CSS — comentário deixado no código pra não repetir o erro. Confirmado visualmente (screenshot + inspeção de `getComputedStyle`) em CAF (roxo) e UTI (lis), claro e escuro.
 
-**Pendências da identidade visual (registradas no próprio `04_IDENTIDADE_VISUAL.md`, não bloqueiam uso)**: fonte De Rotterdam (licenciada FESF, precisa do arquivo da ASCOM) e logotipos vetoriais do SUS/Governo da Bahia para completar a régua de assinatura de 4 marcas no letterhead — ambos fora do escopo até os arquivos chegarem.
+**Pendências da identidade visual (registradas no próprio `04_IDENTIDADE_VISUAL.md`, não bloqueiam uso)**: fonte institucional licenciada (precisa do arquivo oficial do cliente) e logotipos vetoriais dos órgãos parceiros para completar a régua de assinatura de 4 marcas no letterhead — ambos fora do escopo até os arquivos chegarem.
 
 **Nota**: `docs/02_PROTOTIPO.html` (protótipo estático aprovado em 2026-07-31) ficou desatualizado em relação a esta nova paleta — é histórico, não voltar a usar como referência visual; a referência atual é `04_IDENTIDADE_VISUAL.md`/`.html` + o app React de verdade.
 
-## 19. Identidade visual unificada sob a paleta FESFSUS (2026-08-03)
+## 19. Identidade visual unificada sob a paleta do cliente (2026-08-03)
 
-Cliente enviou o arquivo oficial `Manual de Aplicação de Marca - FESFSUS - 2024.pdf` (23 páginas) e pediu um projeto de identidade visual completo e documentado para o sistema, usando a paleta da FESF suavizada em tom pastel — substituindo o verde-salva usado até aqui como cor própria do produto (seção 7, 16).
+Cliente enviou o arquivo oficial do manual de marca da organização (23 páginas) e pediu um projeto de identidade visual completo e documentado para o sistema, usando a paleta oficial suavizada em tom pastel — substituindo o verde-salva usado até aqui como cor própria do produto (seção 7, 16).
 
-**Decisão:** a paleta inteira do produto (não só a barra institucional) passou a ser derivada das 5 cores oficiais do manual (`#61358c` roxo, `#7572a7` lis, `#79bfb4` verde-água, `#73d9a8` menta, `#575756` cinza), com saturação reduzida e luminosidade calibrada para uso denso de tela — todos os pares texto/fundo verificados contra WCAG AA (≥4,5:1). Âmbar e terracota foram mantidos como cores de status (atenção/erro) por não existir equivalente na paleta FESF e por semáforo de status precisar de cores reconhecíveis como tal — decisão registrada e justificada em `docs/04_IDENTIDADE_VISUAL.md`. As 5 cores oficiais continuam intactas (sem suavização) na barra institucional, na régua de 4 cores e no letterhead de relatórios, como exige o manual de marca.
+**Decisão:** a paleta inteira do produto (não só a barra institucional) passou a ser derivada das 5 cores oficiais do manual (`#61358c` roxo, `#7572a7` lis, `#79bfb4` verde-água, `#73d9a8` menta, `#575756` cinza), com saturação reduzida e luminosidade calibrada para uso denso de tela — todos os pares texto/fundo verificados contra WCAG AA (≥4,5:1). Âmbar e terracota foram mantidos como cores de status (atenção/erro) por não existir equivalente na paleta de marca e por semáforo de status precisar de cores reconhecíveis como tal — decisão registrada e justificada em `docs/04_IDENTIDADE_VISUAL.md`. As 5 cores oficiais continuam intactas (sem suavização) na barra institucional, na régua de 4 cores e no letterhead de relatórios, como exige o manual de marca.
 
 Novidade proposta nesta rodada: as 4 cores da régua institucional (que coincidem em número com as 4 unidades do hospital) foram atribuídas cada uma a uma unidade — CAF/roxo, UTI/lis, Centro Cirúrgico/verde-água, Emergência/menta — como rail de contexto (borda esquerda de 3px em cards). Classes CSS já existem (`.rail-caf`, `.rail-uti`, `.rail-cc`, `.rail-emerg`); aplicação nos componentes de tela fica pendente (ver seção 12 do documento de identidade).
 
-Também confirmado: a régua de assinatura institucional do manual de marca (Serviço → FESF → SUS → Governo do Estado) já tem o exemplo pronto para este hospital na página 13 do manual oficial — `Hospital Materno-Infantil Dr. Joaquim Sampaio · FESFSUS · SUS · Governo do Estado (Bahia)`. Registrado como o padrão a seguir no letterhead de relatórios; falta só os arquivos vetoriais dos logotipos do SUS e do Governo da Bahia para completar a régua de 4 marcas (hoje o letterhead mostra só texto de organização + hospital).
+Também confirmado: a régua de assinatura institucional do manual de marca (Serviço → Organização → Órgão federal → Órgão estadual) já tem o exemplo pronto para este hospital na página 13 do manual oficial (composição de 4 marcas: unidade de saúde, rede/organização, e os dois órgãos governamentais parceiros — nomes reais omitidos deste repositório público). Registrado como o padrão a seguir no letterhead de relatórios; falta só os arquivos vetoriais dos logotipos dos órgãos parceiros para completar a régua de 4 marcas (hoje o letterhead mostra só texto de organização + hospital).
 
 `frontend/src/index.css` atualizado com os novos tokens (mesma estrutura de variáveis, só os valores mudaram — nenhum componente ou layout foi tocado). Build de produção não pôde ser confirmado neste ambiente por incompatibilidade da biblioteca nativa `lightningcss` com o sandbox Linux usado nesta sessão (o projeto foi instalado em Windows); a compilação chegou a transformar os 41 módulos do frontend sem erro antes de falhar num binário nativo — recomenda-se rodar `npm run build` no ambiente normal do projeto antes do próximo deploy.
 
@@ -280,7 +281,7 @@ Discussão sobre o que mais aparece em sistemas de estoque de farmácia hospital
 - **Giro de estoque / Curva ABC** — barato de fazer quando for hora: só um relatório novo em cima de dados que já existem (saídas × valor por medicamento), sem mudança de schema.
 - **Inventário rotativo** (contagem física periódica) — mais trabalhoso: precisa de fluxo de contagem, cálculo de divergência, e aprovação pra ajustar saldo (parecido com o Descarte). Não modelado em detalhe ainda.
 
-**Alarme de estoque crítico** — hoje é só passivo (tile "Itens em risco de ruptura" na Estoque atual, contagem calculada ao abrir a tela); não existe notificação proativa. Não houve pedido de mudança nesta rodada, só esclarecimento do estado atual.
+**Alarme de estoque crítico** — hoje é só passivo (tile "Itens em Estoque Crítico" na Estoque atual, contagem calculada ao abrir a tela); não existe notificação proativa. Não houve pedido de mudança nesta rodada, só esclarecimento do estado atual.
 
 ## 23. Devolução + paciente/prontuário — implementado e publicado (2026-08-14)
 
@@ -307,10 +308,10 @@ Testado ponta a ponta: local via curl (ajuste válido, motivo vazio rejeitado, a
 
 ## 25. Popup de alertas de estoque ao login (2026-08-15)
 
-Pedido do cliente: os tiles "itens em risco de ruptura" e "vencendo em 30 dias" da tela Estoque atual eram só um número passivo — sem dizer qual medicamento, sem avisar ninguém. Agora, ao entrar no sistema, quem tem acesso vê um popup automático com a descrição de cada item, cor por tipo (crítico = vermelho, validade próxima = azul), e um botão Fechar.
+Pedido do cliente: os tiles "itens em Estoque Crítico" e "vencendo em 30 dias" da tela Estoque atual eram só um número passivo — sem dizer qual medicamento, sem avisar ninguém. Agora, ao entrar no sistema, quem tem acesso vê um popup automático com a descrição de cada item, cor por tipo (crítico = vermelho, validade próxima = azul), e um botão Fechar.
 
 - `GET /relatorios/estoque-critico` (novo) — restrito a Farmacêutico/Coordenador (`_PODE_VER_FINANCEIRO`), mesmo escopo de unidade (+ carrinhos filhos) dos demais relatórios de estoque.
-- **Bug real encontrado construindo isso**: o cálculo de "risco de ruptura" (tanto o novo endpoint quanto o tile antigo, que era só client-side) somava a partir dos LOTES — um medicamento com estoque mínimo cadastrado mas ZERO lotes (prateleira vazia, o caso mais crítico) nunca aparecia, porque não existia nenhuma linha de lote pra somar. Corrigido nos dois lugares: semear a partir de TODOS os medicamentos ativos (saldo 0) antes de somar os lotes por cima.
+- **Bug real encontrado construindo isso**: o cálculo de "Estoque Crítico" (tanto o novo endpoint quanto o tile antigo, que era só client-side) somava a partir dos LOTES — um medicamento com estoque mínimo cadastrado mas ZERO lotes (prateleira vazia, o caso mais crítico) nunca aparecia, porque não existia nenhuma linha de lote pra somar. Corrigido nos dois lugares: semear a partir de TODOS os medicamentos ativos (saldo 0) antes de somar os lotes por cima.
 - Popup (`NotificacaoEstoquePopup.tsx`) monta uma vez dentro do `Layout` — como o Layout não remonta ao navegar entre telas (só num login/F5 novo), o efeito prático é "aparece uma vez por sessão". Busca `/relatorios/estoque-critico` + `/relatorios/vencimentos-proximos` (já existia, aberto a todos os perfis) em paralelo; só abre se pelo menos uma lista tiver item. Falha de rede aqui é silenciosa de propósito — é um "a mais", não pode travar o login.
 - Novo token de cor `--info` (azul) no design system, ao lado de `--ok`/`--danger` já existentes, com variante dark mode.
 
@@ -378,7 +379,7 @@ Testado via curl: CRF obrigatório barrando criação/promoção sem ele, login 
 Pedido do cliente: a régua de "validade próxima" tinha só 2 estados (vencido = vermelho, a vencer em <30 dias = azul). Virou 3 níveis, cor por gravidade:
 
 - **Vencido** — vermelho (`--danger`, já existia).
-- **Menos de 30 dias** — amarelo (reaproveita `--warn`, já existia pro tile "risco de ruptura" e pro pill `.pend`).
+- **Menos de 30 dias** — amarelo (reaproveita `--warn`, já existia pro tile "Estoque Crítico" e pro pill `.pend`).
 - **Entre 30 e 60 dias** — roxo, token novo (`--roxo`/`--roxo-bg`, luz e escuro).
 
 `nivelValidade(dias)` centralizado em `lib/formato.ts` — usado tanto no popup de login (`NotificacaoEstoquePopup.tsx`, 3 blocos: vermelho/amarelo/roxo) quanto na tabela "Estoque atual" (pill colorido por linha: `pill danger`/`pill pend`/`pill roxo`/`pill muted`), pra não duplicar os limites (30/60 dias) em dois lugares. A busca de `/relatorios/vencimentos-proximos` nesses dois pontos passou de `dias=30` (implícito, default do backend) pra `dias=60` explícito — a classificação em 3 níveis é feita no cliente a partir da data de validade, o backend não mudou (endpoint já aceitava `dias` como parâmetro).

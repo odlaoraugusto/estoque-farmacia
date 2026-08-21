@@ -5,13 +5,13 @@ from sqlalchemy import text
 from app.api.routes.ajustes import router as ajustes_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.config import router as config_router
-from app.api.routes.descartes import router as descartes_router
 from app.api.routes.entradas import router as entradas_router
 from app.api.routes.lotes import router as lotes_router
 from app.api.routes.medicamentos import router as medicamentos_router
 from app.api.routes.pacientes import router as pacientes_router
 from app.api.routes.relatorios import router as relatorios_router
 from app.api.routes.saidas import router as saidas_router
+from app.api.routes.solicitacoes import router as solicitacoes_router
 from app.api.routes.transferencias import router as transferencias_router
 from app.api.routes.unidades import router as unidades_router
 from app.api.routes.usuarios import router as usuarios_router
@@ -46,8 +46,8 @@ app.include_router(unidades_router)
 app.include_router(medicamentos_router)
 app.include_router(entradas_router)
 app.include_router(transferencias_router)
+app.include_router(solicitacoes_router)
 app.include_router(saidas_router)
-app.include_router(descartes_router)
 app.include_router(ajustes_router)
 app.include_router(lotes_router)
 app.include_router(relatorios_router)

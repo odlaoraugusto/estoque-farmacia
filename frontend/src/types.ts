@@ -22,17 +22,25 @@ export type Apresentacao =
   | 'adesivo'
   | 'bolsa';
 
-export type Origem = 'compra' | 'doacao';
+/** `emprestimo` (2026-08-20): item recebido de outra instituição por
+ * empréstimo — mesmas regras de valor zerado/nota fiscal dispensada que
+ * doação, mas exige `procedencia_externa` (de onde veio). */
+export type Origem = 'compra' | 'doacao' | 'emprestimo';
 
-/** Categoria de uma Saída (2026-08-19) — normal (default) ou empréstimo/
- * doação pra fora do hospital, usado pra notificar o Coordenador. */
-export type CategoriaSaida = 'normal' | 'emprestimo' | 'doacao';
+/** Categoria de uma Saída (2026-08-19) — normal (default), baixa por
+ * vencimento (2026-08-20, substitui a antiga tela de Descarte), ou
+ * empréstimo/doação/permuta pra fora do hospital (aba própria, exige
+ * `destino_externo` e notifica o Coordenador). */
+export type CategoriaSaida = 'normal' | 'vencimento' | 'emprestimo' | 'doacao' | 'permuta';
 
 export type StatusTransferencia = 'em_transito' | 'recebido';
 
 export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte' | 'ajuste';
 
 export type StatusDescarte = 'pendente_aprovacao' | 'aprovado' | 'rejeitado';
+
+/** Solicitação de transferência satélite -> CAF (2026-08-20). */
+export type StatusSolicitacao = 'pendente' | 'aceita' | 'recusada';
 
 /** Carrinho de emergência (2026-08-13): vira um local de estoque
  * rastreável (`tipo=carrinho`), mas nunca gera acesso de sessão — só
@@ -52,6 +60,7 @@ export interface UsuarioMe {
   crf: string | null;
   unidade_ativa_id: number | null;
   unidade_ativa_nome: string | null;
+  deve_trocar_senha: boolean;
 }
 
 export interface UsuarioResumo {
@@ -68,6 +77,7 @@ export interface UsuarioOut {
   perfil: Perfil;
   crf: string | null;
   ativo: boolean;
+  deve_trocar_senha: boolean;
   created_at: string;
 }
 
@@ -93,6 +103,7 @@ export interface MedicamentoOut {
   acondicionamento: Acondicionamento;
   estoque_minimo: number;
   ativo: boolean;
+  e_controlado: boolean;
   // Programa de uso racional de antimicrobianos (2026-08-19) — quando
   // true, Saída desse item exige paciente/prontuário (SaidaPage e
   // SaidaService validam isso, cada um do seu lado).
@@ -110,6 +121,7 @@ export interface LoteOut {
   origem: Origem;
   numero_nota_fiscal: string | null;
   numero_afm: string | null;
+  procedencia_externa: string | null;
   data_entrada: string;
   usuario_entrada_id: number;
   status_transferencia: StatusTransferencia | null;
@@ -132,6 +144,8 @@ export interface MovimentacaoOut {
   quantidade_recebida: number | null;
   setor_consumidor: string | null;
   categoria_saida: CategoriaSaida | null;
+  destino_externo: string | null;
+  destinatario: string | null;
   motivo_descarte: string | null;
   motivo_ajuste: string | null;
   status: StatusDescarte | null;
@@ -163,6 +177,25 @@ export interface MovimentacaoDetalhadaOut extends MovimentacaoOut {
 export interface PacienteOut {
   prontuario: string;
   nome: string;
+}
+
+export interface SolicitacaoOut {
+  id: number;
+  unidade_solicitante_id: number;
+  medicamento_id: number;
+  quantidade_desejada: number;
+  observacao: string | null;
+  status: StatusSolicitacao;
+  motivo_recusa: string | null;
+  movimentacao_id: number | null;
+  usuario_solicitante_id: number;
+  usuario_atendimento_id: number | null;
+  data_solicitacao: string;
+  data_atendimento: string | null;
+  unidade_solicitante: UnidadeOut;
+  medicamento: MedicamentoOut;
+  usuario_solicitante: UsuarioResumo;
+  usuario_atendimento: UsuarioResumo | null;
 }
 
 export interface RelatorioMetadados {
@@ -197,6 +230,27 @@ export interface RelatorioCustoPorSetorOut {
   periodo_fim: string | null;
   itens: RelatorioCustoPorSetorItem[];
   valor_total_geral: string;
+}
+
+export interface RelatorioConsumoMedicamentoItem {
+  medicamento_id: number;
+  nome: string;
+  mes: string;
+  quantidade_total: number;
+}
+
+export interface RelatorioConsumoMedicamentosOut {
+  metadados: RelatorioMetadados;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  itens: RelatorioConsumoMedicamentoItem[];
+}
+
+export interface RelatorioTransferenciasOut {
+  metadados: RelatorioMetadados;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  itens: MovimentacaoDetalhadaOut[];
 }
 
 export interface RelatorioAuditoriaOut {

@@ -9,6 +9,8 @@ import type { Perfil, UsuarioOut } from '../types';
 
 const PERFIS: Perfil[] = ['atendente', 'farmaceutico', 'coordenador'];
 
+const SENHA_PADRAO_NOVO_USUARIO = 'Senha123!';
+
 const FORM_VAZIO = {
   nome: '',
   login: '',
@@ -95,10 +97,10 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
       if (editandoId == null) {
         await api.post(
           '/usuarios',
-          { nome: form.nome, login: form.login, senha: form.senha, perfil: form.perfil, crf: form.crf || null },
+          { nome: form.nome, login: form.login, perfil: form.perfil, crf: form.crf || null },
           { token },
         );
-        setSucesso('Usuário cadastrado.');
+        setSucesso(`Usuário cadastrado — senha padrão "${SENHA_PADRAO_NOVO_USUARIO}", troca obrigatória no primeiro login.`);
       } else {
         const corpo: Record<string, unknown> = {
           nome: form.nome,
@@ -141,7 +143,8 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
       </div>
       <p className="screen-sub">
         Cadastro de acesso ao sistema. Desativar um usuário não apaga o histórico de movimentações já registradas
-        por ele. O login não pode ser alterado depois de criado.
+        por ele. O login não pode ser alterado depois de criado. Usuário novo (ou com senha resetada) é obrigado a
+        trocar a senha padrão no primeiro login.
       </p>
 
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
@@ -183,27 +186,27 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
               required
             />
           </div>
-          <div className="field">
-            <label htmlFor="usr-senha">
-              {editandoId == null ? (
-                <>
-                  Senha <span className="req">*</span>
-                </>
-              ) : (
-                <>
-                  Nova senha <span className="tag">deixe em branco pra manter</span>
-                </>
-              )}
-            </label>
-            <input
-              id="usr-senha"
-              type="text"
-              placeholder={editandoId == null ? 'senha temporária' : '••••••••'}
-              value={form.senha}
-              onChange={(e) => setForm((f) => ({ ...f, senha: e.target.value }))}
-              required={editandoId == null}
-            />
-          </div>
+          {editandoId == null ? (
+            <div className="field">
+              <label>
+                Senha <span className="tag">automática</span>
+              </label>
+              <input type="text" disabled value={`${SENHA_PADRAO_NOVO_USUARIO} (troca obrigatória no 1º login)`} />
+            </div>
+          ) : (
+            <div className="field">
+              <label htmlFor="usr-senha">
+                Resetar senha <span className="tag">deixe em branco pra manter</span>
+              </label>
+              <input
+                id="usr-senha"
+                type="text"
+                placeholder="••••••••"
+                value={form.senha}
+                onChange={(e) => setForm((f) => ({ ...f, senha: e.target.value }))}
+              />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="usr-perfil">
               Perfil <span className="req">*</span>
@@ -268,13 +271,14 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
                   <th>Perfil</th>
                   <th>CRF</th>
                   <th>Status</th>
+                  <th>Senha</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {usuarios.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="vazio-tabela">
+                    <td colSpan={7} className="vazio-tabela">
                       Nenhum usuário cadastrado.
                     </td>
                   </tr>
@@ -290,6 +294,13 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
                     <td className="mono">{u.crf ?? '—'}</td>
                     <td>
                       <span className={`pill ${u.ativo ? 'ok' : 'muted'}`}>{u.ativo ? 'ativo' : 'inativo'}</span>
+                    </td>
+                    <td>
+                      {u.deve_trocar_senha ? (
+                        <span className="pill pend">padrão</span>
+                      ) : (
+                        <span className="pill muted">trocada</span>
+                      )}
                     </td>
                     <td style={{ display: 'flex', gap: 6 }}>
                       <button type="button" className="btn ghost sm" onClick={() => iniciarEdicao(u)}>

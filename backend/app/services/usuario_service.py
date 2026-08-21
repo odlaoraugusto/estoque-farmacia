@@ -15,6 +15,12 @@ class UsuarioService:
     instalação — este service cobre o dia a dia depois do sistema no ar).
     """
 
+    # Senha padrão de todo usuário novo (2026-08-20) — o Coordenador não
+    # escolhe nem vê a senha de ninguém; o usuário é obrigado a trocá-la
+    # no primeiro login (`deve_trocar_senha`, checado em
+    # `AuthService.selecionar_unidade`).
+    SENHA_PADRAO_NOVO_USUARIO = "Senha123!"
+
     def __init__(self):
         self.usuario_repository = UsuarioRepository()
 
@@ -41,10 +47,11 @@ class UsuarioService:
         usuario = Usuario(
             nome=dados.nome,
             login=dados.login,
-            senha_hash=hash_senha(dados.senha),
+            senha_hash=hash_senha(self.SENHA_PADRAO_NOVO_USUARIO),
             perfil=dados.perfil,
             crf=dados.crf,
             ativo=True,
+            deve_trocar_senha=True,
         )
 
         return self.usuario_repository.create(db, usuario)
@@ -85,5 +92,10 @@ class UsuarioService:
 
         if dados.senha:
             usuario.senha_hash = hash_senha(dados.senha)
+            # Reset manual pelo Coordenador (ex.: usuário esqueceu a senha)
+            # exige troca no próximo login, mesma regra do usuário recém-
+            # criado — nunca fica uma senha só o Coordenador conhece em uso
+            # indefinidamente.
+            usuario.deve_trocar_senha = True
 
         return self.usuario_repository.update(db, usuario, dados)
