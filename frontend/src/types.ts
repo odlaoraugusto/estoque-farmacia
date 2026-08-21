@@ -236,6 +236,7 @@ export interface RelatorioConsumoMedicamentoItem {
   medicamento_id: number;
   nome: string;
   mes: string;
+  setor: string;
   quantidade_total: number;
 }
 

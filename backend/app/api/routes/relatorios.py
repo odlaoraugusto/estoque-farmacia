@@ -90,15 +90,20 @@ def relatorio_consumo_medicamentos(
     unidade_id: int | None = None,
     data_inicio: date | None = None,
     data_fim: date | None = None,
+    setor_consumidor: str | None = None,
     formato: FormatoExportacao | None = None,
     usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
     db: Session = Depends(get_db),
 ):
     """Série histórica mensal de consumo de medicamentos (2026-08-20) —
-    quanto foi efetivamente dispensado (Saída normal) por mês, sem
-    filtro de data aplica a tudo que existir."""
+    quanto foi efetivamente dispensado (Saída normal) por mês e por
+    setor de dispensação, sem filtro de data aplica a tudo que existir.
+    `setor_consumidor` filtra por um dos setores clínicos cadastrados na
+    tela de Saída (texto livre — não é FK, mesmo padrão de sempre)."""
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
-    relatorio = service.consumo_medicamentos(db, usuario, unidade_escopo, data_inicio, data_fim)
+    relatorio = service.consumo_medicamentos(
+        db, usuario, unidade_escopo, data_inicio, data_fim, setor_consumidor
+    )
 
     if formato is None:
         return relatorio

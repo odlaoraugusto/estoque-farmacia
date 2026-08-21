@@ -129,9 +129,9 @@ def tabela_custo_por_setor(relatorio: RelatorioCustoPorSetorOut) -> TabelaRelato
 
 
 def tabela_consumo_medicamentos(relatorio: RelatorioConsumoMedicamentosOut) -> TabelaRelatorio:
-    colunas = ["Medicamento", "Mês", "Quantidade Consumida"]
+    colunas = ["Medicamento", "Setor", "Mês", "Quantidade Consumida"]
     linhas = [
-        [item.nome, item.mes, str(item.quantidade_total)]
+        [item.nome, item.setor, item.mes, str(item.quantidade_total)]
         for item in relatorio.itens
     ]
 
@@ -140,17 +140,13 @@ def tabela_consumo_medicamentos(relatorio: RelatorioConsumoMedicamentosOut) -> T
         inicio = formatar_data(relatorio.periodo_inicio) or "início do histórico"
         fim = formatar_data(relatorio.periodo_fim) or "hoje"
         informacoes_extra.append(f"Período considerado: {inicio} até {fim}")
-    informacoes_extra.append(
-        "Só conta Saída de dispensação normal — baixa por vencimento e saídas de "
-        "empréstimo/doação/permuta não entram (não são consumo interno)."
-    )
 
     return TabelaRelatorio(
         metadados=relatorio.metadados,
         colunas=colunas,
         linhas=linhas,
         informacoes_extra=informacoes_extra,
-        larguras_relativas=[2.0, 0.8, 1.0],
+        larguras_relativas=[1.8, 1.6, 0.8, 1.0],
     )
 
 

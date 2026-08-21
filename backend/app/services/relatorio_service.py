@@ -161,18 +161,20 @@ class RelatorioService:
         unidade_id: int | None,
         data_inicio: date | None,
         data_fim: date | None,
+        setor_consumidor: str | None = None,
     ) -> RelatorioConsumoMedicamentosOut:
-        """Série histórica mensal de consumo por medicamento (2026-08-20)
-        — quanto foi efetivamente dispensado internamente, mês a mês. Só
-        conta Saída categoria `normal` (ou sem categoria, saídas antigas
-        pré-2026-08-19): baixa por vencimento é perda, não consumo;
-        empréstimo/doação/permuta saíram do hospital, não foram
+        """Série histórica mensal de consumo por medicamento e setor
+        (2026-08-20, setor de dispensação adicionado) — quanto foi
+        efetivamente dispensado internamente, mês a mês, por setor
+        clínico. Só conta Saída categoria `normal` (ou sem categoria,
+        saídas antigas pré-2026-08-19): baixa por vencimento é perda, não
+        consumo; empréstimo/doação/permuta saíram do hospital, não foram
         consumidos internamente."""
         saidas = self.movimentacao_repository.listar_saidas_por_periodo(
-            db, data_inicio, data_fim, unidade_id
+            db, data_inicio, data_fim, unidade_id, setor_consumidor
         )
 
-        agregados: dict[tuple[int, str], dict] = defaultdict(
+        agregados: dict[tuple[int, str, str], dict] = defaultdict(
             lambda: {"nome": "", "quantidade_total": 0}
         )
 
@@ -182,7 +184,8 @@ class RelatorioService:
 
             medicamento = movimentacao.lote.medicamento
             mes = movimentacao.data_hora.strftime("%Y-%m")
-            agregado = agregados[(medicamento.id, mes)]
+            setor = movimentacao.setor_consumidor or "Não informado"
+            agregado = agregados[(medicamento.id, mes, setor)]
             agregado["nome"] = medicamento.nome
             agregado["quantidade_total"] += movimentacao.quantidade
 
@@ -191,10 +194,11 @@ class RelatorioService:
                 medicamento_id=medicamento_id,
                 nome=dados["nome"],
                 mes=mes,
+                setor=setor,
                 quantidade_total=dados["quantidade_total"],
             )
-            for (medicamento_id, mes), dados in sorted(
-                agregados.items(), key=lambda kv: (kv[1]["nome"], kv[0][1])
+            for (medicamento_id, mes, setor), dados in sorted(
+                agregados.items(), key=lambda kv: (kv[1]["nome"], kv[0][1], kv[0][2])
             )
         ]
 

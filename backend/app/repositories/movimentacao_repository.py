@@ -77,6 +77,7 @@ class MovimentacaoRepository:
         data_inicio: date | None,
         data_fim: date | None,
         unidade_id: int | None = None,
+        setor_consumidor: str | None = None,
     ) -> list[Movimentacao]:
         query = db.query(Movimentacao).filter(
             Movimentacao.tipo == TipoMovimentacaoEnum.saida
@@ -94,6 +95,9 @@ class MovimentacaoRepository:
 
         if unidade_id is not None:
             query = query.filter(Movimentacao.unidade_origem_id == unidade_id)
+
+        if setor_consumidor is not None:
+            query = query.filter(Movimentacao.setor_consumidor == setor_consumidor)
 
         return query.all()
 

@@ -50,6 +50,7 @@ class RelatorioConsumoMedicamentoItem(BaseModel):
     medicamento_id: int
     nome: str
     mes: str  # "2026-08" — série histórica mensal
+    setor: str
     quantidade_total: int
 
 

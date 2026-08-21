@@ -5,6 +5,7 @@ import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { Letterhead } from '../components/Letterhead';
 import { formatarData, formatarDataHora, formatarMoeda, labelTipoMovimentacao } from '../lib/formato';
+import { SETORES_DISPENSACAO } from '../lib/setores';
 import type {
   MovimentacaoDetalhadaOut,
   RelatorioAntimicrobianoOut,
@@ -108,6 +109,7 @@ export function RelatoriosPage() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimentacao | ''>('');
+  const [setorFiltro, setSetorFiltro] = useState('');
   const [dias, setDias] = useState('');
   const [diasMinimoAntimicrobiano, setDiasMinimoAntimicrobiano] = useState('');
   const [diasMinimoControlado, setDiasMinimoControlado] = useState('');
@@ -167,7 +169,12 @@ export function RelatoriosPage() {
             ? api
                 .get<RelatorioConsumoMedicamentosOut>('/relatorios/consumo-medicamentos', {
                   token,
-                  params: { unidade_id: unidadeId, data_inicio: dataInicio || undefined, data_fim: dataFim || undefined },
+                  params: {
+                    unidade_id: unidadeId,
+                    data_inicio: dataInicio || undefined,
+                    data_fim: dataFim || undefined,
+                    setor_consumidor: setorFiltro || undefined,
+                  },
                 })
                 .then(setConsumo)
             : abaAtiva === 'transferencias'
@@ -226,6 +233,7 @@ export function RelatoriosPage() {
     dataInicio,
     dataFim,
     tipoFiltro,
+    setorFiltro,
     dias,
     diasMinimoAntimicrobiano,
     diasMinimoControlado,
@@ -247,6 +255,7 @@ export function RelatoriosPage() {
           data_inicio: ABAS_COM_PERIODO.includes(abaAtiva) ? dataInicio || undefined : undefined,
           data_fim: ABAS_COM_PERIODO.includes(abaAtiva) ? dataFim || undefined : undefined,
           tipo: abaAtiva === 'auditoria' ? tipoFiltro || undefined : undefined,
+          setor_consumidor: abaAtiva === 'consumo' ? setorFiltro || undefined : undefined,
           dias: abaAtiva === 'vencimentos' ? dias || undefined : undefined,
           dias_minimo:
             abaAtiva === 'antimicrobianos'
@@ -345,6 +354,19 @@ export function RelatoriosPage() {
                 <option value="saida">Saída</option>
                 <option value="descarte">Descarte</option>
                 <option value="ajuste">Ajuste</option>
+              </select>
+            </div>
+          )}
+          {abaAtiva === 'consumo' && (
+            <div className="field">
+              <label htmlFor="filtro-setor">Setor</label>
+              <select id="filtro-setor" value={setorFiltro} onChange={(e) => setSetorFiltro(e.target.value)}>
+                <option value="">Todos os setores</option>
+                {SETORES_DISPENSACAO.map((setor) => (
+                  <option key={setor} value={setor}>
+                    {setor}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -521,6 +543,7 @@ function TabelaConsumo({ dados }: { dados: RelatorioConsumoMedicamentosOut | nul
         <thead>
           <tr>
             <th>Medicamento</th>
+            <th>Setor</th>
             <th>Mês</th>
             <th className="num">Quantidade consumida</th>
           </tr>
@@ -528,14 +551,15 @@ function TabelaConsumo({ dados }: { dados: RelatorioConsumoMedicamentosOut | nul
         <tbody>
           {dados.itens.length === 0 && (
             <tr>
-              <td colSpan={3} className="vazio-tabela">
+              <td colSpan={4} className="vazio-tabela">
                 Sem consumo registrado no período.
               </td>
             </tr>
           )}
           {dados.itens.map((item) => (
-            <tr key={`${item.medicamento_id}-${item.mes}`}>
+            <tr key={`${item.medicamento_id}-${item.mes}-${item.setor}`}>
               <td>{item.nome}</td>
+              <td>{item.setor}</td>
               <td className="mono">{item.mes}</td>
               <td className="num">{item.quantidade_total}</td>
             </tr>

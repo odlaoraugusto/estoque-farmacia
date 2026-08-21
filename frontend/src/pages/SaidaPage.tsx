@@ -5,7 +5,8 @@ import { api, ApiError, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
 import { formatarData } from '../lib/formato';
-import type { CategoriaSaida, LoteDetalhadoOut, MedicamentoOut, PacienteOut, UnidadeOut } from '../types';
+import { SETORES_DISPENSACAO } from '../lib/setores';
+import type { CategoriaSaida, LoteDetalhadoOut, MedicamentoOut, PacienteOut } from '../types';
 
 const CATEGORIAS: { valor: CategoriaSaida; rotulo: string }[] = [
   { valor: 'normal', rotulo: 'Dispensação normal' },
@@ -19,10 +20,9 @@ const CATEGORIAS: { valor: CategoriaSaida; rotulo: string }[] = [
  * ver EmprestimoDoacaoPage) — aqui só fica a dispensação interna e a
  * baixa de vencidos. */
 export function SaidaPage() {
-  const { usuario, token } = useAuth();
+  const { token } = useAuth();
 
   const [medicamentos, setMedicamentos] = useState<MedicamentoOut[]>([]);
-  const [unidades, setUnidades] = useState<UnidadeOut[]>([]);
   const [busca, setBusca] = useState('');
   const [medicamentoSelecionado, setMedicamentoSelecionado] = useState<MedicamentoOut | null>(null);
   const [lotesFefo, setLotesFefo] = useState<LoteDetalhadoOut[]>([]);
@@ -50,15 +50,7 @@ export function SaidaPage() {
   useEffect(() => {
     if (!token) return;
     api.get<MedicamentoOut[]>('/medicamentos', { token }).then(setMedicamentos).catch(() => {});
-    api
-      .get<UnidadeOut[]>('/unidades', { token, params: { tipo: 'unidade' } })
-      .then(setUnidades)
-      .catch(() => {});
   }, [token]);
-
-  useEffect(() => {
-    if (usuario?.unidade_ativa_nome) setSetorConsumidor(usuario.unidade_ativa_nome);
-  }, [usuario?.unidade_ativa_nome]);
 
   // Autopreenchimento por prontuário (2026-08-20: liberado a qualquer
   // perfil, inclusive Atendente — é consulta pra própria dispensação que
@@ -292,9 +284,9 @@ export function SaidaPage() {
             </label>
             <select id="setor-consumidor" value={setorConsumidor} onChange={(e) => setSetorConsumidor(e.target.value)} required>
               <option value="">Selecione…</option>
-              {unidades.map((u) => (
-                <option key={u.id} value={u.nome}>
-                  {u.nome}
+              {SETORES_DISPENSACAO.map((setor) => (
+                <option key={setor} value={setor}>
+                  {setor}
                 </option>
               ))}
             </select>
