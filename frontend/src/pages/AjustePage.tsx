@@ -5,6 +5,7 @@ import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
+import { formatarMoeda, paraDecimalApi } from '../lib/formato';
 import type { LoteDetalhadoOut } from '../types';
 
 /** Ajuste de estoque — exclusivo do Coordenador (pedido do cliente,
@@ -201,6 +202,151 @@ function FormularioAjuste({ token, unidadeAtivaId }: { token: string | null; uni
           </button>
         </div>
       </form>
+
+      <FormularioCorrigirValor token={token} unidadeAtivaId={unidadeAtivaId} lotes={lotes} recarregarLotes={carregarLotes} />
     </section>
+  );
+}
+
+function FormularioCorrigirValor({
+  token,
+  unidadeAtivaId,
+  lotes,
+  recarregarLotes,
+}: {
+  token: string | null;
+  unidadeAtivaId: number | null;
+  lotes: LoteDetalhadoOut[];
+  recarregarLotes: () => void;
+}) {
+  const [busca, setBusca] = useState('');
+  const [loteSelecionado, setLoteSelecionado] = useState<LoteDetalhadoOut | null>(null);
+  const [valorNovo, setValorNovo] = useState('');
+  const [motivo, setMotivo] = useState('');
+
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  function limparFormulario() {
+    setBusca('');
+    setLoteSelecionado(null);
+    setValorNovo('');
+    setMotivo('');
+  }
+
+  async function aoSubmeter(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    setSucesso(null);
+
+    if (!loteSelecionado) {
+      setErro('Selecione um lote.');
+      return;
+    }
+    if (!motivo.trim()) {
+      setErro('Motivo da correção é obrigatório.');
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      await api.post(
+        '/ajustes/valor',
+        {
+          lote_id: loteSelecionado.id,
+          valor_unitario_novo: paraDecimalApi(valorNovo),
+          motivo: motivo.trim(),
+        },
+        { token },
+      );
+      setSucesso(
+        `Valor unitário do lote ${loteSelecionado.numero_lote} corrigido para ${formatarMoeda(paraDecimalApi(valorNovo))}.`,
+      );
+      limparFormulario();
+      recarregarLotes();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível corrigir o valor unitário.'));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  if (unidadeAtivaId == null) return null;
+
+  return (
+    <form className="panel" onSubmit={aoSubmeter} style={{ marginTop: 20 }}>
+      <h2>Corrigir valor unitário de um lote</h2>
+      {erro && <Alerta tipo="erro">{erro}</Alerta>}
+      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      <p className="screen-sub" style={{ marginTop: -4 }}>
+        Para erro de digitação no valor pago (Entrada) — não mexe no saldo físico do lote, só no valor usado nos
+        relatórios financeiros.
+      </p>
+      <div className="grid">
+        <div className="field span2">
+          <label htmlFor="busca-lote-valor">
+            Lote <span className="req">*</span>
+          </label>
+          <BuscaAutocomplete
+            id="busca-lote-valor"
+            itens={lotes}
+            valor={loteSelecionado ? `${loteSelecionado.medicamento.nome} · ${loteSelecionado.numero_lote}` : busca}
+            aoMudarValor={(v) => {
+              setBusca(v);
+              setLoteSelecionado(null);
+            }}
+            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · ${formatarMoeda(l.valor_unitario)} · ${l.unidade.nome}`}
+            chave={(l) => l.id}
+            aoSelecionar={(l) => {
+              setLoteSelecionado(l);
+              setBusca(`${l.medicamento.nome} · ${l.numero_lote}`);
+            }}
+            placeholder="buscar por medicamento ou nº do lote — estoque da unidade ativa"
+          />
+        </div>
+        <div className="field">
+          <label>
+            Valor unitário atual <span className="tag">auto</span>
+          </label>
+          <input type="text" disabled value={loteSelecionado ? formatarMoeda(loteSelecionado.valor_unitario) : ''} placeholder="—" />
+        </div>
+        <div className="field">
+          <label htmlFor="valor-unitario-novo">
+            Novo valor unitário <span className="req">*</span>
+          </label>
+          <input
+            id="valor-unitario-novo"
+            type="text"
+            inputMode="decimal"
+            placeholder="R$ 0,00"
+            value={valorNovo}
+            onChange={(e) => setValorNovo(e.target.value)}
+            required
+          />
+        </div>
+        <div className="field span2">
+          <label htmlFor="motivo-valor">
+            Motivo da correção <span className="req">*</span>
+          </label>
+          <input
+            id="motivo-valor"
+            type="text"
+            placeholder="ex.: valor da nota fiscal digitado errado na Entrada"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+      <div className="actions">
+        <button type="submit" className="btn" disabled={enviando}>
+          {enviando ? 'Salvando…' : 'Confirmar correção'}
+        </button>
+        <button type="button" className="btn ghost" onClick={limparFormulario} disabled={enviando}>
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }

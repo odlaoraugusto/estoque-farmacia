@@ -1,5 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { RotaProtegida } from './components/RotaProtegida';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
@@ -14,6 +14,14 @@ import { ReposicaoCarrinhoPage } from './pages/ReposicaoCarrinhoPage';
 import { AjustePage } from './pages/AjustePage';
 import { UsuariosPage } from './pages/UsuariosPage';
 
+/** Admin global (2026-08-27) não tem Estoque atual — sua home é Usuários,
+ * única tela que esse perfil usa. */
+function Inicio() {
+  const { usuario } = useAuth();
+  if (usuario?.perfil === 'admin') return <Navigate to="/usuarios" replace />;
+  return <EstoquePage />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -22,7 +30,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route element={<RotaProtegida />}>
             <Route element={<Layout />}>
-              <Route path="/" element={<EstoquePage />} />
+              <Route path="/" element={<Inicio />} />
               <Route path="/entrada" element={<EntradaPage />} />
               <Route path="/transferencia" element={<TransferenciaPage />} />
               <Route path="/saida" element={<SaidaPage />} />

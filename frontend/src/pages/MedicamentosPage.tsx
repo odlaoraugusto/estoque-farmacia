@@ -11,6 +11,7 @@ const FORM_VAZIO = {
   nome: '',
   apresentacao: 'comprimido' as Apresentacao,
   concentracao: '',
+  fabricante: '',
   acondicionamento: 'ambiente' as Acondicionamento,
   estoqueMinimo: '',
   eAntimicrobiano: false,
@@ -74,6 +75,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
       nome: m.nome,
       apresentacao: m.apresentacao,
       concentracao: m.concentracao,
+      fabricante: m.fabricante ?? '',
       acondicionamento: m.acondicionamento,
       estoqueMinimo: String(m.estoque_minimo),
       eAntimicrobiano: m.e_antimicrobiano,
@@ -98,6 +100,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
         nome: form.nome,
         apresentacao: form.apresentacao,
         concentracao: form.concentracao,
+        fabricante: form.fabricante.trim() || null,
         acondicionamento: form.acondicionamento,
         estoque_minimo: Number(form.estoqueMinimo || 0),
         e_antimicrobiano: form.eAntimicrobiano,
@@ -192,6 +195,16 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
             />
           </div>
           <div className="field">
+            <label htmlFor="med-fabricante">Fabricante</label>
+            <input
+              id="med-fabricante"
+              type="text"
+              placeholder="ex.: EMS"
+              value={form.fabricante}
+              onChange={(e) => setForm((f) => ({ ...f, fabricante: e.target.value }))}
+            />
+          </div>
+          <div className="field">
             <label htmlFor="med-acondicionamento">
               Acondicionamento <span className="req">*</span>
             </label>
@@ -275,6 +288,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
                   <th>Nome</th>
                   <th>Apresentação</th>
                   <th>Concentração</th>
+                  <th>Fabricante</th>
                   <th>Acondicionamento</th>
                   <th className="num">Estoque mínimo</th>
                   <th>Antimicrobiano</th>
@@ -286,7 +300,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
               <tbody>
                 {medicamentos.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="vazio-tabela">
+                    <td colSpan={10} className="vazio-tabela">
                       Nenhum medicamento cadastrado.
                     </td>
                   </tr>
@@ -296,6 +310,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
                     <td>{m.nome}</td>
                     <td>{labelApresentacao(m.apresentacao)}</td>
                     <td className="mono">{m.concentracao}</td>
+                    <td>{m.fabricante ?? '—'}</td>
                     <td>{labelAcondicionamento(m.acondicionamento)}</td>
                     <td className="num">{m.estoque_minimo}</td>
                     <td>

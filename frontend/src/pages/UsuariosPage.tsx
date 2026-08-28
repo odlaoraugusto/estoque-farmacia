@@ -7,7 +7,7 @@ import { Alerta } from '../components/Alerta';
 import { labelPerfil } from '../lib/formato';
 import type { Perfil, UsuarioOut } from '../types';
 
-const PERFIS: Perfil[] = ['atendente', 'farmaceutico', 'coordenador'];
+const PERFIS: Perfil[] = ['atendente', 'farmaceutico', 'coordenador', 'admin'];
 
 const SENHA_PADRAO_NOVO_USUARIO = 'Senha123!';
 
@@ -42,7 +42,7 @@ export function UsuariosPage() {
         </div>
         <div className="locked-panel">
           <span className="lock-icon">🔒</span>
-          Gestão de usuários é exclusiva do Coordenador.
+          Gestão de usuários é exclusiva do Coordenador e do Administrador.
         </div>
       </section>
     );
@@ -139,7 +139,7 @@ function GestaoUsuarios({ token, usuarioLogadoId }: { token: string | null; usua
     <section>
       <div className="screen-head">
         <h1>Usuários</h1>
-        <span className="screen-tag">exclusivo Coordenador</span>
+        <span className="screen-tag">Coordenador e Admin</span>
       </div>
       <p className="screen-sub">
         Cadastro de acesso ao sistema. Desativar um usuário não apaga o histórico de movimentações já registradas

@@ -383,9 +383,7 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
             />
           </div>
           <div className="field">
-            <label htmlFor="numero-afm">
-              Nº AFM <span className="tag">opcional</span>
-            </label>
+            <label htmlFor="numero-afm">Nº AFM</label>
             <input id="numero-afm" type="text" placeholder="—" value={numeroAfm} onChange={(e) => setNumeroAfm(e.target.value)} />
           </div>
         </div>
@@ -657,7 +655,7 @@ function FormularioItemUnico({
         <div className="field span2">
           <label htmlFor="procedencia-externa-unico">
             Unidade de origem — de qual instituição veio{' '}
-            {origem === 'emprestimo' ? <span className="req">*</span> : <span className="tag">opcional</span>}
+            {origem === 'emprestimo' && <span className="req">*</span>}
           </label>
           <input
             id="procedencia-externa-unico"

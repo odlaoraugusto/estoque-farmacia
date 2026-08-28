@@ -1,7 +1,7 @@
 // Tipos espelhando app/schemas/*.py do backend (FastAPI). Strings literais
 // no lugar de `enum` porque o tsconfig do projeto usa `erasableSyntaxOnly`.
 
-export type Perfil = 'coordenador' | 'farmaceutico' | 'atendente';
+export type Perfil = 'coordenador' | 'farmaceutico' | 'atendente' | 'admin';
 
 export type Acondicionamento = 'ambiente' | 'geladeira';
 
@@ -100,6 +100,7 @@ export interface MedicamentoOut {
   nome: string;
   apresentacao: Apresentacao;
   concentracao: string;
+  fabricante: string | null;
   acondicionamento: Acondicionamento;
   estoque_minimo: number;
   ativo: boolean;

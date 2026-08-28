@@ -110,7 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       config,
       token,
       usuario,
-      precisaSelecionarUnidade: !!token && (usuario?.unidade_ativa_id == null || forcarSelecaoUnidade),
+      // Admin global (2026-08-27) nunca seleciona unidade — não opera
+      // estoque, só configura o sistema (hoje, Usuários), tela que não
+      // depende de unidade ativa nenhuma (ver app/api/routes/usuarios.py).
+      precisaSelecionarUnidade:
+        !!token &&
+        usuario?.perfil !== 'admin' &&
+        (usuario?.unidade_ativa_id == null || forcarSelecaoUnidade),
       precisaTrocarSenha: !!token && usuario?.deve_trocar_senha === true,
       entrar,
       trocarSenha,

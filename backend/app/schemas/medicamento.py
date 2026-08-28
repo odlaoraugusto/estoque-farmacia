@@ -7,6 +7,7 @@ class MedicamentoCreate(BaseModel):
     nome: str
     apresentacao: ApresentacaoEnum
     concentracao: str
+    fabricante: str | None = None
     acondicionamento: AcondicionamentoEnum
     estoque_minimo: int = 0
     e_antimicrobiano: bool = False
@@ -17,6 +18,7 @@ class MedicamentoUpdate(BaseModel):
     nome: str | None = None
     apresentacao: ApresentacaoEnum | None = None
     concentracao: str | None = None
+    fabricante: str | None = None
     acondicionamento: AcondicionamentoEnum | None = None
     estoque_minimo: int | None = None
     ativo: bool | None = None
@@ -29,6 +31,7 @@ class MedicamentoOut(BaseModel):
     nome: str
     apresentacao: ApresentacaoEnum
     concentracao: str
+    fabricante: str | None
     acondicionamento: AcondicionamentoEnum
     estoque_minimo: int
     ativo: bool

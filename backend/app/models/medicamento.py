@@ -27,6 +27,10 @@ class Medicamento(Base):
     )
     concentracao = Column(String(100), nullable=False)
 
+    # Fabricante (2026-08-27) — dado de catálogo, não obrigatório (nem
+    # todo cadastro/planilha do cliente traz essa informação).
+    fabricante = Column(String(150), nullable=True)
+
     acondicionamento = Column(
         Enum(
             AcondicionamentoEnum,

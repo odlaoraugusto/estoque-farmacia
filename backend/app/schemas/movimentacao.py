@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -118,6 +119,17 @@ class AjusteCreate(BaseModel):
     lote_id: int
     quantidade_nova: int = Field(ge=0)
     motivo_ajuste: str
+
+
+class AjusteValorCreate(BaseModel):
+    """Correção de valor unitário de um lote (2026-08-27) — mesmo espírito
+    do ajuste de saldo (motivo obrigatório, trilha de auditoria), mas para
+    o valor pago por unidade, não a quantidade física. Não mexe em saldo
+    nem gera movimentação de estoque."""
+
+    lote_id: int
+    valor_unitario_novo: Decimal = Field(gt=0)
+    motivo: str
 
 
 class MovimentacaoOut(BaseModel):

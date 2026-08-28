@@ -1,0 +1,813 @@
+<title>Manual do Estoque Farmácia</title>
+<style>
+:root {
+  --fesf-purple: #61358c;
+  --fesf-lavender: #7572a7;
+  --fesf-teal: #79bfb4;
+  --fesf-mint: #73d9a8;
+
+  --bg: #f7f4f8;
+  --surface: #ffffff;
+  --surface-2: #eeeaf0;
+  --ink: #2c2433;
+  --muted: #73687d;
+  --line: #dad3de;
+  --line-soft: #e9e5eb;
+  --accent: #754f9c;
+  --accent-ink: #fcfafc;
+
+  --warn: #886220;
+  --warn-bg: #f7f0e3;
+  --danger: #96404f;
+  --danger-bg: #f4e6e8;
+  --ok: #397463;
+  --ok-bg: #e8f3ef;
+  --roxo: #7a4f9e;
+  --roxo-bg: #f1ebf6;
+
+  --shadow: 0 1px 3px rgba(44, 36, 51, 0.08), 0 4px 14px rgba(44, 36, 51, 0.05);
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  --radius: 12px;
+}
+
+/* Tema único, de propósito — este guia não segue o esquema claro/escuro
+   do visitante (ver artifact-design: "a design that deliberately commits
+   to one visual world may stay single-theme"). Cores pintadas de forma
+   explícita acima cobrem os dois casos. */
+
+* { box-sizing: border-box; }
+html, body { height: auto; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15.5px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); }
+
+.topbar {
+  background: var(--fesf-purple);
+  color: #f7f3fa;
+  padding: 18px 32px;
+  position: relative;
+}
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -4px;
+  height: 4px;
+  background: linear-gradient(to right, #61358c 0 25%, #7572a7 25% 50%, #79bfb4 50% 75%, #73d9a8 75% 100%);
+}
+.topbar-inner {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.topbar-org { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+.topbar-hosp { font-weight: 700; font-size: 15px; }
+.topbar-spacer { flex: 1; }
+.topbar-doc { font-size: 12.5px; opacity: 0.8; font-family: var(--mono); }
+
+.hero {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 44px 32px 8px;
+}
+.hero-eyebrow {
+  font-size: 12.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700; margin-bottom: 10px;
+}
+.hero h1 {
+  font-family: var(--serif);
+  font-size: clamp(30px, 4vw, 42px);
+  margin: 0 0 12px;
+  text-wrap: balance;
+  font-weight: 600;
+}
+.hero p.lede {
+  max-width: 640px;
+  color: var(--muted);
+  font-size: 17px;
+  margin: 0 0 4px;
+}
+
+.layout {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 40px;
+  padding: 28px 32px 100px;
+  align-items: start;
+}
+
+nav.toc {
+  position: sticky;
+  top: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+nav.toc .toc-title {
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700; margin-bottom: 10px;
+}
+nav.toc ol {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 2px;
+  counter-reset: toc;
+}
+nav.toc li { counter-increment: toc; }
+nav.toc a {
+  display: flex; gap: 8px;
+  text-decoration: none; color: var(--ink);
+  font-size: 13.5px; padding: 6px 8px; border-radius: 7px;
+}
+nav.toc a::before {
+  content: counter(toc, decimal-leading-zero);
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  padding-top: 1px;
+}
+nav.toc a:hover { background: var(--surface-2); }
+
+main { min-width: 0; }
+
+section.chunk {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px 36px;
+  margin-bottom: 24px;
+  scroll-margin-top: 20px;
+}
+section.chunk h2 {
+  font-family: var(--serif);
+  font-size: 25px;
+  margin: 0 0 4px;
+  display: flex; align-items: center; gap: 12px;
+}
+.section-num {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+section.chunk > .kicker {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 0 0 22px;
+  max-width: 62ch;
+}
+section.chunk h3 {
+  font-size: 15.5px;
+  margin: 26px 0 10px;
+  color: var(--fesf-purple);
+}
+p { max-width: 68ch; }
+ul, ol.steps { max-width: 68ch; }
+ol.steps { padding-left: 1.2em; }
+ol.steps li { margin-bottom: 6px; }
+
+table.fields {
+  width: 100%; border-collapse: collapse; margin: 14px 0 20px;
+  font-size: 13.8px;
+}
+table.fields th, table.fields td {
+  text-align: left; padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+table.fields th {
+  font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700;
+  border-bottom: 1px solid var(--line);
+}
+table.fields code {
+  font-family: var(--mono); font-size: 12.5px;
+  background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+}
+.overflow-x { overflow-x: auto; }
+
+.callout {
+  border-radius: 9px;
+  border-left: 3px solid transparent;
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-size: 14px;
+  max-width: 68ch;
+}
+.callout h4 { margin: 0 0 4px; font-size: 13px; }
+.callout.tip { background: var(--ok-bg); border-left-color: var(--ok); }
+.callout.tip h4 { color: var(--ok); }
+.callout.warn { background: var(--warn-bg); border-left-color: var(--warn); }
+.callout.warn h4 { color: var(--warn); }
+.callout.danger { background: var(--danger-bg); border-left-color: var(--danger); }
+.callout.danger h4 { color: var(--danger); }
+.callout.roxo { background: var(--roxo-bg); border-left-color: var(--roxo); }
+.callout.roxo h4 { color: var(--roxo); }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 2px 9px; border-radius: 999px;
+}
+.pill::before { content: "●"; font-size: 8px; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.danger { background: var(--danger-bg); color: var(--danger); }
+.pill.roxo { background: var(--roxo-bg); color: var(--roxo); }
+.pill.muted { background: var(--surface-2); color: var(--muted); }
+
+/* Permission matrix */
+table.matrix { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 16px 0; }
+table.matrix th, table.matrix td {
+  padding: 10px 12px; border-bottom: 1px solid var(--line-soft); text-align: left;
+}
+table.matrix thead th {
+  border-bottom: 2px solid var(--line);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+}
+table.matrix td.yes { color: var(--ok); font-weight: 700; }
+table.matrix td.no { color: var(--muted); }
+table.matrix tr:hover td { background: var(--surface-2); }
+
+/* Schematic mock — deliberately stylized, not a photographic screenshot */
+.mock {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 18px 0 22px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+.mock-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  padding: 6px 12px;
+  border-bottom: 1px dashed var(--line);
+  background: var(--surface);
+}
+.mock-body { display: flex; }
+.mock-side {
+  width: 130px; flex: none;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+  padding: 12px 10px;
+  font-size: 10.5px;
+}
+.mock-side .u { font-weight: 700; margin-bottom: 2px; }
+.mock-side .r { color: var(--muted); margin-bottom: 10px; }
+.mock-side .item {
+  padding: 5px 7px; border-radius: 5px; margin-bottom: 2px; color: var(--ink);
+}
+.mock-side .item.active { background: var(--fesf-purple); color: #fff; }
+.mock-main { flex: 1; padding: 14px 16px; font-size: 11px; }
+.mock-main h5 { font-family: var(--serif); font-size: 14px; margin: 0 0 10px; }
+.mock-tiles { display: flex; gap: 8px; margin-bottom: 10px; }
+.mock-tile {
+  flex: 1; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 7px; padding: 8px 10px;
+}
+.mock-tile .l { font-size: 8.5px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.04em; }
+.mock-tile .v { font-size: 16px; font-weight: 700; font-family: var(--mono); }
+.mock-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--surface); border: 1px solid var(--line-soft);
+  border-radius: 6px; padding: 6px 10px; margin-bottom: 5px;
+}
+.mock-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mock-field {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 10px;
+}
+.mock-field .fl { font-size: 8.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 3px; }
+.mock-field .fv { color: var(--muted); font-style: italic; font-size: 10.5px; }
+.mock-btn {
+  display: inline-block; margin-top: 8px;
+  background: var(--fesf-purple); color: #fff; font-size: 10.5px;
+  padding: 6px 14px; border-radius: 6px; font-weight: 600;
+}
+
+footer.doc-footer {
+  max-width: 1180px; margin: 0 auto; padding: 10px 32px 60px;
+  color: var(--muted); font-size: 12.5px;
+}
+
+@media (max-width: 880px) {
+  .layout { grid-template-columns: 1fr; }
+  nav.toc { position: static; max-height: none; }
+  section.chunk { padding: 24px 20px; }
+}
+
+.print-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 14px; font-size: 13px; font-weight: 600;
+  font-family: var(--sans); cursor: pointer; margin-top: 18px;
+  box-shadow: var(--shadow);
+}
+.print-btn:hover { background: var(--surface-2); }
+.print-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Impressão / exportar PDF — via window.print(). Tema forçado claro
+   (impressora/PDF não deve sair com fundo escuro), fonte reduzida pra
+   caber mais conteúdo por página, cores de status/pills preservadas
+   (é a informação, não decoração), sombras trocadas por bordas finas. */
+@media print {
+  .print-btn { display: none; }
+  nav.toc { display: none; }
+  .layout { grid-template-columns: 1fr; padding: 0 18px; gap: 0; }
+  .hero { padding: 14px 18px 4px; }
+  .topbar { padding: 10px 18px; }
+
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body { font-size: 9.5pt; background: #fff; color: #241f2a; }
+  .hero h1 { font-size: 20pt; }
+  .hero p.lede { font-size: 10.5pt; color: #5b5364; }
+  .hero-eyebrow { font-size: 8.5pt; }
+
+  section.chunk {
+    background: #fff; border: 1px solid #d8d2dd; box-shadow: none;
+    padding: 14px 18px; margin-bottom: 10px;
+    break-inside: avoid-page;
+  }
+  section.chunk h2 { font-size: 15pt; }
+  section.chunk h3 { font-size: 11pt; margin: 14px 0 6px; }
+  section.chunk > .kicker { font-size: 9pt; }
+  table.fields, table.matrix { font-size: 8.7pt; }
+  .callout { font-size: 9pt; padding: 8px 12px; margin: 10px 0; }
+  .mock { box-shadow: none; }
+  .mock-label { display: none; }
+  footer.doc-footer { font-size: 9pt; }
+}
+</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet">
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="topbar-org">Rede FESFSUS</span>
+    <span class="topbar-hosp">Hospital Materno Infantil Dr. Joaquim Sampaio</span>
+    <span class="topbar-spacer"></span>
+    <span class="topbar-doc">manual do sistema · v1</span>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="hero-eyebrow">Estoque Farmácia — Manual de Uso</div>
+  <h1>Como usar o sistema de estoque da farmácia</h1>
+  <p class="lede">Guia de referência para a equipe — Coordenação, Farmácia e Atendimento. Cobre login, todas as
+  telas de movimentação de estoque, relatórios e administração de usuários, além de quem pode fazer o quê.</p>
+
+  <button type="button" class="print-btn" onclick="window.print()">
+    <span aria-hidden="true">⬇</span> Exportar em PDF
+  </button>
+</div>
+
+<div class="layout">
+  <nav class="toc">
+    <div class="toc-title">Neste manual</div>
+    <ol>
+      <li><a href="#visao-geral">Visão geral do sistema</a></li>
+      <li><a href="#perfis">Perfis e permissões</a></li>
+      <li><a href="#login">Login e seleção de unidade</a></li>
+      <li><a href="#estoque-atual">Estoque atual</a></li>
+      <li><a href="#entrada">Entrada de estoque</a></li>
+      <li><a href="#medicamentos">Medicamentos</a></li>
+      <li><a href="#transferencia">Transferência entre unidades</a></li>
+      <li><a href="#saida">Saída / Dispensação</a></li>
+      <li><a href="#emprestimo">Empréstimo / Doação / Permuta</a></li>
+      <li><a href="#carrinhos">Reposição de Carrinhos</a></li>
+      <li><a href="#ajuste">Ajuste de Estoque</a></li>
+      <li><a href="#relatorios">Relatórios</a></li>
+      <li><a href="#usuarios">Usuários</a></li>
+      <li><a href="#glossario">Glossário rápido</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section class="chunk" id="visao-geral">
+      <h2><span class="section-num">01</span>Visão geral do sistema</h2>
+      <p class="kicker">O essencial para entender como o sistema pensa o estoque antes de operar qualquer tela.</p>
+
+      <p>O Estoque Farmácia controla o estoque físico de medicamentos do hospital: o que entra, o que se
+      move entre setores, o que sai para pacientes, o que é descartado por vencimento e o que é corrigido por
+      divergência de contagem. Cada ação fica registrada para sempre na <strong>Trilha de Auditoria</strong> —
+      nada se apaga.</p>
+
+      <h3>As 4 unidades reais + carrinhos de emergência</h3>
+      <p>O hospital tem 4 unidades onde uma pessoa pode logar e trabalhar: <strong>CAF</strong> (Central de
+      Abastecimento Farmacêutico — único lugar que recebe Entrada de compra/doação), <strong>UTI</strong>,
+      <strong>Centro Cirúrgico</strong> e <strong>Emergência</strong>. Além dessas, existem os
+      <strong>carrinhos de emergência</strong> (malas/carros pré-posicionados dentro de cada unidade) — eles
+      guardam estoque próprio, mas ninguém loga "no carrinho": ele é reabastecido pela CAF e pode ser devolvido
+      a ela, sempre a partir da unidade real que o contém.</p>
+
+      <h3>A lógica de saldo: lotes, não "quantidade do remédio"</h3>
+      <p>O sistema nunca fala em "quantos comprimidos de Dipirona existem" de forma solta — tudo é por
+      <strong>lote</strong>: um número de lote específico, com sua validade e localização (uma unidade ou
+      carrinho). Um mesmo medicamento pode ter vários lotes espalhados por unidades diferentes, cada um com
+      sua própria validade e saldo.</p>
+
+      <div class="callout tip">
+        <h4>FEFO — o lote mais próximo do vencimento sai primeiro</h4>
+        Nas telas de Saída e Transferência, ao buscar um medicamento o sistema já destaca o lote com validade
+        mais próxima no topo da lista — reduz a chance de um lote mais antigo vencer parado na prateleira
+        enquanto um mais novo é usado primeiro.
+      </div>
+    </section>
+
+    <section class="chunk" id="perfis">
+      <h2><span class="section-num">02</span>Perfis e permissões</h2>
+      <p class="kicker">Quatro perfis de acesso. O menu lateral muda sozinho conforme o perfil — uma tela sem
+      permissão simplesmente não aparece, em vez de aparecer travada.</p>
+
+      <div class="overflow-x">
+      <table class="matrix">
+        <thead>
+          <tr><th>Ação / tela</th><th>Atendente</th><th>Farmacêutico</th><th>Coordenador</th><th>Admin</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Ver Estoque atual (só a unidade ativa)</td><td class="yes">sim</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Ver Estoque atual consolidado (todas as unidades)</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Entrada de estoque (só na CAF)</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Cadastrar/editar Medicamentos</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Transferência — enviar / devolver carrinho</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Transferência — confirmar recebimento</td><td class="yes">sim</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Saída / Dispensação</td><td class="yes">sim</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Empréstimo / Doação / Permuta</td><td class="yes">sim</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Reposição / Devolução de Carrinhos</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Ajuste de Estoque</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Relatórios financeiros (custo, valor em estoque)</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Ver nome de paciente/prontuário</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Trilha de Auditoria</td><td class="no">—</td><td class="no">—</td><td class="yes">sim</td><td class="no">—</td></tr>
+          <tr><td>Gestão de Usuários</td><td class="no">—</td><td class="no">—</td><td class="yes">sim</td><td class="yes">sim</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout roxo">
+        <h4>Farmacêutico tem quase o mesmo acesso que Coordenador</h4>
+        A única coisa exclusiva do Coordenador no dia a dia operacional é a <strong>Trilha de Auditoria</strong>
+        — Usuários também é acessível ao Admin. O resto (Entrada, Ajuste, relatórios financeiros, consolidado de
+        todas as unidades) é igual para Farmacêutico e Coordenador.
+      </div>
+
+      <div class="callout warn">
+        <h4>Admin — só configuração, nunca estoque (2026-08-27)</h4>
+        O Administrador global existe só para gerir o acesso da equipe (tela <strong>Usuários</strong>) — não
+        vê nenhuma tela de estoque/medicamento, nem financeiro, nem a Trilha de Auditoria. Consequência prática:
+        ao logar, esse perfil <strong>não passa pela tela de seleção de unidade</strong> (não faz sentido
+        escolher uma unidade para quem não vai operar estoque em nenhuma) e cai direto em Usuários.
+      </div>
+
+      <h3>Como o menu muda na prática</h3>
+      <p>Compare o menu lateral de um Coordenador logado versus um Atendente — o Atendente simplesmente não vê
+      os itens que não pode usar:</p>
+
+      <div class="mock">
+        <div class="mock-label">esquemático — menu lateral por perfil (não é uma captura de tela real)</div>
+        <div class="mock-body" style="border-bottom:1px solid var(--line)">
+          <div class="mock-side">
+            <div class="u">Ananda Carvalho</div>
+            <div class="r">Coordenador · CAF</div>
+            <div class="item active">Estoque atual</div>
+            <div class="item">Entrada</div>
+            <div class="item">Medicamentos</div>
+            <div class="item">Transferência</div>
+            <div class="item">Saída / Dispensação</div>
+            <div class="item">Empréstimo / Doação</div>
+            <div class="item">Reposição de Carrinhos</div>
+            <div class="item">Ajuste de Estoque</div>
+            <div class="item">Relatórios</div>
+            <div class="item">Usuários</div>
+          </div>
+          <div class="mock-main">
+            <h5 style="font-size:11px; color:var(--muted)">perfil: coordenador — menu completo</h5>
+          </div>
+        </div>
+        <div class="mock-body">
+          <div class="mock-side">
+            <div class="u">Carlos Souza</div>
+            <div class="r">Atendente · UTI</div>
+            <div class="item active">Estoque atual</div>
+            <div class="item">Transferência</div>
+            <div class="item">Saída / Dispensação</div>
+            <div class="item">Empréstimo / Doação</div>
+            <div class="item">Relatórios</div>
+          </div>
+          <div class="mock-main">
+            <h5 style="font-size:11px; color:var(--muted)">perfil: atendente — 5 itens em vez de 10</h5>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="chunk" id="login">
+      <h2><span class="section-num">03</span>Login e seleção de unidade</h2>
+      <p class="kicker">Todo acesso começa com dois passos: identificação e escolha da unidade de trabalho.</p>
+
+      <ol class="steps">
+        <li>Abra o sistema no navegador e informe <strong>login</strong> e <strong>senha</strong>.</li>
+        <li>No primeiro acesso (ou depois de um reset de senha pelo Coordenador), o sistema pede para trocar a
+        senha padrão antes de continuar — obrigatório, não dá para pular.</li>
+        <li>Escolha a <strong>unidade ativa</strong> da sessão (CAF, UTI, Centro Cirúrgico ou Emergência).
+        Tudo que você vai ver e movimentar durante a sessão fica filtrado por essa unidade — para trabalhar em
+        outra, use "Trocar unidade" no menu lateral, a qualquer momento.</li>
+      </ol>
+
+      <div class="callout warn">
+        <h4>Esqueça senha compartilhada</h4>
+        Cada evento na Trilha de Auditoria é gravado com o usuário logado no momento — usar o login de outra
+        pessoa faz a movimentação aparecer registrada em nome dela, não de quem realmente agiu.
+      </div>
+    </section>
+
+    <section class="chunk" id="estoque-atual">
+      <h2><span class="section-num">04</span>Estoque atual</h2>
+      <p class="kicker">A tela inicial depois do login — visão geral do que existe fisicamente na(s) unidade(s)
+      que você enxerga.</p>
+
+      <p>Mostra 4 indicadores no topo (Estoque Crítico, Lotes vencendo em 60 dias, Transferências pendentes,
+      Valor total em estoque — os dois últimos só aparecem para quem vê dado financeiro), seguidos da lista de
+      lotes com um selo de validade por linha:</p>
+
+      <p>
+        <span class="pill ok">ok</span>
+        <span class="pill roxo">vence entre 30–60 dias</span>
+        <span class="pill warn">vence em menos de 30 dias</span>
+        <span class="pill danger">venceu</span>
+      </p>
+
+      <div class="mock">
+        <div class="mock-label">esquemático — Estoque atual (Coordenador, todas as unidades)</div>
+        <div class="mock-body">
+          <div class="mock-main" style="flex:1">
+            <h5>Estoque atual — todas as unidades</h5>
+            <div class="mock-tiles">
+              <div class="mock-tile"><div class="l">Estoque crítico</div><div class="v">1</div></div>
+              <div class="mock-tile"><div class="l">Vencendo 60d</div><div class="v">3</div></div>
+              <div class="mock-tile"><div class="l">Transf. pendentes</div><div class="v">0</div></div>
+              <div class="mock-tile"><div class="l">Valor em estoque</div><div class="v" style="font-size:12px">R$ 1.144,35</div></div>
+            </div>
+            <div class="mock-row"><span>Soro Fisiológico 0,9% — SF-3301</span><span class="pill danger">venceu</span></div>
+            <div class="mock-row"><span>Amoxicilina — AMX-1103</span><span class="pill warn">20d</span></div>
+            <div class="mock-row"><span>Amoxicilina — AMX-1102</span><span class="pill roxo">45d</span></div>
+            <div class="mock-row"><span>Dipirona Sódica — DIP-2601</span><span class="pill ok">ok</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Popup de alertas ao logar</h3>
+      <p>Se houver estoque crítico ou lotes vencidos/vencendo, um popup abre automaticamente uma vez por sessão
+      (dá para reabrir a qualquer momento pelo sino 🔔 no topo). O Coordenador vê um bloco extra,
+      <strong>Atividade recente</strong>, com os últimos ajustes/descartes/empréstimos registrados por qualquer
+      usuário nos últimos dias.</p>
+
+      <div class="callout tip">
+        <h4>Busca rápida por medicamento ou lote</h4>
+        O campo de busca no topo da tabela de lotes filtra por nome do medicamento ou número do lote, sem
+        precisar rolar a lista inteira.
+      </div>
+    </section>
+
+    <section class="chunk" id="entrada">
+      <h2><span class="section-num">05</span>Entrada de estoque</h2>
+      <p class="kicker">Exclusiva da unidade CAF — é assim que um lote novo entra no sistema pela primeira vez.</p>
+
+      <p>A tela organiza a entrada por <strong>nota fiscal</strong>: você informa o número da nota uma vez e
+      pode adicionar vários itens/lotes a ela antes de confirmar — o valor total da nota é somado
+      automaticamente.</p>
+
+      <div class="overflow-x">
+      <table class="fields">
+        <thead><tr><th>Campo</th><th>Obrigatório</th><th>Observação</th></tr></thead>
+        <tbody>
+          <tr><td>Origem</td><td>sim</td><td><code>Compra</code>, <code>Doação</code> ou <code>Empréstimo</code> — muda o resto do formulário</td></tr>
+          <tr><td>Nº da nota fiscal</td><td>só em Compra</td><td>uma nota pode ter vários itens</td></tr>
+          <tr><td>Medicamento</td><td>sim</td><td>busca pelo catálogo já cadastrado</td></tr>
+          <tr><td>Número do lote</td><td>sim</td><td>texto livre, exatamente como está na embalagem</td></tr>
+          <tr><td>Data de validade</td><td>sim</td><td></td></tr>
+          <tr><td>Quantidade</td><td>sim</td><td></td></tr>
+          <tr><td>Valor unitário pago</td><td>só em Compra</td><td>zerado automaticamente em Doação/Empréstimo</td></tr>
+          <tr><td>Nº AFM</td><td>não</td><td></td></tr>
+          <tr><td>Procedência (de onde veio)</td><td>só em Empréstimo</td><td>nome da instituição de origem</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout warn">
+        <h4>Só funciona com a CAF como unidade ativa</h4>
+        Se sua sessão estiver em qualquer outra unidade, o item "Entrada" nem aparece no menu — troque a
+        unidade ativa para CAF primeiro.
+      </div>
+    </section>
+
+    <section class="chunk" id="medicamentos">
+      <h2><span class="section-num">06</span>Medicamentos</h2>
+      <p class="kicker">O catálogo-base de medicamentos, usado pela busca na tela de Entrada. Cadastrar aqui não
+      cria estoque — só o "tipo" de item que poderá receber lotes depois.</p>
+
+      <div class="overflow-x">
+      <table class="fields">
+        <thead><tr><th>Campo</th><th>O que é</th></tr></thead>
+        <tbody>
+          <tr><td>Apresentação</td><td>forma farmacêutica — comprimido, cápsula, solução injetável, ampola, xarope, pomada, etc.</td></tr>
+          <tr><td>Concentração</td><td>dosagem, texto livre — ex. "500mg/mL"</td></tr>
+          <tr><td>Acondicionamento</td><td><code>Ambiente</code> ou <code>Geladeira</code></td></tr>
+          <tr><td>Estoque mínimo</td><td>dispara o alerta de "estoque crítico" quando o saldo cai abaixo</td></tr>
+          <tr><td>É antimicrobiano</td><td>passa a exigir paciente/prontuário em toda Saída — entra na vigilância de uso prolongado</td></tr>
+          <tr><td>É controlado</td><td>mesma exigência de paciente/prontuário, sem o corte de "uso prolongado"</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout tip">
+        <h4>Desativar em vez de excluir</h4>
+        Não existe "excluir" medicamento — só desativar. Isso preserva o histórico de lotes antigos vinculados
+        a ele. Um item desativado some da busca de Entrada, mas seu histórico continua íntegro nos relatórios.
+      </div>
+    </section>
+
+    <section class="chunk" id="transferencia">
+      <h2><span class="section-num">07</span>Transferência entre unidades</h2>
+      <p class="kicker">Como um lote sai da CAF (ou de uma unidade) e chega em outra — com ou sem etapa de
+      confirmação, dependendo do fluxo.</p>
+
+      <h3>Enviar lote</h3>
+      <p>Escolha o lote de origem (da unidade ativa), quantidade a enviar e a unidade de destino. Enviar uma
+      quantidade menor que o saldo total do lote gera um segundo lote no destino, rastreável de volta ao lote
+      original — o saldo restante continua disponível na origem.</p>
+
+      <h3>Confirmar recebimento</h3>
+      <p>Toda transferência normal fica pendente até alguém confirmar o recebimento na unidade de destino — a
+      quantidade recebida pode divergir da enviada (fica registrado, não trava a confirmação, só sinaliza para
+      auditoria).</p>
+
+      <h3>Reposição e devolução de carrinho — dois fluxos diferentes</h3>
+      <table class="fields">
+        <thead><tr><th></th><th>Reposição de Carrinho</th><th>Devolução ao CAF</th></tr></thead>
+        <tbody>
+          <tr><td>Direção</td><td>CAF → carrinho</td><td>carrinho → CAF</td></tr>
+          <tr><td>Etapas</td><td>1 (sai já recebido)</td><td>2 (fica pendente até a CAF confirmar)</td></tr>
+          <tr><td>Onde fica no sistema</td><td>tela própria "Reposição de Carrinhos"</td><td>painel dentro de "Transferência"</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Solicitações pendentes de outras unidades</h3>
+      <p>Quando uma unidade satélite pede material pelo sistema (em vez de a CAF decidir sozinha o que enviar),
+      o pedido aparece neste painel para a CAF aceitar (o que já despacha a transferência) ou recusar.</p>
+    </section>
+
+    <section class="chunk" id="saida">
+      <h2><span class="section-num">08</span>Saída / Dispensação</h2>
+      <p class="kicker">Como um item sai do estoque para uso — dispensado a um setor, com ou sem paciente
+      identificado.</p>
+
+      <div class="overflow-x">
+      <table class="fields">
+        <thead><tr><th>Campo</th><th>Obrigatório</th><th>Observação</th></tr></thead>
+        <tbody>
+          <tr><td>Setor consumidor</td><td>sim, sempre</td><td>mínimo obrigatório em toda saída</td></tr>
+          <tr><td>Prontuário</td><td>opcional*</td><td>se já existir, autopreenche o nome do paciente</td></tr>
+          <tr><td>Nome do paciente</td><td>opcional*</td><td>sempre gravado em CAIXA ALTA</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout danger">
+        <h4>*Exceção: antimicrobianos e controlados exigem paciente</h4>
+        Se o medicamento está marcado como antimicrobiano ou controlado no catálogo, a Saída não é aceita sem
+        prontuário/paciente preenchidos — é o dado que alimenta a vigilância de uso na aba de Relatórios.
+      </div>
+
+      <p>Visibilidade do dado de paciente é restrita: só Farmacêutico e Coordenador veem nome/prontuário nos
+      relatórios e no histórico — Atendente registra a saída normalmente, mas não enxerga esse dado depois.</p>
+    </section>
+
+    <section class="chunk" id="emprestimo">
+      <h2><span class="section-num">09</span>Empréstimo / Doação / Permuta</h2>
+      <p class="kicker">Saída para <strong>fora</strong> do hospital — outra instituição, não um setor interno.
+      Diferente da Saída normal, aqui o destino é sempre externo.</p>
+
+      <p>Exige <strong>para onde foi</strong> (instituição) e <strong>destinatário</strong> (pessoa responsável
+      que recebeu) — os dois campos, sempre. Fica registrado como atividade recente visível ao Coordenador.</p>
+    </section>
+
+    <section class="chunk" id="carrinhos">
+      <h2><span class="section-num">10</span>Reposição de Carrinhos</h2>
+      <p class="kicker">Reabastece um carrinho de emergência puxando do estoque da CAF — recebimento imediato,
+      sem etapa de confirmação (ver comparação na seção 7).</p>
+      <p>Só disponível com a CAF como unidade ativa — escolha o lote de origem, quantidade e o carrinho de
+      destino (sempre dentro de uma das 4 unidades reais).</p>
+    </section>
+
+    <section class="chunk" id="ajuste">
+      <h2><span class="section-num">11</span>Ajuste de Estoque</h2>
+      <p class="kicker">Corrige o saldo de um lote fora dos fluxos normais — para quando uma contagem física
+      bate diferente do que o sistema mostra.</p>
+
+      <ol class="steps">
+        <li>Busque o lote — o saldo atual do sistema aparece automaticamente.</li>
+        <li>Informe a quantidade correta (contagem física real).</li>
+        <li>O sistema calcula a diferença (para mais ou para menos) e pede o motivo do ajuste — obrigatório,
+        texto livre.</li>
+        <li>Confirmar grava o ajuste na Trilha de Auditoria — não existe ajuste "silencioso".</li>
+      </ol>
+
+      <div class="callout tip">
+        <h4>Uma etapa só — sem aprovação separada</h4>
+        Diferente de outros sistemas, quem faz o Ajuste (Farmacêutico ou Coordenador) já tem autoridade para
+        confirmá-lo sozinho — não existe um segundo perfil aprovando depois.
+      </div>
+    </section>
+
+    <section class="chunk" id="relatorios">
+      <h2><span class="section-num">12</span>Relatórios</h2>
+      <p class="kicker">Nove relatórios, cada um em sua própria aba, todos exportáveis em PDF ou Excel com o
+      cabeçalho institucional (FESFSUS + hospital) repetido em toda página exportada.</p>
+
+      <div class="overflow-x">
+      <table class="fields">
+        <thead><tr><th>Aba</th><th>O que mostra</th><th>Quem vê</th></tr></thead>
+        <tbody>
+          <tr><td>Consolidado geral</td><td>todos os lotes ativos, com valor total em estoque</td><td>Farm. / Coord.</td></tr>
+          <tr><td>Custo por setor</td><td>soma de saídas normais × valor do lote, por setor consumidor</td><td>Farm. / Coord.</td></tr>
+          <tr><td>Consumo de medicamentos</td><td>volume dispensado por item ao longo do tempo</td><td>Farm. / Coord.</td></tr>
+          <tr><td>Rastreabilidade de transferências</td><td>histórico completo de envio/recebimento entre unidades</td><td>Farm. / Coord.</td></tr>
+          <tr><td>Trilha de auditoria</td><td>toda movimentação do sistema, filtrável por período e tipo</td><td><strong>só Coordenador</strong></td></tr>
+          <tr><td>Vencimentos próximos</td><td>lotes vencendo dentro de uma janela de dias configurável</td><td>todos os perfis</td></tr>
+          <tr><td>Estoque Crítico</td><td>medicamentos abaixo do estoque mínimo cadastrado</td><td>Farm. / Coord.</td></tr>
+          <tr><td>Antimicrobianos</td><td>dias consecutivos de uso por paciente (vigilância DOT)</td><td>Farm. / Coord.</td></tr>
+          <tr><td>Controlados</td><td>mesma vigilância diária, para itens marcados como controlados</td><td>Farm. / Coord.</td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout warn">
+        <h4>Trilha de Auditoria: período padrão de 90 dias</h4>
+        Sem um período escolhido, a tela mostra só os últimos 90 dias (a exportação em PDF/Excel nunca trunca,
+        só respeita o período escolhido) — digite outra data em "Período — de" para ver mais para trás, e use
+        "Carregar mais" para paginar.
+      </div>
+    </section>
+
+    <section class="chunk" id="usuarios">
+      <h2><span class="section-num">13</span>Usuários</h2>
+      <p class="kicker">Coordenador e Admin — cadastro, edição e desativação de quem tem acesso ao sistema. É a
+      única tela que o perfil Admin usa (ver seção 02).</p>
+
+      <ul>
+        <li><strong>Sem exclusão</strong> — "desativar" preserva a autoria de movimentações históricas daquele
+        usuário.</li>
+        <li><strong>Login não é editável</strong> depois de criado — só no cadastro inicial.</li>
+        <li><strong>CRF obrigatório</strong> para perfil Farmacêutico ou Coordenador.</li>
+        <li><strong>Reset de senha</strong> embutido na edição — campo opcional, só troca o hash quando
+        preenchido; a nova senha volta a ser temporária (troca obrigatória no próximo login).</li>
+        <li><strong>Trava de auto-edição</strong>: um Coordenador não consegue se auto-desativar nem mudar o
+        próprio perfil por esta tela — evita ficar sem ninguém com acesso de Coordenador numa farmácia pequena.</li>
+      </ul>
+    </section>
+
+    <section class="chunk" id="glossario">
+      <h2><span class="section-num">14</span>Glossário rápido</h2>
+      <table class="fields">
+        <tbody>
+          <tr><td><strong>CAF</strong></td><td>Central de Abastecimento Farmacêutico — única unidade que recebe Entrada</td></tr>
+          <tr><td><strong>FEFO</strong></td><td>First Expire, First Out — o lote mais próximo do vencimento é sugerido primeiro</td></tr>
+          <tr><td><strong>Lote</strong></td><td>unidade real de estoque: um medicamento + um número de lote + uma validade + uma localização</td></tr>
+          <tr><td><strong>DOT</strong></td><td>Days of Therapy — dias consecutivos de uso de um antimicrobiano por um mesmo paciente</td></tr>
+          <tr><td><strong>Unidade ativa</strong></td><td>a unidade escolhida no login — filtra tudo que a sessão pode ver/mexer</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+  </main>
+</div>
+
+<footer class="doc-footer">
+  Estoque Farmácia — Hospital Materno Infantil Dr. Joaquim Sampaio / Rede FESFSUS. Manual de referência interna,
+  sem valor de documento regulatório.
+</footer>

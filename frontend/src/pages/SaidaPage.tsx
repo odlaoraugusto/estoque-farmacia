@@ -294,7 +294,7 @@ export function SaidaPage() {
           <div className="field">
             <label htmlFor="prontuario-saida">
               Prontuário{' '}
-              {exigePaciente ? <span className="req">*</span> : <span className="tag">opcional</span>}
+              {exigePaciente && <span className="req">*</span>}
             </label>
             <input
               id="prontuario-saida"
@@ -311,7 +311,11 @@ export function SaidaPage() {
           <div className="field">
             <label htmlFor="nome-paciente-saida">
               Nome do paciente{' '}
-              <span className="tag">{pacienteEncontrado ? 'já cadastrado' : exigePaciente ? 'obrigatório' : 'opcional'}</span>
+              {pacienteEncontrado ? (
+                <span className="tag">já cadastrado</span>
+              ) : (
+                exigePaciente && <span className="req">*</span>
+              )}
             </label>
             <input
               id="nome-paciente-saida"

@@ -11,11 +11,13 @@ router = APIRouter(prefix="/usuarios", tags=["Usuários"])
 
 service = UsuarioService()
 
-# Gestão de usuários (2026-08-20) — exclusiva do Coordenador. É a ação
-# administrativa mais sensível do sistema (controla quem tem acesso a
-# tudo o mais), por isso não entrou na equalização Farmacêutico=Coordenador
-# da seção 27 do doc.
-_PODE_GERIR = exigir_perfis(PerfilEnum.coordenador)
+# Gestão de usuários (2026-08-20) — exclusiva do Coordenador; Admin
+# (2026-08-27) também tem acesso — é a única tela que esse perfil usa,
+# já que ele existe só para configuração, sem tocar em estoque/medicamento.
+# É a ação administrativa mais sensível do sistema (controla quem tem
+# acesso a tudo o mais), por isso não entrou na equalização
+# Farmacêutico=Coordenador da seção 27 do doc.
+_PODE_GERIR = exigir_perfis(PerfilEnum.coordenador, PerfilEnum.admin)
 
 
 @router.get("", response_model=list[UsuarioOut], dependencies=[Depends(_PODE_GERIR)])

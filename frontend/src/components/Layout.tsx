@@ -43,14 +43,18 @@ export function Layout() {
               {usuario ? labelPerfil(usuario.perfil) : ''}
               {usuario?.crf ? ` · CRF ${usuario.crf}` : ''}
             </div>
-            <div className="unit">
-              <span>Unidade ativa</span>
-              <b>{usuario?.unidade_ativa_nome ?? '—'}</b>
-            </div>
+            {permissoes.telasOperacionais && (
+              <div className="unit">
+                <span>Unidade ativa</span>
+                <b>{usuario?.unidade_ativa_nome ?? '—'}</b>
+              </div>
+            )}
             <div className="sair" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-              <button type="button" className="link-btn" onClick={trocarUnidade}>
-                Trocar unidade
-              </button>
+              {permissoes.telasOperacionais && (
+                <button type="button" className="link-btn" onClick={trocarUnidade}>
+                  Trocar unidade
+                </button>
+              )}
               <button type="button" className="link-btn" onClick={sair}>
                 Sair
               </button>
@@ -59,10 +63,12 @@ export function Layout() {
 
           <nav className="screens" aria-label="Telas do sistema">
             <div className="eyebrow">Telas</div>
-            <NavLink to="/" end className="nav-btn">
-              <span className="ic">▤</span>
-              <span className="lbl">Estoque atual</span>
-            </NavLink>
+            {permissoes.telasOperacionais && (
+              <NavLink to="/" end className="nav-btn">
+                <span className="ic">▤</span>
+                <span className="lbl">Estoque atual</span>
+              </NavLink>
+            )}
             {permissoes.entrada && (
               <NavLink to="/entrada" className="nav-btn">
                 <span className="ic">↓</span>
@@ -75,10 +81,12 @@ export function Layout() {
                 <span className="lbl">Medicamentos</span>
               </NavLink>
             )}
-            <NavLink to="/transferencia" className="nav-btn">
-              <span className="ic">⇄</span>
-              <span className="lbl">Transferência</span>
-            </NavLink>
+            {permissoes.telasOperacionais && (
+              <NavLink to="/transferencia" className="nav-btn">
+                <span className="ic">⇄</span>
+                <span className="lbl">Transferência</span>
+              </NavLink>
+            )}
             {permissoes.saida && (
               <NavLink to="/saida" className="nav-btn">
                 <span className="ic">↑</span>
@@ -103,10 +111,12 @@ export function Layout() {
                 <span className="lbl">Ajuste de Estoque</span>
               </NavLink>
             )}
-            <NavLink to="/relatorios" className="nav-btn">
-              <span className="ic">▦</span>
-              <span className="lbl">Relatórios</span>
-            </NavLink>
+            {permissoes.telasOperacionais && (
+              <NavLink to="/relatorios" className="nav-btn">
+                <span className="ic">▦</span>
+                <span className="lbl">Relatórios</span>
+              </NavLink>
+            )}
             {permissoes.gestaoUsuarios && (
               <NavLink to="/usuarios" className="nav-btn">
                 <span className="ic">⚉</span>

@@ -1036,6 +1036,12 @@ tbody tr:hover {
 
 .modal-card {
   background: var(--surface);
+  /* Reseta a cor do texto — mesmo o modal sendo `position: fixed` (tela
+     cheia), ele pode nascer como filho JSX do `.topbar` (ex.
+     NotificacaoEstoquePopup), que define `color: #f7f3fa` (quase branco)
+     pra contrastar com o roxo institucional. Sem este reset, o conteúdo
+     do modal herda esse branco e fica ilegível sobre o `--surface` claro. */
+  color: var(--ink);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   width: 100%;

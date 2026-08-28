@@ -103,6 +103,7 @@ const PERFIL_LABEL: Record<string, string> = {
   coordenador: 'Coordenador',
   farmaceutico: 'Farmacêutico',
   atendente: 'Atendente',
+  admin: 'Administrador',
 };
 export function labelPerfil(perfil: string): string {
   return PERFIL_LABEL[perfil] ?? perfil;

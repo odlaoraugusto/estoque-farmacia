@@ -7,6 +7,14 @@ class PerfilEnum(str, enum.Enum):
     coordenador = "coordenador"
     farmaceutico = "farmaceutico"
     atendente = "atendente"
+    # Administrador global (2026-08-27): só configura o sistema (hoje,
+    # gestão de Usuários) — nunca opera estoque/medicamento. Não precisa
+    # de unidade ativa (ver AuthContext.tsx no frontend e get_unidade_
+    # ativa_id em app/api/deps.py, que essa telas nem usam). Nenhuma
+    # migração de banco necessária: `perfil` é VARCHAR + validação em
+    # Python (native_enum=False, sem CHECK constraint), decisão já
+    # documentada no README do backend justamente para permitir isso.
+    admin = "admin"
 
 
 class AcondicionamentoEnum(str, enum.Enum):
@@ -106,6 +114,13 @@ class TipoMovimentacaoEnum(str, enum.Enum):
     saida = "saida"
     descarte = "descarte"
     ajuste = "ajuste"
+    # Correção de valor unitário (2026-08-27) — mesma ideia do `ajuste`,
+    # mas pra preço em vez de quantidade: corrige um valor pago digitado
+    # errado na Entrada, sem mexer no saldo físico do lote. `quantidade`
+    # não se aplica a esse tipo (guarda 0, sempre) — o antes/depois do
+    # valor fica descrito em `motivo_ajuste` (mesma coluna, reaproveitada,
+    # sem precisar de coluna nova/migração).
+    correcao_valor = "correcao_valor"
 
 
 class StatusDescarteEnum(str, enum.Enum):

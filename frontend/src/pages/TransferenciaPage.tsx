@@ -519,7 +519,7 @@ function PainelSolicitar({ token }: { token: string | null }) {
           </div>
           <div className="field span2">
             <label htmlFor="obs-solicitacao">
-              Observação <span className="tag">opcional</span>
+              Observação
             </label>
             <input
               id="obs-solicitacao"

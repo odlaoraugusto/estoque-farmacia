@@ -11,9 +11,14 @@ a unidade real (CAF/UTI/Centro Cirúrgico/Emergência) onde está fisicamente
 posicionado. Carrinho NUNCA gera acesso de sessão (não é opção de login).
 
 `unidade_pai_id` é resolvido em tempo de migração via SELECT pelo nome da
-unidade real (não hardcoda id) — assume que as 4 unidades reais já existem
-(seed padrão do projeto, `scripts/seed_usuarios.py`). Se alguma não
-existir, a migração falha alto e claro em vez de criar um carrinho órfão.
+unidade real (não hardcoda id). As 4 unidades padrão da rede (CAF, UTI,
+Centro Cirúrgico, Emergência) são garantidas aqui mesmo (INSERT se ainda
+não existirem) — uma instalação nova rodando `alembic upgrade head` do
+zero (docs/03_DEPLOY.md) não tem como ter rodado `scripts/seed_usuarios.py`
+antes, já que a ordem documentada é migrations primeiro, seed depois.
+`scripts/seed_usuarios.py` continua garantindo essas mesmas 4 unidades
+(idempotente, mesmos nomes) para quem já passou por esta migração num
+banco mais antigo.
 """
 from typing import Sequence, Union
 
@@ -112,6 +117,17 @@ def upgrade() -> None:
     op.alter_column("unidades", "tipo", server_default=None)
 
     conn = op.get_bind()
+
+    for nome_padrao in ("CAF", "UTI", "Centro Cirúrgico", "Emergência"):
+        existe = conn.execute(
+            sa.text("SELECT id FROM unidades WHERE nome = :nome"),
+            {"nome": nome_padrao},
+        ).scalar()
+        if existe is None:
+            conn.execute(
+                sa.text("INSERT INTO unidades (nome, tipo) VALUES (:nome, 'unidade')"),
+                {"nome": nome_padrao},
+            )
 
     for nome, unidade_pai_nome, descricao in _CARRINHOS:
         pai_id = conn.execute(

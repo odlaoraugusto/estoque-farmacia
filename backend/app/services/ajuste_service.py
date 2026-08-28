@@ -5,7 +5,7 @@ from app.models.enums import TipoMovimentacaoEnum
 from app.models.movimentacao import Movimentacao
 from app.repositories.lote_repository import LoteRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
-from app.schemas.movimentacao import AjusteCreate
+from app.schemas.movimentacao import AjusteCreate, AjusteValorCreate
 from app.schemas.usuario import UsuarioMe
 
 
@@ -73,6 +73,60 @@ class AjusteService:
             quantidade=diferenca,
             unidade_origem_id=unidade_ativa_id,
             motivo_ajuste=dados.motivo_ajuste.strip(),
+            usuario_id=usuario.id,
+        )
+
+        return self.movimentacao_repository.create(db, movimentacao)
+
+    def ajustar_valor(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_ativa_id: int,
+        dados: AjusteValorCreate,
+    ) -> Movimentacao:
+        """Corrige o valor unitário pago de um lote (ex.: erro de digitação
+        na Entrada) — não mexe em saldo, só no valor usado nos relatórios
+        financeiros (Consolidado geral, Custo por setor)."""
+        lote = self.lote_repository.get_by_id_for_update(db, dados.lote_id)
+
+        if lote is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Lote não encontrado."
+            )
+
+        if not self._lote_no_escopo_da_unidade(lote, unidade_ativa_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="O lote não pertence à unidade ativa da sessão "
+                "nem a um carrinho de emergência dela.",
+            )
+
+        if not dados.motivo or not dados.motivo.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Motivo da correção é obrigatório.",
+            )
+
+        valor_antigo = lote.valor_unitario
+        if dados.valor_unitario_novo == valor_antigo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="O valor informado já é o valor unitário atual do lote — nada para corrigir.",
+            )
+
+        lote.valor_unitario = dados.valor_unitario_novo
+        self.lote_repository.salvar(db, lote)
+
+        movimentacao = Movimentacao(
+            tipo=TipoMovimentacaoEnum.correcao_valor,
+            lote_id=lote.id,
+            quantidade=0,
+            unidade_origem_id=unidade_ativa_id,
+            motivo_ajuste=(
+                f"Valor unitário: R$ {valor_antigo:.2f} -> R$ {dados.valor_unitario_novo:.2f}. "
+                f"{dados.motivo.strip()}"
+            ),
             usuario_id=usuario.id,
         )
 

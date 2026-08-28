@@ -13,6 +13,13 @@ export function permissoesDe(usuario: UsuarioMe | null) {
   const perfil = usuario?.perfil;
   const farmaceuticoOuCoordenador = perfil === 'farmaceutico' || perfil === 'coordenador';
 
+  // Admin global (2026-08-27): só configura o sistema (hoje, Usuários) —
+  // nunca opera estoque/medicamento, não seleciona unidade (ver
+  // AuthContext.tsx). Usado abaixo pra tirar esse perfil das telas
+  // operacionais que, de outra forma, seriam `true` pra "qualquer perfil
+  // autenticado".
+  const admin = perfil === 'admin';
+
   return {
     // Entrada — só farmacêutico/coordenador, e só quando a unidade ativa é a CAF.
     entrada: farmaceuticoOuCoordenador && unidadeEhCaf(usuario),
@@ -22,13 +29,19 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // por isso a tela em si fica visível a todos.
     transferenciaEnviar: farmaceuticoOuCoordenador,
 
-    // Saída/dispensação — qualquer perfil autenticado.
-    saida: true,
+    // Saída/dispensação — qualquer perfil autenticado, exceto Admin (só
+    // configura, não opera estoque).
+    saida: !admin,
 
     // Empréstimo/Doação/Permuta (2026-08-20) — aba própria, separada da
-    // dispensação normal; qualquer perfil autenticado, mesma regra de
-    // acesso da Saída normal (é a mesma rota POST /saidas por trás).
-    saidaExterna: true,
+    // dispensação normal; mesma regra de acesso da Saída normal (é a
+    // mesma rota POST /saidas por trás), com a mesma exceção do Admin.
+    saidaExterna: !admin,
+
+    // Telas sem tela própria de permissão (Estoque atual, Transferência,
+    // Relatórios) hoje aparecem pra "qualquer perfil autenticado" no
+    // menu — Admin é a exceção: não vê nenhuma delas, só Usuários.
+    telasOperacionais: !admin,
 
     // Relatórios — vencimentos-próximos é liberado a todos; os demais têm
     // regras próprias por aba.
@@ -83,11 +96,12 @@ export function permissoesDe(usuario: UsuarioMe | null) {
     // Coordenador (é vigilância, não uma ação operacional).
     notificacaoAtividade: perfil === 'coordenador',
 
-    // Gestão de usuários (2026-08-20) — exclusiva do Coordenador. Ação
-    // administrativa mais sensível do sistema (controla quem tem acesso a
-    // tudo o mais); não entrou na equalização Farmacêutico=Coordenador da
-    // seção 27 do doc. Ver app/api/routes/usuarios.py.
-    gestaoUsuarios: perfil === 'coordenador',
+    // Gestão de usuários (2026-08-20) — Coordenador; Admin (2026-08-27)
+    // também, é a única tela que esse perfil usa. Ação administrativa
+    // mais sensível do sistema (controla quem tem acesso a tudo o mais);
+    // não entrou na equalização Farmacêutico=Coordenador da seção 27 do
+    // doc. Ver app/api/routes/usuarios.py.
+    gestaoUsuarios: perfil === 'coordenador' || admin,
 
     // Notificação de estoque crítico/vencendo ao logar (2026-08-15,
     // pedido do cliente) — mesmo par de perfis que já vê financeiro
