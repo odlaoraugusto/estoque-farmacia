@@ -152,7 +152,12 @@ Coordenador — não precisa ser feito no bootstrap.
 
 Se houver uma planilha de estoque já existente para importar (catálogo +
 saldo inicial), ver `docs/IMPORTACAO_ESTOQUE_INICIAL.md` — script pronto,
-com as colunas exatas que a planilha precisa ter.
+com as colunas exatas que a planilha precisa ter. Os 25 carrinhos de
+emergência do hospital (carros + kits hemorrágicos + maletas) já vêm
+cadastrados sozinhos pelo `alembic upgrade head` acima — não precisa
+recriar nenhum manualmente; a planilha de importação só precisa acertar
+o nome exato de cada um na coluna `unidade` (lista completa no doc de
+importação).
 
 ### Serviço do backend (NSSM) — porta 8002
 
