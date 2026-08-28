@@ -22,28 +22,6 @@ class AcondicionamentoEnum(str, enum.Enum):
     geladeira = "geladeira"
 
 
-class ApresentacaoEnum(str, enum.Enum):
-    """Forma farmacêutica — só o tipo de apresentação, sem a
-    concentração (que virou campo próprio, `Medicamento.concentracao`),
-    a pedido do cliente em 2026-08-01."""
-
-    comprimido = "comprimido"
-    capsula = "capsula"
-    solucao_oral = "solucao_oral"
-    xarope = "xarope"
-    suspensao = "suspensao"
-    solucao_injetavel = "solucao_injetavel"
-    ampola = "ampola"
-    frasco_ampola = "frasco_ampola"
-    pomada = "pomada"
-    creme = "creme"
-    gel = "gel"
-    spray = "spray"
-    supositorio = "supositorio"
-    adesivo = "adesivo"
-    bolsa = "bolsa"
-
-
 class OrigemEnum(str, enum.Enum):
     """`emprestimo` (2026-08-20): item recebido de outra instituição por
     empréstimo — mesma regra de valor zerado/nota fiscal dispensada que

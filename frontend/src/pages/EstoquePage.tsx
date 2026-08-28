@@ -212,7 +212,7 @@ export function EstoquePage() {
                       <td>{lote.unidade.nome}</td>
                       <td>{formatarData(lote.data_validade)}</td>
                       <td className="num">{lote.quantidade_atual}</td>
-                      <td>{labelAcondicionamento(lote.medicamento.acondicionamento)}</td>
+                      <td>{lote.medicamento.acondicionamento ? labelAcondicionamento(lote.medicamento.acondicionamento) : '—'}</td>
                       <td>{labelOrigem(lote.origem)}</td>
                       <td>
                         {lote.status_transferencia === 'em_transito' ? (

@@ -1,7 +1,5 @@
 /** Formatação compartilhada — evita duplicar Intl.* em cada página. */
 
-import type { Apresentacao } from '../types';
-
 /** Converte um valor digitado no formato pt-BR ("1.234,56" ou "2,10") para
  * uma string decimal com ponto ("1234.56"), que é o que a API espera. */
 export function paraDecimalApi(valor: string): string {
@@ -59,29 +57,8 @@ export function labelAcondicionamento(valor: string): string {
   return ACONDICIONAMENTO_LABEL[valor] ?? valor;
 }
 
-const APRESENTACAO_LABEL: Record<string, string> = {
-  comprimido: 'Comprimido',
-  capsula: 'Cápsula',
-  solucao_oral: 'Solução oral',
-  xarope: 'Xarope',
-  suspensao: 'Suspensão',
-  solucao_injetavel: 'Solução injetável',
-  ampola: 'Ampola',
-  frasco_ampola: 'Frasco-ampola',
-  pomada: 'Pomada',
-  creme: 'Creme',
-  gel: 'Gel',
-  spray: 'Spray',
-  supositorio: 'Supositório',
-  adesivo: 'Adesivo',
-  bolsa: 'Bolsa',
-};
-export function labelApresentacao(valor: string): string {
-  return APRESENTACAO_LABEL[valor] ?? valor;
-}
-
-/** Opções para o <select> de apresentação, na mesma ordem do enum do backend. */
-export const OPCOES_APRESENTACAO = Object.entries(APRESENTACAO_LABEL) as [Apresentacao, string][];
+// Apresentação é texto livre desde 2026-08-28 — não tem mais label pra
+// mapear, o valor cadastrado já É o texto exibido (ver types.ts).
 
 /** Classe `.rail-*` (docs/04_IDENTIDADE_VISUAL.md, seção 4) — cada uma
  * das 4 unidades do hospital herda uma cor da régua institucional,

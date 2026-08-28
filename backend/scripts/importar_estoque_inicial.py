@@ -16,10 +16,10 @@ Colunas esperadas na planilha (cabeçalho na primeira linha, nomes exatos
 abaixo — ver docs/IMPORTACAO_ESTOQUE_INICIAL.md para a explicação de cada
 uma e os valores aceitos):
 
-    medicamento, apresentacao, concentracao, fabricante, acondicionamento,
-    estoque_minimo, unidade, numero_lote, data_validade, quantidade,
-    valor_unitario, origem, numero_nota_fiscal, numero_afm,
-    e_antimicrobiano, e_controlado
+    medicamento, apresentacao, concentracao (opcional), fabricante,
+    acondicionamento (opcional), estoque_minimo, unidade, numero_lote,
+    data_validade, quantidade, valor_unitario, origem, numero_nota_fiscal,
+    numero_afm, e_antimicrobiano, e_controlado
 
 Uso:
 
@@ -41,7 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.database.database import SessionLocal  # noqa: E402
-from app.models.enums import ApresentacaoEnum, AcondicionamentoEnum, OrigemEnum, TipoMovimentacaoEnum  # noqa: E402
+from app.models.enums import AcondicionamentoEnum, OrigemEnum, TipoMovimentacaoEnum  # noqa: E402
 from app.models.lote import Lote  # noqa: E402
 from app.models.medicamento import Medicamento  # noqa: E402
 from app.models.movimentacao import Movimentacao  # noqa: E402
@@ -51,8 +51,6 @@ from app.models.usuario import Usuario  # noqa: E402
 COLUNAS_OBRIGATORIAS = [
     "medicamento",
     "apresentacao",
-    "concentracao",
-    "acondicionamento",
     "unidade",
     "numero_lote",
     "data_validade",
@@ -154,17 +152,13 @@ def validar_linha(linha: LinhaImportada, unidades_por_nome: dict[str, Unidade]) 
     if linha.erros:
         return  # sem as colunas básicas, não adianta validar o resto
 
-    apresentacao_raw = texto(d["apresentacao"]).lower()
-    if apresentacao_raw not in ApresentacaoEnum.__members__:
-        linha.erros.append(
-            f"apresentacao '{d['apresentacao']}' inválida — valores aceitos: "
-            + ", ".join(ApresentacaoEnum.__members__)
-        )
+    # apresentacao é texto livre desde 2026-08-28 (siglas próprias do
+    # cliente) — só a obrigatoriedade é checada acima, sem lista fechada.
 
-    acond_raw = texto(d["acondicionamento"]).lower()
-    if acond_raw not in AcondicionamentoEnum.__members__:
+    acond_raw = texto(d.get("acondicionamento")).lower()
+    if acond_raw and acond_raw not in AcondicionamentoEnum.__members__:
         linha.erros.append(
-            f"acondicionamento '{d['acondicionamento']}' inválido — use 'ambiente' ou 'geladeira'"
+            f"acondicionamento '{d.get('acondicionamento')}' inválido — use 'ambiente', 'geladeira' ou deixe em branco"
         )
 
     unidade_raw = texto(d["unidade"])
@@ -280,29 +274,33 @@ def main() -> None:
         for linha in linhas_ok:
             d = linha.dados
             nome = texto(d["medicamento"])
-            apresentacao = texto(d["apresentacao"]).lower()
-            concentracao = texto(d["concentracao"])
-            chave = (nome.lower(), apresentacao, concentracao.lower())
+            # Preserva a grafia digitada (siglas geralmente vêm em
+            # maiúsculas, ex. "FA") — só normaliza pra fins de cache/busca.
+            apresentacao = texto(d["apresentacao"])
+            concentracao = texto(d.get("concentracao")) or None
+            chave = (nome.lower(), apresentacao.lower(), (concentracao or "").lower())
 
             medicamento = medicamentos_cache.get(chave)
             if medicamento is None:
-                medicamento = (
-                    db.query(Medicamento)
-                    .filter(
-                        Medicamento.nome.ilike(nome),
-                        Medicamento.apresentacao == apresentacao,
-                        Medicamento.concentracao.ilike(concentracao),
-                    )
-                    .first()
+                query = db.query(Medicamento).filter(
+                    Medicamento.nome.ilike(nome),
+                    Medicamento.apresentacao.ilike(apresentacao),
                 )
+                query = (
+                    query.filter(Medicamento.concentracao.ilike(concentracao))
+                    if concentracao
+                    else query.filter(Medicamento.concentracao.is_(None))
+                )
+                medicamento = query.first()
 
             if medicamento is None:
+                acond_raw = texto(d.get("acondicionamento")).lower() or None
                 medicamento = Medicamento(
                     nome=nome,
                     apresentacao=apresentacao,
                     concentracao=concentracao,
                     fabricante=texto(d.get("fabricante")) or None,
-                    acondicionamento=texto(d["acondicionamento"]).lower(),
+                    acondicionamento=acond_raw,
                     estoque_minimo=parse_inteiro(d.get("estoque_minimo")) or 0,
                     e_antimicrobiano=parse_bool(d.get("e_antimicrobiano")),
                     e_controlado=parse_bool(d.get("e_controlado")),

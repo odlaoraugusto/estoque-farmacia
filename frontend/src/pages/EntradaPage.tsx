@@ -5,8 +5,14 @@ import { api, mensagemErro } from '../lib/api';
 import { permissoesDe, unidadeEhCaf } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
-import { formatarMoeda, labelAcondicionamento, labelApresentacao, paraDecimalApi } from '../lib/formato';
+import { formatarMoeda, labelAcondicionamento, paraDecimalApi } from '../lib/formato';
 import type { MedicamentoOut, Origem } from '../types';
+
+/** Apresentação é texto livre desde 2026-08-28; concentração é opcional
+ * — combina os dois só quando concentração existe, sem separador solto. */
+function apresentacaoEConcentracao(m: MedicamentoOut): string {
+  return m.concentracao ? `${m.apresentacao} · ${m.concentracao}` : m.apresentacao;
+}
 
 const HOJE = new Date().toISOString().slice(0, 10);
 
@@ -313,11 +319,7 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
             <input
               type="text"
               disabled
-              value={
-                medicamentoSelecionado
-                  ? `${labelApresentacao(medicamentoSelecionado.apresentacao)} · ${medicamentoSelecionado.concentracao}`
-                  : ''
-              }
+              value={medicamentoSelecionado ? apresentacaoEConcentracao(medicamentoSelecionado) : ''}
               placeholder="preenchido pelo medicamento"
             />
           </div>
@@ -328,7 +330,7 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
             <input
               type="text"
               disabled
-              value={medicamentoSelecionado ? labelAcondicionamento(medicamentoSelecionado.acondicionamento) : ''}
+              value={medicamentoSelecionado?.acondicionamento ? labelAcondicionamento(medicamentoSelecionado.acondicionamento) : ''}
               placeholder="Ambiente / Geladeira"
             />
           </div>
@@ -587,11 +589,7 @@ function FormularioItemUnico({
           <input
             type="text"
             disabled
-            value={
-              medicamentoSelecionado
-                ? `${labelApresentacao(medicamentoSelecionado.apresentacao)} · ${medicamentoSelecionado.concentracao}`
-                : ''
-            }
+            value={medicamentoSelecionado ? apresentacaoEConcentracao(medicamentoSelecionado) : ''}
             placeholder="preenchido pelo medicamento"
           />
         </div>
@@ -602,7 +600,7 @@ function FormularioItemUnico({
           <input
             type="text"
             disabled
-            value={medicamentoSelecionado ? labelAcondicionamento(medicamentoSelecionado.acondicionamento) : ''}
+            value={medicamentoSelecionado?.acondicionamento ? labelAcondicionamento(medicamentoSelecionado.acondicionamento) : ''}
             placeholder="Ambiente / Geladeira"
           />
         </div>

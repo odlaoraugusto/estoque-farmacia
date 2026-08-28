@@ -17,10 +17,10 @@ estes nomes de coluna:
 | Coluna | Obrigatória | O que é | Valores aceitos |
 |---|---|---|---|
 | `medicamento` | sim | Nome do medicamento | texto livre |
-| `apresentacao` | sim | Forma farmacêutica | `comprimido`, `capsula`, `solucao_oral`, `xarope`, `suspensao`, `solucao_injetavel`, `ampola`, `frasco_ampola`, `pomada`, `creme`, `gel`, `spray`, `supositorio`, `adesivo`, `bolsa` |
-| `concentracao` | sim | Dosagem/concentração | texto livre, ex. `500mg/mL` |
+| `apresentacao` | sim | Forma farmacêutica | texto livre — aceita as siglas próprias do hospital (ex. `FA`, `CP`), não é mais uma lista fechada |
+| `concentracao` | não | Dosagem/concentração | texto livre, ex. `500mg/mL` |
 | `fabricante` | não | Fabricante do medicamento | texto livre, ex. `EMS` |
-| `acondicionamento` | sim | Onde é guardado | `ambiente` ou `geladeira` |
+| `acondicionamento` | não | Onde é guardado | `ambiente` ou `geladeira`, ou deixe em branco |
 | `estoque_minimo` | não | Gatilho do alerta de estoque crítico | número inteiro (padrão `0` se vazio) |
 | `unidade` | sim | Onde o lote está fisicamente hoje | `CAF`, `UTI`, `Centro Cirúrgico`, `Emergência` **ou o nome exato de um carrinho de emergência** (ver nota abaixo) |
 | `numero_lote` | sim | Número/código do lote | texto livre |
@@ -39,19 +39,24 @@ automaticamente).
 
 **Lote num carrinho de emergência**: na coluna `unidade`, escreva o nome
 **exato** do carrinho (não o nome da unidade onde ele fica) — o script já
-reconhece carrinhos, não só as 4 unidades reais. Os 18 carrinhos já
-cadastrados no sistema (migration `0003_carrinhos_emergencia`):
+reconhece carrinhos, não só as 4 unidades reais. Os 25 carrinhos já
+cadastrados no sistema (migrations `0003_carrinhos_emergencia`,
+`0012_kits_hemorragicos` e `0013_maleta_uti_pediatrica`):
 
 | Carrinho | Fica em |
 |---|---|
 | Carro de Emergência Unidade Canguru | CAF |
 | Carro de Emergência Centro de Parto Normal | CAF |
 | Carro de Emergência Alojamento Conjunto | CAF |
+| Kit de Emergência Hemorrágico ALCON Posto 1 | CAF |
+| Kit de Emergência Hemorrágico ALCON Posto 2 | CAF |
+| Kit de Emergência Hemorrágico CPN | CAF |
 | Carro de Emergência UTI Neonatal Nº 1 | UTI |
 | Carro de Emergência UTI Neonatal Nº 2 | UTI |
 | Carro de Emergência UTI Pediátrica 1 | UTI |
 | Carro de Emergência UTI Pediátrica 2 | UTI |
 | Carro de Emergência UCI Neonatal | UTI |
+| Maleta UTI Pediátrica | UTI |
 | Carro de Emergência do Ambulatório | Emergência |
 | Maleta UTI Neo/UCINCO | Emergência |
 | Carro de Emergência Enfermaria Pediátrica | Emergência |
@@ -60,6 +65,9 @@ cadastrados no sistema (migration `0003_carrinhos_emergencia`):
 | Carro de Emergência Sala da Tomografia | Emergência |
 | Carro de Emergência Sala Exame Pediátrico | Emergência |
 | Carro de Emergência: Urgência e Emergência Pediátrica | Emergência |
+| Kit de Emergência Hemorrágico CO nº 1 | Emergência |
+| Kit de Emergência Hemorrágico CO nº 2 | Emergência |
+| Kit de Emergência Hemorrágico Emergência Obstétrica | Emergência |
 | Carro de Emergência Centro Cirúrgico Nº 1 | Centro Cirúrgico |
 | Carro de Emergência Centro Cirúrgico Nº 2 | Centro Cirúrgico |
 

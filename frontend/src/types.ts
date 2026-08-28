@@ -5,22 +5,8 @@ export type Perfil = 'coordenador' | 'farmaceutico' | 'atendente' | 'admin';
 
 export type Acondicionamento = 'ambiente' | 'geladeira';
 
-export type Apresentacao =
-  | 'comprimido'
-  | 'capsula'
-  | 'solucao_oral'
-  | 'xarope'
-  | 'suspensao'
-  | 'solucao_injetavel'
-  | 'ampola'
-  | 'frasco_ampola'
-  | 'pomada'
-  | 'creme'
-  | 'gel'
-  | 'spray'
-  | 'supositorio'
-  | 'adesivo'
-  | 'bolsa';
+// Texto livre desde 2026-08-28 (era uma lista fechada de 15 formas
+// farmacêuticas) — o hospital usa siglas próprias que não cabiam nela.
 
 /** `emprestimo` (2026-08-20): item recebido de outra instituição por
  * empréstimo — mesmas regras de valor zerado/nota fiscal dispensada que
@@ -98,10 +84,10 @@ export interface UnidadeOut {
 export interface MedicamentoOut {
   id: number;
   nome: string;
-  apresentacao: Apresentacao;
-  concentracao: string;
+  apresentacao: string;
+  concentracao: string | null;
   fabricante: string | null;
-  acondicionamento: Acondicionamento;
+  acondicionamento: Acondicionamento | null;
   estoque_minimo: number;
   ativo: boolean;
   e_controlado: boolean;

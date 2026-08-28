@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, DateTime, Enum, Integer, String
 from sqlalchemy.sql import func
 
 from app.database.database import Base
-from app.models.enums import AcondicionamentoEnum, ApresentacaoEnum
+from app.models.enums import AcondicionamentoEnum
 
 
 class Medicamento(Base):
@@ -12,25 +12,23 @@ class Medicamento(Base):
 
     nome = Column(String(200), nullable=False)
 
-    # Apresentação é só a forma farmacêutica (comprimido/frasco/suspensão/
-    # etc.) — a concentração (ex. "500mg/mL") é campo separado desde
-    # 2026-08-01, a pedido do cliente (antes vinha tudo junto em texto
-    # livre, ex. "Frasco 10mL").
-    apresentacao = Column(
-        Enum(
-            ApresentacaoEnum,
-            name="apresentacao_enum",
-            native_enum=False,
-            length=30,
-        ),
-        nullable=False,
-    )
-    concentracao = Column(String(100), nullable=False)
+    # Apresentação é a forma farmacêutica (comprimido/frasco/suspensão/
+    # etc.). Era um enum fechado de 15 valores até 2026-08-28; virou texto
+    # livre a pedido do cliente, que usa siglas próprias em vez da lista
+    # fechada (migration 0014 também derrubou o CHECK constraint
+    # `apresentacao_enum` que existia no banco).
+    apresentacao = Column(String(50), nullable=False)
+
+    # Opcional desde 2026-08-28 (antes obrigatório) — nem todo cadastro
+    # do cliente informa a concentração na hora.
+    concentracao = Column(String(100), nullable=True)
 
     # Fabricante (2026-08-27) — dado de catálogo, não obrigatório (nem
     # todo cadastro/planilha do cliente traz essa informação).
     fabricante = Column(String(150), nullable=True)
 
+    # Opcional desde 2026-08-28 (antes obrigatório) — continua sendo o
+    # enum fechado ambiente/geladeira quando informado.
     acondicionamento = Column(
         Enum(
             AcondicionamentoEnum,
@@ -38,7 +36,7 @@ class Medicamento(Base):
             native_enum=False,
             length=20,
         ),
-        nullable=False,
+        nullable=True,
     )
 
     estoque_minimo = Column(Integer, nullable=False, default=0, server_default="0")

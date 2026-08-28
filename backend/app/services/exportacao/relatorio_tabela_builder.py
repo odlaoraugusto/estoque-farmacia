@@ -2,7 +2,7 @@
 validados/preenchidos pelo `RelatorioService`) numa `TabelaRelatorio`
 genérica, pronta para os exportadores desenharem."""
 
-from app.models.enums import ApresentacaoEnum, OrigemEnum, StatusDescarteEnum, TipoMovimentacaoEnum
+from app.models.enums import OrigemEnum, StatusDescarteEnum, TipoMovimentacaoEnum
 from app.schemas.relatorio import (
     RelatorioAntimicrobianoOut,
     RelatorioAuditoriaOut,
@@ -38,35 +38,16 @@ _STATUS_DESCARTE_LABEL = {
     StatusDescarteEnum.rejeitado: "Rejeitado",
 }
 
-_APRESENTACAO_LABEL = {
-    ApresentacaoEnum.comprimido: "Comprimido",
-    ApresentacaoEnum.capsula: "Cápsula",
-    ApresentacaoEnum.solucao_oral: "Solução oral",
-    ApresentacaoEnum.xarope: "Xarope",
-    ApresentacaoEnum.suspensao: "Suspensão",
-    ApresentacaoEnum.solucao_injetavel: "Solução injetável",
-    ApresentacaoEnum.ampola: "Ampola",
-    ApresentacaoEnum.frasco_ampola: "Frasco-ampola",
-    ApresentacaoEnum.pomada: "Pomada",
-    ApresentacaoEnum.creme: "Creme",
-    ApresentacaoEnum.gel: "Gel",
-    ApresentacaoEnum.spray: "Spray",
-    ApresentacaoEnum.supositorio: "Supositório",
-    ApresentacaoEnum.adesivo: "Adesivo",
-    ApresentacaoEnum.bolsa: "Bolsa",
-}
-
-
 def _texto(valor) -> str:
     return "" if valor is None else str(valor)
 
 
 def _apresentacao_e_concentracao(medicamento) -> str:
-    """'Frasco-ampola · 100UI/mL' — apresentação (forma farmacêutica) e
-    concentração são campos separados no cadastro desde 2026-08-01, mas o
-    relatório impresso combina os dois numa coluna só, mais legível."""
-    label = _APRESENTACAO_LABEL.get(medicamento.apresentacao, medicamento.apresentacao.value)
-    return f"{label} · {medicamento.concentracao}" if medicamento.concentracao else label
+    """'FA · 100UI/mL' — apresentação (forma farmacêutica, texto livre
+    desde 2026-08-28) e concentração (opcional) combinadas numa coluna só
+    no relatório impresso, mais legível do que duas colunas separadas."""
+    apresentacao = medicamento.apresentacao or ""
+    return f"{apresentacao} · {medicamento.concentracao}" if medicamento.concentracao else apresentacao
 
 
 def tabela_estoque_consolidado(relatorio: RelatorioEstoqueConsolidadoOut) -> TabelaRelatorio:

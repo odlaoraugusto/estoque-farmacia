@@ -4,15 +4,15 @@ import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
-import { labelAcondicionamento, labelApresentacao, OPCOES_APRESENTACAO } from '../lib/formato';
-import type { Acondicionamento, Apresentacao, MedicamentoOut } from '../types';
+import { labelAcondicionamento } from '../lib/formato';
+import type { Acondicionamento, MedicamentoOut } from '../types';
 
 const FORM_VAZIO = {
   nome: '',
-  apresentacao: 'comprimido' as Apresentacao,
+  apresentacao: '',
   concentracao: '',
   fabricante: '',
-  acondicionamento: 'ambiente' as Acondicionamento,
+  acondicionamento: '' as Acondicionamento | '',
   estoqueMinimo: '',
   eAntimicrobiano: false,
   eControlado: false,
@@ -74,9 +74,9 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
     setForm({
       nome: m.nome,
       apresentacao: m.apresentacao,
-      concentracao: m.concentracao,
+      concentracao: m.concentracao ?? '',
       fabricante: m.fabricante ?? '',
-      acondicionamento: m.acondicionamento,
+      acondicionamento: m.acondicionamento ?? '',
       estoqueMinimo: String(m.estoque_minimo),
       eAntimicrobiano: m.e_antimicrobiano,
       eControlado: m.e_controlado,
@@ -98,10 +98,10 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
     try {
       const corpo = {
         nome: form.nome,
-        apresentacao: form.apresentacao,
-        concentracao: form.concentracao,
+        apresentacao: form.apresentacao.trim(),
+        concentracao: form.concentracao.trim() || null,
         fabricante: form.fabricante.trim() || null,
-        acondicionamento: form.acondicionamento,
+        acondicionamento: form.acondicionamento || null,
         estoque_minimo: Number(form.estoqueMinimo || 0),
         e_antimicrobiano: form.eAntimicrobiano,
         e_controlado: form.eControlado,
@@ -169,29 +169,23 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
             <label htmlFor="med-apresentacao">
               Apresentação <span className="req">*</span>
             </label>
-            <select
+            <input
               id="med-apresentacao"
+              type="text"
+              placeholder="ex.: FA, comprimido, CP"
               value={form.apresentacao}
-              onChange={(e) => setForm((f) => ({ ...f, apresentacao: e.target.value as Apresentacao }))}
-            >
-              {OPCOES_APRESENTACAO.map(([valor, rotulo]) => (
-                <option key={valor} value={valor}>
-                  {rotulo}
-                </option>
-              ))}
-            </select>
+              onChange={(e) => setForm((f) => ({ ...f, apresentacao: e.target.value }))}
+              required
+            />
           </div>
           <div className="field">
-            <label htmlFor="med-concentracao">
-              Concentração <span className="req">*</span>
-            </label>
+            <label htmlFor="med-concentracao">Concentração</label>
             <input
               id="med-concentracao"
               type="text"
               placeholder="ex.: 500mg/mL"
               value={form.concentracao}
               onChange={(e) => setForm((f) => ({ ...f, concentracao: e.target.value }))}
-              required
             />
           </div>
           <div className="field">
@@ -205,14 +199,13 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
             />
           </div>
           <div className="field">
-            <label htmlFor="med-acondicionamento">
-              Acondicionamento <span className="req">*</span>
-            </label>
+            <label htmlFor="med-acondicionamento">Acondicionamento</label>
             <select
               id="med-acondicionamento"
               value={form.acondicionamento}
-              onChange={(e) => setForm((f) => ({ ...f, acondicionamento: e.target.value as Acondicionamento }))}
+              onChange={(e) => setForm((f) => ({ ...f, acondicionamento: e.target.value as Acondicionamento | '' }))}
             >
+              <option value="">— não informado —</option>
               <option value="ambiente">Ambiente</option>
               <option value="geladeira">Geladeira</option>
             </select>
@@ -308,10 +301,10 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
                 {medicamentos.map((m) => (
                   <tr key={m.id}>
                     <td>{m.nome}</td>
-                    <td>{labelApresentacao(m.apresentacao)}</td>
-                    <td className="mono">{m.concentracao}</td>
+                    <td>{m.apresentacao}</td>
+                    <td className="mono">{m.concentracao ?? '—'}</td>
                     <td>{m.fabricante ?? '—'}</td>
-                    <td>{labelAcondicionamento(m.acondicionamento)}</td>
+                    <td>{m.acondicionamento ? labelAcondicionamento(m.acondicionamento) : '—'}</td>
                     <td className="num">{m.estoque_minimo}</td>
                     <td>
                       {m.e_antimicrobiano ? <span className="pill pend">sim</span> : <span className="pill muted">não</span>}
