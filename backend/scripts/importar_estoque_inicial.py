@@ -169,9 +169,11 @@ def validar_linha(linha: LinhaImportada, unidades_por_nome: dict[str, Unidade]) 
 
     unidade_raw = texto(d["unidade"])
     if unidade_raw not in unidades_por_nome:
+        nomes_unidades = sorted(u.nome for u in unidades_por_nome.values() if u.tipo == "unidade")
         linha.erros.append(
-            f"unidade '{unidade_raw}' não encontrada — use exatamente: "
-            + ", ".join(unidades_por_nome)
+            f"unidade '{unidade_raw}' não encontrada — unidades reais: "
+            + ", ".join(nomes_unidades)
+            + ". Pra carrinho, use o nome exato cadastrado (ver tela Reposição de Carrinhos)."
         )
 
     origem_raw = texto(d["origem"]).lower()
@@ -232,7 +234,14 @@ def main() -> None:
         if usuario is None:
             raise SystemExit(f"Usuário '{args.usuario_login}' não encontrado.")
 
-        unidades = db.query(Unidade).filter(Unidade.tipo == "unidade").all()
+        # Inclui unidades reais E carrinhos de emergência — um lote de carga
+        # inicial pode estar fisicamente num carrinho, não só numa unidade
+        # (os 18 carrinhos já existem desde a migration 0003, cada um com
+        # tipo="carrinho" e unidade_pai_id apontando pra unidade real onde
+        # fica). Na planilha, usar o nome exato do carrinho (ex.: "Carro de
+        # Emergência Unidade Canguru"), igual aparece na tela Reposição de
+        # Carrinhos — não precisa citar a unidade-mãe à parte.
+        unidades = db.query(Unidade).all()
         unidades_por_nome = {u.nome: u for u in unidades}
 
         linhas = [
