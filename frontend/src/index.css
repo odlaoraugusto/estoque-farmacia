@@ -1170,3 +1170,54 @@ tbody tr:hover {
 }
 .alerta-atividade h3 { color: var(--ink); }
 .alerta-atividade li i { color: var(--muted); font-style: normal; }
+
+/* Fonte maior nas páginas públicas (2026-09-01, pedido do cliente) —
+   preenchidas no celular por qualquer setor, sem o refinamento visual
+   do resto do sistema (que é usado por quem já conhece a tela e opera
+   em telas maiores). Escopado com `.shell-publico` (junto de `.shell`
+   nas 3 páginas de /publico) pra não afetar o app autenticado, que
+   também usa `.shell`. */
+.shell-publico {
+  font-size: 16px;
+}
+.shell-publico .screen-head h1 {
+  font-size: 27px;
+}
+.shell-publico .screen-sub {
+  font-size: 15.5px;
+}
+.shell-publico .panel h2 {
+  font-size: 13px;
+}
+.shell-publico .field label {
+  font-size: 14.5px;
+}
+.shell-publico input[type='text'],
+.shell-publico input[type='number'],
+.shell-publico input[type='date'],
+.shell-publico select {
+  font-size: 16px;
+  padding: 11px 12px;
+}
+.shell-publico .btn {
+  font-size: 15px;
+  padding: 12px 18px;
+}
+.shell-publico .btn.sm {
+  font-size: 13.5px;
+}
+.shell-publico table {
+  font-size: 14.5px;
+}
+.shell-publico th {
+  font-size: 12px;
+}
+.shell-publico .note {
+  font-size: 14px;
+}
+.shell-publico .alerta {
+  font-size: 15px;
+}
+.shell-publico .box {
+  font-size: 15px;
+}

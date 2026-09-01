@@ -146,7 +146,7 @@ export function PublicoRessuprimentoCarrinhoPage() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell shell-publico">
       <div className="topbar">
         <div className="fesf-id">
           <span className="fesf-app">Uso de carrinho de emergência</span>

@@ -117,7 +117,8 @@ export function PublicoDevolucaoMedicamentoPage() {
         setor,
         unidade_destino_id: Number(unidadeDestinoId),
         itens: itens.map((i) => ({ medicamento_id: i.medicamento_id, quantidade: Number(i.quantidade) })),
-        ...(precisaPaciente ? { paciente_nome: pacienteNome.trim(), paciente_prontuario: pacienteProntuario.trim() } : {}),
+        ...(pacienteNome.trim() ? { paciente_nome: pacienteNome.trim() } : {}),
+        ...(pacienteProntuario.trim() ? { paciente_prontuario: pacienteProntuario.trim() } : {}),
       });
       setSucesso('Registrado — a unidade escolhida foi notificada.');
       limparTudo();
@@ -129,7 +130,7 @@ export function PublicoDevolucaoMedicamentoPage() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell shell-publico">
       <div className="topbar">
         <div className="fesf-id">
           <span className="fesf-app">Devolução de medicamento</span>
@@ -254,35 +255,33 @@ export function PublicoDevolucaoMedicamentoPage() {
                 <span>Há medicamento controlado ou antimicrobiano nesta lista — paciente e prontuário são obrigatórios.</span>
               </div>
             )}
-            {precisaPaciente && (
-              <div className="grid" style={{ marginTop: 8 }}>
-                <div className="field">
-                  <label htmlFor="prontuario-devolucao">
-                    Prontuário<span className="req"> *</span>
-                  </label>
-                  <input
-                    id="prontuario-devolucao"
-                    type="text"
-                    value={pacienteProntuario}
-                    onChange={(e) => setPacienteProntuario(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="paciente-devolucao">
-                    Nome completo do paciente<span className="req"> *</span>
-                  </label>
-                  <input
-                    id="paciente-devolucao"
-                    type="text"
-                    value={pacienteNome}
-                    onChange={(e) => setPacienteNome(e.target.value)}
-                    required
-                    style={{ textTransform: 'uppercase' }}
-                  />
-                </div>
+            <div className="grid" style={{ marginTop: 8 }}>
+              <div className="field">
+                <label htmlFor="prontuario-devolucao">
+                  Prontuário{precisaPaciente && <span className="req"> *</span>}
+                </label>
+                <input
+                  id="prontuario-devolucao"
+                  type="text"
+                  value={pacienteProntuario}
+                  onChange={(e) => setPacienteProntuario(e.target.value)}
+                  required={precisaPaciente}
+                />
               </div>
-            )}
+              <div className="field">
+                <label htmlFor="paciente-devolucao">
+                  Nome completo do paciente{precisaPaciente && <span className="req"> *</span>}
+                </label>
+                <input
+                  id="paciente-devolucao"
+                  type="text"
+                  value={pacienteNome}
+                  onChange={(e) => setPacienteNome(e.target.value)}
+                  required={precisaPaciente}
+                  style={{ textTransform: 'uppercase' }}
+                />
+              </div>
+            </div>
 
             <div className="actions">
               <button type="submit" className="btn" disabled={enviando}>

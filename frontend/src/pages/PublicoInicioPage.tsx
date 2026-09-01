@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
  * code/link já impresso apontando pra `/publico/ressuprimento-carrinho`). */
 export function PublicoInicioPage() {
   return (
-    <div className="shell">
+    <div className="shell shell-publico">
       <div className="topbar">
         <div className="fesf-id">
           <span className="fesf-app">Farmácia</span>
