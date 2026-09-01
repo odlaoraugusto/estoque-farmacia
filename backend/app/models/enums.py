@@ -31,6 +31,11 @@ class OrigemEnum(str, enum.Enum):
     compra = "compra"
     doacao = "doacao"
     emprestimo = "emprestimo"
+    # Devolução de medicamento (2026-09-01): item físico devolvido por um
+    # setor à farmácia/unidade satélite via formulário público — mesmo
+    # grupo de doação/empréstimo (valor unitário opcional, sem nota
+    # fiscal). Ver SolicitacaoDevolucaoMedicamentoService.confirmar.
+    devolucao = "devolucao"
 
 
 class CategoriaSaidaEnum(str, enum.Enum):
@@ -91,6 +96,16 @@ class StatusRessuprimentoCarrinhoEnum(str, enum.Enum):
     pública de ressuprimento de carrinho (2026-08-31) — saída direta do
     carrinho e transferência de reposição, cada uma confirmada (ou não)
     em momento próprio pela farmácia."""
+
+    pendente = "pendente"
+    confirmada = "confirmada"
+
+
+class StatusDevolucaoMedicamentoEnum(str, enum.Enum):
+    """Status de uma solicitação pública de devolução de medicamento
+    (2026-09-01) — diferente de ressuprimento de carrinho, aqui só existe
+    UMA ação (dar entrada do lote novo), por isso um status só, não dois
+    independentes."""
 
     pendente = "pendente"
     confirmada = "confirmada"

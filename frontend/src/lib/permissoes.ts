@@ -103,6 +103,16 @@ export function permissoesDe(usuario: UsuarioMe | null, matriz: PermissaoPerfil[
     // diferente da reposição que exige CAF como origem.
     devolverCarrinho: temPermissao(usuario, matriz, 'reposicao_carrinho'),
 
+    // Devolução de MEDICAMENTO (2026-09-01, pedido do cliente) — não
+    // confundir com devolverCarrinho acima (conceito diferente: aqui é
+    // um setor devolvendo item físico à farmácia, virando lote novo).
+    // Liberada a qualquer perfil autenticado não-Admin, em QUALQUER
+    // unidade (não exclusiva da CAF, diferente de `entrada`) — mesmo
+    // grupo básico de `saida`/`saidaExterna`/`telasOperacionais`, NÃO
+    // entra na matriz configurável (decisão explícita do cliente: não
+    // depende do Admin liberar nada).
+    devolucaoMedicamento: !admin,
+
     // Solicitação de transferência satélite -> CAF (2026-08-20) —
     // qualquer perfil da unidade solicitante pode pedir (mesma lógica de
     // quem já registra Saída/confirma recebimento); não entra na matriz —

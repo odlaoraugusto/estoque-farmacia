@@ -3,7 +3,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { RotaProtegida } from './components/RotaProtegida';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
+import { PublicoInicioPage } from './pages/PublicoInicioPage';
 import { PublicoRessuprimentoCarrinhoPage } from './pages/PublicoRessuprimentoCarrinhoPage';
+import { PublicoDevolucaoMedicamentoPage } from './pages/PublicoDevolucaoMedicamentoPage';
 import { EstoquePage } from './pages/EstoquePage';
 import { EntradaPage } from './pages/EntradaPage';
 import { TransferenciaPage } from './pages/TransferenciaPage';
@@ -11,6 +13,7 @@ import { ResuprimentoPage } from './pages/ResuprimentoPage';
 import { SaidaPage } from './pages/SaidaPage';
 import { EmprestimoDoacaoPage } from './pages/EmprestimoDoacaoPage';
 import { RelatoriosPage } from './pages/RelatoriosPage';
+import { MinhasAcoesPage } from './pages/MinhasAcoesPage';
 import { MedicamentosPage } from './pages/MedicamentosPage';
 import { ReposicaoCarrinhoPage } from './pages/ReposicaoCarrinhoPage';
 import { AjustePage } from './pages/AjustePage';
@@ -31,7 +34,9 @@ function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/publico" element={<PublicoInicioPage />} />
           <Route path="/publico/ressuprimento-carrinho" element={<PublicoRessuprimentoCarrinhoPage />} />
+          <Route path="/publico/devolucao-medicamento" element={<PublicoDevolucaoMedicamentoPage />} />
           <Route element={<RotaProtegida />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Inicio />} />
@@ -42,6 +47,7 @@ function App() {
               <Route path="/saida-externa" element={<EmprestimoDoacaoPage />} />
               <Route path="/reposicao-carrinho" element={<ReposicaoCarrinhoPage />} />
               <Route path="/ajuste" element={<AjustePage />} />
+              <Route path="/minhas-acoes" element={<MinhasAcoesPage />} />
               <Route path="/relatorios" element={<RelatoriosPage />} />
               <Route path="/medicamentos" element={<MedicamentosPage />} />
               <Route path="/usuarios" element={<UsuariosPage />} />

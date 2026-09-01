@@ -26,6 +26,7 @@ _ORIGEM_LABEL = {
     OrigemEnum.compra: "Compra",
     OrigemEnum.doacao: "Doação",
     OrigemEnum.emprestimo: "Empréstimo",
+    OrigemEnum.devolucao: "Devolução",
 }
 
 _TIPO_MOVIMENTACAO_LABEL = {

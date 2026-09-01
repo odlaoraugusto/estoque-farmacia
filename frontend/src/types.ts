@@ -21,7 +21,7 @@ export type CategoriaSaida = 'normal' | 'vencimento' | 'emprestimo' | 'doacao' |
 
 export type StatusTransferencia = 'em_transito' | 'recebido';
 
-export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte' | 'ajuste';
+export type TipoMovimentacao = 'entrada' | 'transferencia' | 'saida' | 'descarte' | 'ajuste' | 'correcao_valor';
 
 export type StatusDescarte = 'pendente_aprovacao' | 'aprovado' | 'rejeitado';
 
@@ -273,6 +273,46 @@ export interface EstoqueCarrinhoPublicoItem {
   medicamento_nome: string;
   quantidade_atual: number;
   e_controlado: boolean;
+}
+
+/** Devolução de medicamento (2026-09-01): item físico devolvido por um
+ * setor à farmácia/unidade satélite via formulário público — não
+ * confundir com "Devolução de Carrinho" (`devolverCarrinho` em
+ * permissoes.ts), que é o carrinho devolvendo excesso de estoque pra sua
+ * unidade-mãe. */
+export interface MedicamentoDevolucaoPublicoOut {
+  id: number;
+  nome: string;
+  apresentacao: string;
+  concentracao: string | null;
+  e_controlado: boolean;
+  e_antimicrobiano: boolean;
+}
+
+export type StatusDevolucaoMedicamento = 'pendente' | 'confirmada';
+
+export interface ItemSolicitacaoDevolucaoMedicamento {
+  id: number;
+  medicamento_id: number;
+  medicamento_nome: string;
+  quantidade: number;
+  e_controlado: boolean;
+  e_antimicrobiano: boolean;
+  lote_id: number | null;
+}
+
+export interface SolicitacaoDevolucaoMedicamentoOut {
+  id: number;
+  data_hora: string;
+  setor: string;
+  unidade_destino_id: number;
+  unidade_destino_nome: string;
+  paciente_nome: string | null;
+  paciente_prontuario: string | null;
+  status: StatusDevolucaoMedicamento;
+  usuario_confirmacao: UsuarioResumo | null;
+  data_confirmacao: string | null;
+  itens: ItemSolicitacaoDevolucaoMedicamento[];
 }
 
 export type StatusRessuprimentoCarrinho = 'pendente' | 'confirmada';

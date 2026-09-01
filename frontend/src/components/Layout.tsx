@@ -4,6 +4,7 @@ import { permissoesDe } from '../lib/permissoes';
 import { classeRailUnidade, labelPerfil } from '../lib/formato';
 import { NotificacaoEstoquePopup } from './NotificacaoEstoquePopup';
 import { NotificacaoRessuprimentoCarrinhoPopup } from './NotificacaoRessuprimentoCarrinhoPopup';
+import { NotificacaoDevolucaoMedicamentoPopup } from './NotificacaoDevolucaoMedicamentoPopup';
 
 /** Casca da aplicação pós-login: barra institucional no topo +
  * sidebar de navegação + conteúdo da tela. Itens de menu sem permissão
@@ -27,6 +28,7 @@ export function Layout() {
         <span className="fesf-app">Estoque Farmácia — Farmácia Hospitalar</span>
         <NotificacaoEstoquePopup />
         <NotificacaoRessuprimentoCarrinhoPopup />
+        <NotificacaoDevolucaoMedicamentoPopup />
       </div>
 
       <div className="app">
@@ -71,7 +73,7 @@ export function Layout() {
                 <span className="lbl">Estoque atual</span>
               </NavLink>
             )}
-            {permissoes.entrada && (
+            {(permissoes.entrada || permissoes.devolucaoMedicamento) && (
               <NavLink to="/entrada" className="nav-btn">
                 <span className="ic">↓</span>
                 <span className="lbl">Entrada</span>
@@ -117,6 +119,12 @@ export function Layout() {
               <NavLink to="/ajuste" className="nav-btn">
                 <span className="ic">⚖</span>
                 <span className="lbl">Ajuste de Estoque</span>
+              </NavLink>
+            )}
+            {permissoes.telasOperacionais && (
+              <NavLink to="/minhas-acoes" className="nav-btn">
+                <span className="ic">📝</span>
+                <span className="lbl">Minhas Ações</span>
               </NavLink>
             )}
             {permissoes.telasOperacionais && (

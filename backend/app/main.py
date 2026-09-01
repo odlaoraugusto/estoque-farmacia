@@ -14,6 +14,7 @@ from app.api.routes.relatorios import router as relatorios_router
 from app.api.routes.ressuprimento import router as ressuprimento_router
 from app.api.routes.ressuprimento_carrinho import router as ressuprimento_carrinho_router
 from app.api.routes.saidas import router as saidas_router
+from app.api.routes.solicitacao_devolucao_medicamento import router as devolucao_medicamento_router
 from app.api.routes.solicitacoes import router as solicitacoes_router
 from app.api.routes.transferencias import router as transferencias_router
 from app.api.routes.unidades import router as unidades_router
@@ -59,6 +60,7 @@ app.include_router(usuarios_router)
 app.include_router(permissoes_router)
 app.include_router(ressuprimento_router)
 app.include_router(ressuprimento_carrinho_router)
+app.include_router(devolucao_medicamento_router)
 
 
 @app.get("/")

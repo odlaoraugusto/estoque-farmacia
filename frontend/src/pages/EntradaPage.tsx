@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { permissoesDe, unidadeEhCaf } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
-import { formatarMoeda, labelAcondicionamento, paraDecimalApi } from '../lib/formato';
-import type { MedicamentoOut, Origem } from '../types';
+import { formatarDataHora, formatarMoeda, labelAcondicionamento, paraDecimalApi } from '../lib/formato';
+import type { MedicamentoOut, Origem, SolicitacaoDevolucaoMedicamentoOut } from '../types';
 
 /** Apresentação é texto livre desde 2026-08-28; concentração é opcional
  * — combina os dois só quando concentração existe, sem separador solto. */
@@ -26,15 +26,29 @@ interface ItemNotaFiscal {
   numeroAfm: string;
 }
 
-/** Entrada de estoque — só ocorre na CAF (docs/00_PROJETO.md seção 3).
- * A tela some do menu quando a unidade ativa não é CAF ou o perfil não é
- * farmacêutico/coordenador; mesmo assim guardamos aqui contra acesso
- * direto pela URL. */
+type AbaEntrada = 'nova' | 'devolucoes';
+
+/** Entrada de estoque — duas abas: "Nova entrada" (compra/doação/
+ * empréstimo, só ocorre na CAF, docs/00_PROJETO.md seção 3) e
+ * "Devoluções pendentes" (2026-09-01, pedido do cliente: devolução de
+ * medicamento físico registrada pelo formulário público
+ * `/publico/devolucao-medicamento` — essa modalidade NÃO é exclusiva da
+ * CAF, qualquer unidade/farmácia satélite pode confirmar e dar entrada
+ * de um lote novo). A tela inteira só some do menu quando nenhuma das
+ * duas abas é aplicável; cada aba guarda sua própria regra por dentro. */
 export function EntradaPage() {
   const { usuario, token, matrizPermissoes } = useAuth();
   const permissoes = permissoesDe(usuario, matrizPermissoes);
+  const unidadeAtivaId = usuario?.unidade_ativa_id ?? null;
 
-  if (!permissoes.entrada) {
+  const abas: AbaEntrada[] = [
+    ...(permissoes.entrada ? (['nova'] as const) : []),
+    ...(permissoes.devolucaoMedicamento ? (['devolucoes'] as const) : []),
+  ];
+
+  const [aba, setAba] = useState<AbaEntrada>(abas[0] ?? 'nova');
+
+  if (abas.length === 0) {
     return (
       <section>
         <div className="screen-head">
@@ -42,15 +56,45 @@ export function EntradaPage() {
         </div>
         <div className="locked-panel">
           <span className="lock-icon">🔒</span>
-          {unidadeEhCaf(usuario)
-            ? 'Seu perfil não tem permissão para registrar entrada de estoque.'
-            : 'Entrada de estoque só pode ser registrada com a unidade CAF selecionada como unidade ativa.'}
+          Seu perfil não tem acesso a esta tela.
         </div>
       </section>
     );
   }
 
-  return <FormularioEntrada token={token} />;
+  return (
+    <section>
+      <div className="screen-head">
+        <h1>Entrada de Estoque</h1>
+      </div>
+
+      {abas.length > 1 && (
+        <div className="tabs2" role="tablist">
+          {abas.map((a) => (
+            <button key={a} type="button" role="tab" className="tab2" aria-selected={aba === a} onClick={() => setAba(a)}>
+              {a === 'nova' ? 'Nova entrada' : 'Devoluções pendentes'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {aba === 'nova' &&
+        (permissoes.entrada ? (
+          <FormularioEntrada token={token} />
+        ) : (
+          <div className="locked-panel">
+            <span className="lock-icon">🔒</span>
+            {unidadeEhCaf(usuario)
+              ? 'Seu perfil não tem permissão para registrar entrada de estoque.'
+              : 'Entrada de estoque por compra/doação/empréstimo só pode ser registrada com a unidade CAF selecionada como unidade ativa.'}
+          </div>
+        ))}
+
+      {aba === 'devolucoes' && permissoes.devolucaoMedicamento && (
+        <PainelDevolucoesPendentes token={token} unidadeAtivaId={unidadeAtivaId} />
+      )}
+    </section>
+  );
 }
 
 function FormularioEntrada({ token }: { token: string | null }) {
@@ -738,5 +782,295 @@ function FormularioItemUnico({
         </button>
       </div>
     </form>
+  );
+}
+
+/** Devolução de medicamento (2026-09-01, pedido do cliente) — o que o
+ * formulário público `/publico/devolucao-medicamento` registrou, para a
+ * unidade escolhida pelo setor confirmar dando entrada de um lote novo
+ * (lote/validade digitados na hora, diferente da confirmação de
+ * ressuprimento de carrinho que escolhe um lote já existente). */
+function PainelDevolucoesPendentes({ token, unidadeAtivaId }: { token: string | null; unidadeAtivaId: number | null }) {
+  const [pendentes, setPendentes] = useState<SolicitacaoDevolucaoMedicamentoOut[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const carregar = useCallback(() => {
+    if (!token || unidadeAtivaId == null) return;
+    setCarregando(true);
+    api
+      .get<SolicitacaoDevolucaoMedicamentoOut[]>('/devolucao-medicamento/pendentes', { token })
+      .then(setPendentes)
+      .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar as devoluções pendentes.')))
+      .finally(() => setCarregando(false));
+  }, [token, unidadeAtivaId]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
+  if (unidadeAtivaId == null) return null;
+
+  return (
+    <div className="panel">
+      <h2>Devoluções de medicamento pendentes</h2>
+      <p className="screen-sub" style={{ marginTop: -4 }}>
+        Registradas pelo formulário público quando um setor devolve medicamento não usado. Confirme conferindo lote e
+        validade para dar entrada no estoque desta unidade.
+      </p>
+      {erro && <Alerta tipo="erro">{erro}</Alerta>}
+      {carregando && <p className="carregando">Carregando…</p>}
+      {!carregando && pendentes.length === 0 && <p className="vazio-tabela">Nenhuma devolução pendente.</p>}
+      {!carregando &&
+        pendentes.map((s) => (
+          <CardDevolucaoPendente key={s.id} token={token} solicitacao={s} recarregar={carregar} />
+        ))}
+    </div>
+  );
+}
+
+interface LinhaConfirmacaoDevolucao {
+  item_id: number;
+  medicamento_nome: string;
+  numeroLote: string;
+  dataValidade: string;
+  quantidade: string;
+  valorUnitario: string;
+}
+
+function CardDevolucaoPendente({
+  token,
+  solicitacao,
+  recarregar,
+}: {
+  token: string | null;
+  solicitacao: SolicitacaoDevolucaoMedicamentoOut;
+  recarregar: () => void;
+}) {
+  const [erro, setErro] = useState<string | null>(null);
+  const [popupAberto, setPopupAberto] = useState(false);
+  const [linhas, setLinhas] = useState<LinhaConfirmacaoDevolucao[]>([]);
+  const [confirmando, setConfirmando] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const [confirmada, setConfirmada] = useState(false);
+  const [imprimindo, setImprimindo] = useState(false);
+
+  function abrirPopup() {
+    setErro(null);
+    setConfirmada(false);
+    setLinhas(
+      solicitacao.itens.map((item) => ({
+        item_id: item.id,
+        medicamento_nome: item.medicamento_nome,
+        numeroLote: '',
+        dataValidade: '',
+        quantidade: String(item.quantidade),
+        valorUnitario: '',
+      })),
+    );
+    setPopupAberto(true);
+  }
+
+  function fecharPopup() {
+    setPopupAberto(false);
+    if (confirmada) recarregar();
+  }
+
+  async function imprimirComprovante() {
+    setErro(null);
+    setImprimindo(true);
+    try {
+      await baixarArquivo(`/devolucao-medicamento/${solicitacao.id}/comprovante`, { token, params: { formato: 'pdf' } });
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
+    } finally {
+      setImprimindo(false);
+    }
+  }
+
+  async function confirmar() {
+    if (!token) return;
+    setErro(null);
+    if (linhas.some((l) => !l.numeroLote.trim() || !l.dataValidade || !Number(l.quantidade))) {
+      setErro('Preencha lote, validade e quantidade válida para cada medicamento.');
+      return;
+    }
+    setConfirmando(true);
+    try {
+      await api.post(
+        `/devolucao-medicamento/${solicitacao.id}/confirmar`,
+        {
+          itens: linhas.map((l) => ({
+            item_id: l.item_id,
+            numero_lote: l.numeroLote.trim(),
+            data_validade: l.dataValidade,
+            quantidade: Number(l.quantidade),
+            valor_unitario: l.valorUnitario ? paraDecimalApi(l.valorUnitario) : '0',
+          })),
+        },
+        { token },
+      );
+      setConfirmada(true);
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível confirmar a entrada.'));
+    } finally {
+      setConfirmando(false);
+    }
+  }
+
+  async function cancelarSolicitacao() {
+    if (!token) return;
+    if (!window.confirm('Cancelar esta devolução? Ela foi registrada pelo formulário público e será excluída.')) {
+      return;
+    }
+    setErro(null);
+    setCancelando(true);
+    try {
+      await api.delete(`/devolucao-medicamento/${solicitacao.id}`, { token });
+      recarregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível cancelar a devolução.'));
+    } finally {
+      setCancelando(false);
+    }
+  }
+
+  return (
+    <div className="box modal-gradiente" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 10, marginBottom: 14, padding: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <span>
+          <b>{solicitacao.setor}</b> devolveu para <b>{solicitacao.unidade_destino_nome}</b>
+        </span>
+        <span className="mono" style={{ color: 'var(--muted)', fontSize: 12 }}>{formatarDataHora(solicitacao.data_hora)}</span>
+      </div>
+      <ul style={{ margin: '4px 0' }}>
+        {solicitacao.itens.map((i) => (
+          <li key={i.id}>
+            {i.medicamento_nome}
+            {(i.e_controlado || i.e_antimicrobiano) && <span className="tag" style={{ marginLeft: 6 }}>controlado</span>} —{' '}
+            {i.quantidade} un.
+          </li>
+        ))}
+      </ul>
+      {solicitacao.paciente_nome && (
+        <div className="note">
+          Paciente: {solicitacao.paciente_nome} · prontuário {solicitacao.paciente_prontuario}
+        </div>
+      )}
+
+      {erro && <Alerta tipo="erro">{erro}</Alerta>}
+
+      <div className="actions" style={{ marginTop: 0 }}>
+        <button type="button" className="btn ok sm" onClick={abrirPopup}>
+          Dar entrada
+        </button>
+        <button type="button" className="btn ghost sm" disabled={cancelando} onClick={cancelarSolicitacao}>
+          {cancelando ? 'Cancelando…' : 'Cancelar solicitação'}
+        </button>
+      </div>
+
+      {popupAberto && (
+        <div className="modal-overlay" role="presentation" onClick={() => !confirmando && fecharPopup()}>
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`titulo-devolucao-${solicitacao.id}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <h2 id={`titulo-devolucao-${solicitacao.id}`}>Dar entrada — devolução de {solicitacao.setor}</h2>
+              <button type="button" className="modal-close" aria-label="Fechar" onClick={fecharPopup}>
+                ×
+              </button>
+            </div>
+
+            {erro && <Alerta tipo="erro">{erro}</Alerta>}
+
+            {confirmada ? (
+              <>
+                <Alerta tipo="sucesso">Entrada confirmada com sucesso.</Alerta>
+                <div className="actions">
+                  <button type="button" className="btn" disabled={imprimindo} onClick={imprimirComprovante}>
+                    {imprimindo ? 'Gerando…' : 'Imprimir comprovante (PDF)'}
+                  </button>
+                  <button type="button" className="btn ghost" onClick={fecharPopup}>
+                    Fechar
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {linhas.map((linha, idx) => (
+              <div className="grid" key={linha.item_id} style={{ marginBottom: 10 }}>
+                <div className="field span2">
+                  <label>{linha.medicamento_nome}</label>
+                </div>
+                <div className="field">
+                  <label>
+                    Nº do lote <span className="req">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={linha.numeroLote}
+                    onChange={(e) =>
+                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, numeroLote: e.target.value } : l)))
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label>
+                    Validade <span className="req">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={linha.dataValidade}
+                    onChange={(e) =>
+                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, dataValidade: e.target.value } : l)))
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label>
+                    Quantidade <span className="req">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={linha.quantidade}
+                    onChange={(e) =>
+                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, quantidade: e.target.value } : l)))
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label>Valor unitário (opcional)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="R$ 0,00"
+                    value={linha.valorUnitario}
+                    onChange={(e) =>
+                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, valorUnitario: e.target.value } : l)))
+                    }
+                  />
+                </div>
+              </div>
+                ))}
+
+                <div className="actions">
+                  <button type="button" className="btn" disabled={confirmando} onClick={confirmar}>
+                    {confirmando ? 'Confirmando…' : 'Confirmar entrada'}
+                  </button>
+                  <button type="button" className="btn ghost" onClick={fecharPopup} disabled={confirmando}>
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

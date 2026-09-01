@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { api, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
 import { SETORES_DISPENSACAO } from '../lib/setores';
@@ -160,6 +161,11 @@ export function PublicoRessuprimentoCarrinhoPage() {
             Preencha sempre que usar um carrinho de emergência, maleta ou kit — a farmácia responsável será
             notificada para repor e, se for o caso, dar baixa formal do que foi usado. Não precisa de login.
           </p>
+          <div className="actions" style={{ marginTop: 0, marginBottom: 12 }}>
+            <Link to="/publico/devolucao-medicamento" className="btn ghost sm">
+              Ir para Devolução de Medicamento
+            </Link>
+          </div>
 
           {erro && <Alerta tipo="erro">{erro}</Alerta>}
           {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
