@@ -28,11 +28,18 @@ from app.schemas.relatorio import (
     RelatorioEstoqueConsolidadoOut,
     RelatorioEstoqueCriticoItem,
     RelatorioEstoqueCriticoOut,
+    MovimentacaoTransferenciaItem,
     RelatorioMetadados,
+    RelatorioMovimentacaoTransferenciasOut,
     RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
 from app.schemas.usuario import UsuarioMe
+from app.services.exportacao.relatorio_tabela_builder import (
+    tabela_comprovante_entrada,
+    tabela_comprovante_solicitacao,
+)
+from app.services.exportacao.tabela import TabelaRelatorio
 
 TODAS_UNIDADES_LABEL = "Todas as unidades"
 
@@ -66,28 +73,15 @@ class RelatorioService:
             unidade=unidade_label,
         )
 
-    def _expandir_escopo(self, db: Session, unidade_id: int | None) -> int | list[int] | None:
-        """Amplia um id de unidade real para incluir os carrinhos de
-        emergência filhos dela (docs/00_PROJETO.md, carrinhos 2026-08-13).
-        `None` (sem filtro de unidade) passa direto — mantém o consolidado
-        de todas as unidades já existente."""
-        if unidade_id is None:
-            return None
-
-        return self.unidade_repository.listar_ids_com_carrinhos(db, unidade_id)
-
     def estoque_consolidado(
         self, db: Session, usuario: UsuarioMe, unidade_id: int | None
     ) -> RelatorioEstoqueConsolidadoOut:
-        """Escopo ampliado (2026-08-13): quando filtrado por unidade, inclui
-        também os carrinhos de emergência filhos dela — o valor total em
-        estoque de uma unidade tem que contar o que está posicionado nos
-        carrinhos dela também. `unidade_id` continua sendo o id "de
-        exibição" no cabeçalho (label da unidade), só a query de lotes é
-        ampliada."""
-        escopo = self._expandir_escopo(db, unidade_id)
+        """Carrinho de emergência é estoque à parte da unidade que o
+        hospeda (2026-08-31, pedido do cliente) — filtrar por uma unidade
+        real aqui NÃO inclui mais os carrinhos filhos dela; pra ver o
+        estoque de um carrinho específico, filtre pelo id dele direto."""
         lotes = self.lote_repository.listar(
-            db, unidade_id=escopo, apenas_disponivel=True, ordenar_fefo=False
+            db, unidade_id=unidade_id, apenas_disponivel=True, ordenar_fefo=False
         )
 
         itens = []
@@ -253,17 +247,15 @@ class RelatorioService:
     def estoque_critico(
         self, db: Session, usuario: UsuarioMe, unidade_id: int | None
     ) -> RelatorioEstoqueCriticoOut:
-        """Mesmo escopo ampliado dos demais relatórios de estoque (inclui
-        carrinhos filhos da unidade filtrada). Soma `quantidade_atual` de
-        todos os lotes de cada medicamento no escopo e compara com
-        `estoque_minimo` — mesma regra que já existia só no frontend
-        (tile "Estoque Crítico" da tela Estoque atual);
-        `estoque_minimo == 0` significa "sem controle de mínimo definido",
-        nunca entra na lista (não é criticidade real, é ausência de
-        configuração)."""
-        escopo = self._expandir_escopo(db, unidade_id)
+        """Carrinho de emergência não entra aqui (2026-08-31) — soma
+        `quantidade_atual` só dos lotes na unidade filtrada (nunca
+        carrinhos filhos dela) e compara com `estoque_minimo` — mesma
+        regra que já existia só no frontend (tile "Estoque Crítico" da
+        tela Estoque atual); `estoque_minimo == 0` significa "sem
+        controle de mínimo definido", nunca entra na lista (não é
+        criticidade real, é ausência de configuração)."""
         lotes = self.lote_repository.listar(
-            db, unidade_id=escopo, apenas_disponivel=True, ordenar_fefo=False
+            db, unidade_id=unidade_id, apenas_disponivel=True, ordenar_fefo=False
         )
 
         # Semeia com TODOS os medicamentos ativos, saldo 0 — não só os que
@@ -357,8 +349,7 @@ class RelatorioService:
         recente — só entra na lista quem passar de `dias_minimo`."""
         RECENCIA_DIAS = 2
 
-        escopo = self._expandir_escopo(db, unidade_id)
-        saidas = self.movimentacao_repository.listar_saidas_vigilancia(db, categoria, escopo)
+        saidas = self.movimentacao_repository.listar_saidas_vigilancia(db, categoria, unidade_id)
 
         grupos: dict[tuple[str, int], list[Movimentacao]] = defaultdict(list)
         for mov in saidas:
@@ -447,10 +438,9 @@ class RelatorioService:
         empréstimo/doação dos últimos `dias` dias, com quem fez (já
         gravado em `usuario_id` desde sempre — isto só expõe de forma
         direta, sem precisar abrir a Trilha de Auditoria completa)."""
-        escopo = self._expandir_escopo(db, unidade_id)
         desde = datetime.now(timezone.utc) - timedelta(days=dias)
         movimentacoes = self.movimentacao_repository.listar_atividade_recente(
-            db, desde, escopo
+            db, desde, unidade_id
         )
 
         itens = [
@@ -498,13 +488,72 @@ class RelatorioService:
             itens=[MovimentacaoDetalhadaOut.visivel_para(m, usuario) for m in movimentacoes],
         )
 
+    def movimentacao_transferencias(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_id: int | None,
+        data_inicio: date | None,
+        data_fim: date | None,
+    ) -> RelatorioMovimentacaoTransferenciasOut:
+        """Mesma consulta de `transferencias()` acima, mas sem nenhum dado
+        financeiro no retorno (2026-08-31, pedido do cliente: "todos têm
+        acesso") — por isso liberado a qualquer perfil, não só
+        Farmacêutico/Coordenador."""
+        movimentacoes = self.movimentacao_repository.listar_transferencias(
+            db, unidade_id, data_inicio, data_fim
+        )
+
+        itens = [
+            MovimentacaoTransferenciaItem(
+                movimentacao_id=m.id,
+                medicamento_nome=m.lote.medicamento.nome,
+                numero_lote=m.lote.numero_lote,
+                unidade_origem=m.unidade_origem.nome if m.unidade_origem else "—",
+                unidade_destino=m.unidade_destino.nome if m.unidade_destino else "—",
+                quantidade_enviada=m.quantidade,
+                quantidade_recebida=m.quantidade_recebida,
+                usuario_envio=m.usuario.nome,
+                usuario_confirmacao=m.usuario_confirmacao.nome if m.usuario_confirmacao else None,
+                data_hora=m.data_hora,
+                data_confirmacao=m.data_confirmacao,
+            )
+            for m in movimentacoes
+        ]
+
+        return RelatorioMovimentacaoTransferenciasOut(
+            metadados=self._metadados(usuario, "Movimentação de Transferências", unidade_id, db),
+            periodo_inicio=data_inicio,
+            periodo_fim=data_fim,
+            itens=itens,
+        )
+
+    def comprovante_solicitacao(
+        self, db: Session, usuario: UsuarioMe, solicitacao
+    ) -> TabelaRelatorio:
+        """Comprovante imprimível de UMA solicitação (2026-09-01, pedido
+        do cliente: botão "Imprimir" ao lado de "Minhas solicitações" em
+        ResuprimentoPage.tsx) — `solicitacao` já vem carregada e validada
+        por `SolicitacaoService.obter_para_comprovante`."""
+        metadados = self._metadados(
+            usuario, f"Comprovante de Solicitação #{solicitacao.id}", solicitacao.unidade_solicitante_id, db
+        )
+        return tabela_comprovante_solicitacao(metadados, solicitacao)
+
+    def comprovante_entrada(self, db: Session, usuario: UsuarioMe, lotes: list) -> TabelaRelatorio:
+        """Comprovante imprimível do que acabou de ser registrado em
+        Entrada, qualquer modalidade (2026-09-01, pedido do cliente) —
+        `lotes` já vem carregado e validado por
+        `EntradaService.obter_para_comprovante`."""
+        metadados = self._metadados(usuario, "Comprovante de Entrada", lotes[0].unidade_id, db)
+        return tabela_comprovante_entrada(metadados, lotes)
+
     def vencimentos_proximos(
         self, db: Session, usuario: UsuarioMe, unidade_id: int | None, dias: int
     ) -> RelatorioVencimentosProximosOut:
-        """Mesmo escopo ampliado de `estoque_consolidado` — inclui os
-        carrinhos filhos da unidade filtrada."""
-        escopo = self._expandir_escopo(db, unidade_id)
-        lotes = self.lote_repository.listar_vencimento_proximo(db, dias, escopo)
+        """Carrinho não entra aqui (2026-08-31) — mesmo critério de
+        `estoque_consolidado`, só a unidade filtrada."""
+        lotes = self.lote_repository.listar_vencimento_proximo(db, dias, unidade_id)
 
         return RelatorioVencimentosProximosOut(
             metadados=self._metadados(

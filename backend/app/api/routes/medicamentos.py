@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import exigir_perfis, get_current_user
+from app.api.deps import exigir_permissao, get_current_user
 from app.database.session import get_db
-from app.models.enums import PerfilEnum
 from app.schemas.medicamento import MedicamentoCreate, MedicamentoOut, MedicamentoUpdate
 from app.services.medicamento_service import MedicamentoService
 
@@ -11,11 +10,11 @@ router = APIRouter(prefix="/medicamentos", tags=["Medicamentos"])
 
 service = MedicamentoService()
 
-# Cadastro de medicamentos: Farmacêutico cadastra sozinho, sem aprovação
-# (docs/00_PROJETO.md seção 9). Coordenador também tem acesso completo.
-# Atendente é só leitura (sem acesso a cadastro, matriz de permissões
-# seção 6/9 do doc).
-_PODE_CADASTRAR = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
+# Cadastro de medicamentos: controlado pela matriz de permissões
+# (2026-08-31 — antes fixo em farmacêutico/coordenador). Coordenador
+# sempre tem acesso completo (superusuário implícito); Atendente por
+# padrão é só leitura, até o Admin liberar.
+_PODE_CADASTRAR = exigir_permissao("medicamentos")
 
 
 @router.get(

@@ -14,21 +14,37 @@ import {
   labelAcondicionamento,
   nivelValidade,
 } from '../lib/formato';
-import type { LoteDetalhadoOut, MedicamentoOut, RelatorioEstoqueConsolidadoOut, RelatorioVencimentosProximosOut, MovimentacaoDetalhadaOut } from '../types';
+import type {
+  LoteDetalhadoOut,
+  MedicamentoOut,
+  RelatorioEstoqueConsolidadoOut,
+  RelatorioVencimentosProximosOut,
+  MovimentacaoDetalhadaOut,
+  SolicitacaoOut,
+} from '../types';
 
 /** Home pós-login. Coordenador enxerga o consolidado de todas as
  * unidades aqui (GET /lotes sem unidade_id); os demais perfis ficam
  * restritos à unidade ativa — o próprio backend já resolve esse escopo
  * (resolver_unidade_escopo), o front só reflete o resultado. */
 export function EstoquePage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, token, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
   const ehCoordenador = usuario?.perfil === 'coordenador';
 
   const [lotes, setLotes] = useState<LoteDetalhadoOut[]>([]);
   const [medicamentos, setMedicamentos] = useState<MedicamentoOut[]>([]);
   const [vencimentos, setVencimentos] = useState<RelatorioVencimentosProximosOut | null>(null);
   const [pendentes, setPendentes] = useState<MovimentacaoDetalhadaOut[]>([]);
+  // Solicitações de transferência (2026-08-20) são um conceito separado
+  // de "transferência pendente" (Movimentacao já enviada, aguardando
+  // confirmação de recebimento) — uma solicitação ainda nem foi enviada,
+  // está esperando a CAF aceitar/recusar. Somadas na mesma métrica do
+  // dashboard (2026-08-31, achado: atendente com uma solicitação sua
+  // ainda sem resposta via card "0 transferências pendentes" — os dois
+  // são "coisa pendente relacionada a transferência" do ponto de vista
+  // de quem está olhando o dashboard, mesmo sendo tabelas diferentes).
+  const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<SolicitacaoOut[]>([]);
   const [consolidado, setConsolidado] = useState<RelatorioEstoqueConsolidadoOut | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -56,6 +72,9 @@ export function EstoquePage() {
       }),
       api.get<MovimentacaoDetalhadaOut[]>('/transferencias/pendentes', { token }).then((r) => {
         if (!cancelado) setPendentes(r);
+      }),
+      api.get<SolicitacaoOut[]>('/solicitacoes', { token, params: { status: 'pendente' } }).then((r) => {
+        if (!cancelado) setSolicitacoesPendentes(r);
       }),
     ];
 
@@ -149,7 +168,14 @@ export function EstoquePage() {
         </div>
         <div className="tile">
           <div className="k">Transferências pendentes</div>
-          <div className="v">{carregando ? '—' : pendentes.length}</div>
+          <div className="v">{carregando ? '—' : pendentes.length + solicitacoesPendentes.length}</div>
+          {!carregando && (pendentes.length > 0 || solicitacoesPendentes.length > 0) && (
+            <div className="screen-sub" style={{ margin: '4px 0 0', fontSize: 11 }}>
+              {pendentes.length > 0 && `${pendentes.length} a receber`}
+              {pendentes.length > 0 && solicitacoesPendentes.length > 0 && ' · '}
+              {solicitacoesPendentes.length > 0 && `${solicitacoesPendentes.length} aguardando resposta`}
+            </div>
+          )}
         </div>
         {permissoes.relatoriosFinanceiro && (
           <div className="tile">

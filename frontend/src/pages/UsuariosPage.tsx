@@ -31,8 +31,8 @@ function exigeCrf(perfil: Perfil): boolean {
  * históricas que referenciam esse usuário). `login` não é editável
  * depois de criado. */
 export function UsuariosPage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, token, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   if (!permissoes.gestaoUsuarios) {
     return (

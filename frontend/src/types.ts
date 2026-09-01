@@ -38,6 +38,20 @@ export interface ConfigInstalacao {
   organizacao: string;
 }
 
+/** Linha da matriz configurável (tela Permissões, exclusiva do Admin) —
+ * só existe para `farmaceutico` e `atendente`; Coordenador e Admin são
+ * superusuários implícitos, nunca têm linha aqui. */
+export interface PermissaoPerfil {
+  perfil: Perfil;
+  entrada: boolean;
+  medicamentos: boolean;
+  ajustar_estoque: boolean;
+  corrigir_valor_unitario: boolean;
+  transferencia_enviar: boolean;
+  reposicao_carrinho: boolean;
+  relatorios_financeiro: boolean;
+}
+
 export interface UsuarioMe {
   id: number;
   nome: string;
@@ -239,6 +253,87 @@ export interface RelatorioTransferenciasOut {
   periodo_inicio: string | null;
   periodo_fim: string | null;
   itens: MovimentacaoDetalhadaOut[];
+}
+
+/** Versão sem dado financeiro de `RelatorioTransferenciasOut` — liberada a
+ * qualquer perfil (2026-08-31, pedido do cliente: "todos têm acesso"). */
+export interface CarrinhoPublicoOut {
+  id: number;
+  nome: string;
+  unidade_pai_id: number | null;
+}
+
+export interface UnidadePublicaOut {
+  id: number;
+  nome: string;
+}
+
+export interface EstoqueCarrinhoPublicoItem {
+  medicamento_id: number;
+  medicamento_nome: string;
+  quantidade_atual: number;
+  e_controlado: boolean;
+}
+
+export type StatusRessuprimentoCarrinho = 'pendente' | 'confirmada';
+
+export interface ItemSolicitacaoRessuprimentoCarrinho {
+  id: number;
+  medicamento_id: number;
+  medicamento_nome: string;
+  quantidade_usada: number;
+}
+
+export interface SolicitacaoRessuprimentoCarrinhoOut {
+  id: number;
+  data_hora: string;
+  setor: string;
+  carrinho_id: number;
+  carrinho_nome: string;
+  unidade_destino_id: number;
+  unidade_destino_nome: string;
+  paciente_nome: string | null;
+  paciente_prontuario: string | null;
+  status_saida: StatusRessuprimentoCarrinho;
+  status_transferencia: StatusRessuprimentoCarrinho;
+  usuario_confirmacao_saida: UsuarioResumo | null;
+  data_confirmacao_saida: string | null;
+  usuario_confirmacao_transferencia: UsuarioResumo | null;
+  data_confirmacao_transferencia: string | null;
+  itens: ItemSolicitacaoRessuprimentoCarrinho[];
+}
+
+export interface StatusRessuprimentoItem {
+  medicamento_id: number;
+  medicamento_nome: string;
+  unidade_id: number;
+  unidade_nome: string;
+  quantidade_atual: number;
+  quantidade_padrao: number;
+  quantidade_minima: number;
+  precisa_ressuprir: boolean;
+  quantidade_sugerida: number;
+}
+
+export interface MovimentacaoTransferenciaItem {
+  movimentacao_id: number;
+  medicamento_nome: string;
+  numero_lote: string;
+  unidade_origem: string;
+  unidade_destino: string;
+  quantidade_enviada: number;
+  quantidade_recebida: number | null;
+  usuario_envio: string;
+  usuario_confirmacao: string | null;
+  data_hora: string;
+  data_confirmacao: string | null;
+}
+
+export interface RelatorioMovimentacaoTransferenciasOut {
+  metadados: RelatorioMetadados;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  itens: MovimentacaoTransferenciaItem[];
 }
 
 export interface RelatorioAuditoriaOut {

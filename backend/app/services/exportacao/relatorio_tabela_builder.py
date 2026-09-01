@@ -10,6 +10,8 @@ from app.schemas.relatorio import (
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoOut,
     RelatorioEstoqueCriticoOut,
+    RelatorioMetadados,
+    RelatorioMovimentacaoTransferenciasOut,
     RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
@@ -23,6 +25,7 @@ from app.services.exportacao.tabela import TabelaRelatorio
 _ORIGEM_LABEL = {
     OrigemEnum.compra: "Compra",
     OrigemEnum.doacao: "Doação",
+    OrigemEnum.emprestimo: "Empréstimo",
 }
 
 _TIPO_MOVIMENTACAO_LABEL = {
@@ -227,6 +230,147 @@ def tabela_transferencias(relatorio: RelatorioTransferenciasOut) -> TabelaRelato
         linhas=linhas,
         informacoes_extra=informacoes_extra,
         larguras_relativas=[1.3, 1.6, 0.9, 1.0, 1.0, 0.8, 0.8, 1.1, 1.1],
+    )
+
+
+def tabela_movimentacao_transferencias(relatorio: RelatorioMovimentacaoTransferenciasOut) -> TabelaRelatorio:
+    """Mesmas colunas de `tabela_transferencias`, sem nenhum dado
+    financeiro — este relatório é liberado a qualquer perfil."""
+    colunas = [
+        "Data/Hora",
+        "Medicamento",
+        "Nº Lote",
+        "Origem",
+        "Destino",
+        "Qtd. Enviada",
+        "Qtd. Recebida",
+        "Enviado Por",
+        "Confirmado Por",
+    ]
+    linhas = [
+        [
+            formatar_data_hora(item.data_hora),
+            item.medicamento_nome,
+            item.numero_lote,
+            item.unidade_origem,
+            item.unidade_destino,
+            str(item.quantidade_enviada),
+            _texto(item.quantidade_recebida),
+            item.usuario_envio,
+            item.usuario_confirmacao or "",
+        ]
+        for item in relatorio.itens
+    ]
+
+    informacoes_extra = []
+    if relatorio.periodo_inicio or relatorio.periodo_fim:
+        inicio = formatar_data(relatorio.periodo_inicio) or "início do histórico"
+        fim = formatar_data(relatorio.periodo_fim) or "hoje"
+        informacoes_extra.append(f"Período considerado: {inicio} até {fim}")
+
+    return TabelaRelatorio(
+        metadados=relatorio.metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[1.3, 1.6, 0.9, 1.0, 1.0, 0.8, 0.8, 1.1, 1.1],
+    )
+
+
+_STATUS_SOLICITACAO_LABEL = {
+    "pendente": "Pendente",
+    "aceita": "Aceita",
+    "recusada": "Recusada",
+}
+
+
+def tabela_comprovante_entrada(metadados: RelatorioMetadados, lotes) -> TabelaRelatorio:
+    """Comprovante do que acabou de ser registrado em Entrada, qualquer
+    modalidade (2026-09-01, pedido do cliente) — uma linha por lote;
+    compra normalmente traz vários lotes (mesma NF), doação/empréstimo
+    sempre um só. `lotes` é uma lista de `Lote` (relações já carregadas
+    via `lazy="selectin"`, ver app/models/lote.py)."""
+    colunas = [
+        "Medicamento",
+        "Lote",
+        "Validade",
+        "Quantidade",
+        "Valor Unitário",
+        "Origem",
+        "Nº NF",
+        "Nº AFM",
+        "Procedência",
+    ]
+    linhas = [
+        [
+            lote.medicamento.nome,
+            lote.numero_lote,
+            formatar_data(lote.data_validade),
+            str(lote.quantidade_atual),
+            formatar_moeda(lote.valor_unitario),
+            _ORIGEM_LABEL.get(lote.origem, lote.origem.value),
+            lote.numero_nota_fiscal or "",
+            lote.numero_afm or "",
+            lote.procedencia_externa or "",
+        ]
+        for lote in lotes
+    ]
+
+    informacoes_extra = [f"Registrado por: {lotes[0].usuario_entrada.nome}"]
+
+    return TabelaRelatorio(
+        metadados=metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[1.4, 0.9, 0.9, 0.8, 1.0, 0.9, 0.9, 0.8, 1.1],
+    )
+
+
+def tabela_comprovante_solicitacao(metadados: RelatorioMetadados, solicitacao) -> TabelaRelatorio:
+    """Comprovante de UMA solicitação de ressuprimento (2026-09-01,
+    pedido do cliente: botão "Imprimir" ao lado de "Minhas
+    solicitações") — mesmo mecanismo de exportação dos relatórios, só
+    que sempre uma linha só. `solicitacao` é o modelo ORM
+    `SolicitacaoTransferencia` (relações já carregadas via
+    `lazy="selectin"`, ver app/models/solicitacao_transferencia.py)."""
+    colunas = [
+        "Protocolo",
+        "Data/Hora",
+        "Unidade Solicitante",
+        "Medicamento",
+        "Qtd. Desejada",
+        "Status",
+        "Solicitado Por",
+        "Atendido Por",
+    ]
+    linhas = [
+        [
+            f"#{solicitacao.id}",
+            formatar_data_hora(solicitacao.data_solicitacao),
+            solicitacao.unidade_solicitante.nome,
+            solicitacao.medicamento.nome,
+            str(solicitacao.quantidade_desejada),
+            _STATUS_SOLICITACAO_LABEL.get(solicitacao.status.value, solicitacao.status.value),
+            solicitacao.usuario_solicitante.nome,
+            solicitacao.usuario_atendimento.nome if solicitacao.usuario_atendimento else "",
+        ]
+    ]
+
+    informacoes_extra = []
+    if solicitacao.observacao:
+        informacoes_extra.append(f"Observação: {solicitacao.observacao}")
+    if solicitacao.status.value == "recusada" and solicitacao.motivo_recusa:
+        informacoes_extra.append(f"Motivo da recusa: {solicitacao.motivo_recusa}")
+    if solicitacao.data_atendimento:
+        informacoes_extra.append(f"Atendido em: {formatar_data_hora(solicitacao.data_atendimento)}")
+
+    return TabelaRelatorio(
+        metadados=metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[0.8, 1.2, 1.2, 1.4, 0.8, 0.9, 1.0, 1.0],
     )
 
 

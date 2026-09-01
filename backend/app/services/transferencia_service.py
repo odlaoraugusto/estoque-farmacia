@@ -43,7 +43,20 @@ class TransferenciaService:
     ) -> Movimentacao:
         """Regra 3: só farmacêutico/coordenador (checado no router), a
         unidade de origem é sempre a unidade ativa da sessão — nunca um
-        campo vindo do corpo da requisição."""
+        campo vindo do corpo da requisição.
+
+        Fluxo de UMA ETAPA SÓ (2026-08-31, pedido do cliente — antes era
+        em duas etapas, com `confirmar()` separado exigindo alguém
+        logado na unidade de destino: "o funcionário apenas transfere da
+        CAF para a UTI direto", sem confirmação do lado de lá). O lote de
+        destino já nasce criado e a movimentação já nasce "recebida"
+        (`quantidade_recebida`/`usuario_confirmacao_id`/
+        `data_confirmacao` preenchidos no mesmo ato) — mesmo padrão já
+        usado em `repor_carrinho()`. `confirmar()`/`POST
+        /transferencias/{id}/confirmar` continuam existindo só para
+        `devolver_carrinho()`, que segue em duas etapas de propósito (a
+        CAF confere o que está voltando de um carrinho antes de aceitar
+        de volta no estoque central — não é o caso aqui)."""
         lote = self.lote_repository.get_by_id_for_update(db, dados.lote_id)
 
         if lote is None:
@@ -93,8 +106,25 @@ class TransferenciaService:
             )
 
         lote.quantidade_atual -= dados.quantidade
-        lote.status_transferencia = StatusTransferenciaEnum.em_transito
-        lote = self.lote_repository.salvar(db, lote)
+        lote.status_transferencia = StatusTransferenciaEnum.recebido
+        self.lote_repository.salvar(db, lote)
+
+        novo_lote = Lote(
+            medicamento_id=lote.medicamento_id,
+            unidade_id=destino.id,
+            numero_lote=lote.numero_lote,
+            data_validade=lote.data_validade,
+            quantidade_atual=dados.quantidade,
+            valor_unitario=lote.valor_unitario,
+            origem=lote.origem,
+            numero_nota_fiscal=lote.numero_nota_fiscal,
+            numero_afm=lote.numero_afm,
+            usuario_entrada_id=usuario.id,
+            lote_origem_id=lote.id,
+        )
+        self.lote_repository.create(db, novo_lote)
+
+        agora = datetime.now(timezone.utc)
 
         movimentacao = Movimentacao(
             tipo=TipoMovimentacaoEnum.transferencia,
@@ -102,7 +132,11 @@ class TransferenciaService:
             quantidade=dados.quantidade,
             unidade_origem_id=unidade_ativa_id,
             unidade_destino_id=destino.id,
+            # Já nasce confirmada — fluxo de uma etapa só (2026-08-31).
+            quantidade_recebida=dados.quantidade,
             usuario_id=usuario.id,
+            usuario_confirmacao_id=usuario.id,
+            data_confirmacao=agora,
         )
 
         return self.movimentacao_repository.create(db, movimentacao)
@@ -117,7 +151,13 @@ class TransferenciaService:
     ) -> Movimentacao:
         """Regra 4: qualquer perfil (incluindo atendente) na unidade de
         destino. Cria um NOVO lote no destino; a quantidade recebida pode
-        divergir da enviada sem bloquear — só registra a divergência."""
+        divergir da enviada sem bloquear — só registra a divergência.
+
+        Desde 2026-08-31, só `devolver_carrinho()` ainda produz
+        movimentação pendente de confirmação — `enviar()` e
+        `repor_carrinho()` já nascem confirmadas (fluxo de uma etapa
+        só). Método mantido sem outra alteração porque a devolução de
+        carrinho continua precisando das duas etapas."""
         movimentacao = self.movimentacao_repository.get_by_id_for_update(
             db, movimentacao_id
         )
@@ -189,26 +229,28 @@ class TransferenciaService:
         unidade_ativa_id: int,
         dados: ReporCarrinhoCreate,
     ) -> Movimentacao:
-        """Reposição de carrinho de emergência (regras 1/2 dos carrinhos):
-        só a CAF pode repor, farmacêutico ou coordenador (checado no
-        router — 2026-08-19, ampliado), e é um fluxo de UMA ETAPA SÓ — o
-        estoque já entra "recebido" no carrinho destino no mesmo ato, sem
+        """Reposição de carrinho de emergência: farmacêutico ou
+        coordenador (checado no router — 2026-08-19, ampliado), a partir
+        da unidade real que é "pai" do carrinho (2026-08-31, pedido do
+        cliente — antes só a CAF podia repor, mesmo carrinhos filhos de
+        outras satélites; agora cada satélite repõe os carrinhos dela
+        mesma, com o próprio estoque). Fluxo de UMA ETAPA SÓ — o estoque
+        já entra "recebido" no carrinho destino no mesmo ato, sem
         confirmação separada. Caminho dedicado, deliberadamente à parte
         de `enviar`/`confirmar` (que têm a semântica de duas etapas da
         Transferência normal)."""
-        unidade_ativa = self.unidade_repository.get_by_id(db, unidade_ativa_id)
-
-        if unidade_ativa is None or unidade_ativa.nome.strip().upper() != NOME_UNIDADE_CAF:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Reposição de carrinho só pode ser feita a partir da unidade CAF.",
-            )
-
         carrinho = self.unidade_repository.get_by_id(db, dados.carrinho_destino_id)
         if carrinho is None or carrinho.tipo != TipoUnidadeEnum.carrinho:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Carrinho de destino inválido — informe um carrinho de emergência existente.",
+            )
+
+        if carrinho.unidade_pai_id != unidade_ativa_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Este carrinho não é filho da unidade ativa da sessão — só "
+                "quem hospeda o carrinho pode repor ele.",
             )
 
         lote_origem = self.lote_repository.get_by_id_for_update(db, dados.lote_id)
@@ -220,7 +262,7 @@ class TransferenciaService:
         if lote_origem.unidade_id != unidade_ativa_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="O lote não pertence à unidade ativa (CAF).",
+                detail="O lote não pertence à unidade ativa da sessão.",
             )
 
         if dados.quantidade > lote_origem.quantidade_atual:
@@ -275,18 +317,21 @@ class TransferenciaService:
         unidade_ativa_id: int,
         dados: DevolverCarrinhoCreate,
     ) -> Movimentacao:
-        """Devolução de carrinho de emergência -> CAF (seção 22 do doc):
-        espelho de `repor_carrinho`, só que ao contrário e em DUAS
-        ETAPAS (diferente da reposição, que é uma etapa só) — a CAF
-        confere o que está voltando antes de aceitar de volta no
-        estoque central, então esta etapa só envia; a confirmação
-        reaproveita `confirmar()` sem alteração nenhuma (o destino
-        sendo CAF é só mais uma unidade normal de sessão).
+        """Devolução de carrinho de emergência -> unidade que o hospeda
+        (2026-08-31, pedido do cliente: antes sempre voltava pra CAF,
+        mesmo carrinho sendo de outra satélite; agora, espelhando a
+        reposição já generalizada, volta pra própria unidade "pai" do
+        carrinho). Espelho de `repor_carrinho`, só que ao contrário e em
+        DUAS ETAPAS (diferente da reposição, que é uma etapa só) — a
+        unidade confere o que está voltando antes de aceitar de volta no
+        estoque, então esta etapa só envia; a confirmação reaproveita
+        `confirmar()` sem alteração nenhuma.
 
-        Farmacêutico ou Coordenador (checado no router, igual reposição —
-        2026-08-19, ampliado). Quem estiver logado na unidade real só pode
-        devolver lotes de carrinhos que são FILHOS dela — não pode
-        devolver o carrinho de outra unidade só por saber o `lote_id`."""
+        Farmacêutico ou Coordenador (checado no router). Quem estiver
+        logado na unidade real só pode devolver lotes de carrinhos que
+        são FILHOS dela — não pode devolver o carrinho de outra unidade
+        só por saber o `lote_id` (e é justamente essa mesma unidade que
+        recebe de volta, não mais sempre a CAF)."""
         lote = self.lote_repository.get_by_id_for_update(db, dados.lote_id)
 
         if lote is None:
@@ -318,13 +363,6 @@ class TransferenciaService:
                 ),
             )
 
-        caf = self.unidade_repository.get_by_nome(db, NOME_UNIDADE_CAF)
-        if caf is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Unidade CAF não está cadastrada — devolução indisponível.",
-            )
-
         lote.quantidade_atual -= dados.quantidade
         lote.status_transferencia = StatusTransferenciaEnum.em_transito
         self.lote_repository.salvar(db, lote)
@@ -343,12 +381,17 @@ class TransferenciaService:
             # de auditoria fica mais precisa: dá pra saber de qual
             # carrinho específico o item voltou, não só de qual unidade.
             unidade_origem_id=carrinho.id,
-            unidade_destino_id=caf.id,
+            # Destino = a própria unidade ativa (2026-08-31) — já
+            # validada acima como sendo o "pai" do carrinho, então é
+            # sempre a mesma unidade que está devolvendo, nunca mais
+            # fixo em CAF.
+            unidade_destino_id=unidade_ativa_id,
             usuario_id=usuario.id,
             # quantidade_recebida fica None — pendente. Fica visível em
-            # GET /transferencias/pendentes para quem estiver logado na
-            # CAF, e é fechada por POST /transferencias/{id}/confirmar
-            # (endpoint já existente, sem alteração).
+            # GET /transferencias/pendentes para quem estiver logado
+            # nessa unidade, e é fechada por POST
+            # /transferencias/{id}/confirmar (endpoint já existente, sem
+            # alteração).
         )
 
         return self.movimentacao_repository.create(db, movimentacao)

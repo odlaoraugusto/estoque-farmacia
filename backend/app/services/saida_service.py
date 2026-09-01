@@ -11,11 +11,17 @@ from app.services.paciente_service import PacienteService
 
 
 class SaidaService:
-    """Regra 5: qualquer perfil pode dispensar, desde que o lote esteja na
-    unidade ativa da sessão OU num carrinho de emergência filho dela
-    (2026-08-13 — carrinhos são local de estoque sem acesso de sessão
-    próprio, então quem está logado na unidade real "pai" dispensa por
-    eles). Nunca permite saldo negativo.
+    """Regra 5: qualquer perfil pode dispensar, desde que o lote esteja
+    exatamente na unidade ativa da sessão. Nunca permite saldo negativo.
+
+    Carrinho de emergência é estoque À PARTE da unidade "pai" que o
+    hospeda (2026-08-31, pedido do cliente: desvincular de vez — antes
+    quem estava logado na unidade real dispensava também o que estivesse
+    num carrinho filho dela, o que misturava indevidamente os dois
+    estoques). Um carrinho nunca é "unidade ativa" de sessão (não existe
+    login nele), então o estoque de um carrinho só é alcançado pelos
+    fluxos dedicados — Reposição (CAF -> carrinho) e Devolução
+    (carrinho -> CAF), nunca por Saída/Dispensação comum.
 
     Paciente/prontuário (seção 22 do doc): campo adicional opcional,
     aceito de qualquer perfil (inclusive Atendente — ele está
@@ -29,10 +35,7 @@ class SaidaService:
 
     @staticmethod
     def _lote_no_escopo_da_unidade(lote, unidade_ativa_id: int) -> bool:
-        return (
-            lote.unidade_id == unidade_ativa_id
-            or lote.unidade.unidade_pai_id == unidade_ativa_id
-        )
+        return lote.unidade_id == unidade_ativa_id
 
     def registrar(
         self,
@@ -51,15 +54,11 @@ class SaidaService:
         if not self._lote_no_escopo_da_unidade(lote, unidade_ativa_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="O lote não pertence à unidade ativa da sessão "
-                "nem a um carrinho de emergência dela.",
+                detail="O lote não pertence à unidade ativa da sessão.",
             )
 
-        if not dados.setor_consumidor or not dados.setor_consumidor.strip():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Setor consumidor é obrigatório.",
-            )
+        # Obrigatoriedade de setor_consumidor (exceto vencimento) já é
+        # validada no schema, ver SaidaCreate.validar_setor_consumidor.
 
         if dados.quantidade > lote.quantidade_atual:
             raise HTTPException(
@@ -95,7 +94,7 @@ class SaidaService:
             lote_id=lote.id,
             quantidade=dados.quantidade,
             unidade_origem_id=unidade_ativa_id,
-            setor_consumidor=dados.setor_consumidor.strip(),
+            setor_consumidor=dados.setor_consumidor.strip() if dados.setor_consumidor else None,
             categoria_saida=dados.categoria,
             destino_externo=dados.destino_externo.strip() if dados.destino_externo else None,
             destinatario=dados.destinatario.strip() if dados.destinatario else None,

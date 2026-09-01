@@ -13,6 +13,7 @@ from app.schemas.movimentacao import TransferenciaEnviarCreate
 from app.schemas.solicitacao import (
     SolicitacaoAceitarCreate,
     SolicitacaoCreate,
+    SolicitacaoLoteCreate,
     SolicitacaoRecusarCreate,
 )
 from app.schemas.usuario import UsuarioMe
@@ -74,6 +75,53 @@ class SolicitacaoService:
         )
 
         return self.repository.create(db, solicitacao)
+
+    def criar_em_lote(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        unidade_ativa_id: int,
+        dados: SolicitacaoLoteCreate,
+    ) -> list[SolicitacaoTransferencia]:
+        """Pedir vários medicamentos de uma vez (2026-08-31, pedido do
+        cliente) — reaproveita `criar()` item a item, uma
+        `SolicitacaoTransferencia` por medicamento, todas com a mesma
+        `observacao`."""
+        return [
+            self.criar(
+                db,
+                usuario,
+                unidade_ativa_id,
+                SolicitacaoCreate(
+                    medicamento_id=item.medicamento_id,
+                    quantidade_desejada=item.quantidade_desejada,
+                    observacao=dados.observacao,
+                ),
+            )
+            for item in dados.itens
+        ]
+
+    def obter_para_comprovante(
+        self, db: Session, unidade_ativa_id: int, solicitacao_id: int
+    ) -> SolicitacaoTransferencia:
+        """Pra imprimir o comprovante de UMA solicitação (2026-09-01,
+        pedido do cliente: botão "Imprimir" ao lado de "Minhas
+        solicitações") — mesma visibilidade de `listar()`: a própria
+        unidade solicitante, ou a CAF vendo qualquer uma."""
+        solicitacao = self.repository.get_by_id(db, solicitacao_id)
+        if solicitacao is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada."
+            )
+
+        unidade_ativa = self.unidade_repository.get_by_id(db, unidade_ativa_id)
+        if not self._eh_caf(unidade_ativa) and solicitacao.unidade_solicitante_id != unidade_ativa_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você só pode imprimir solicitações da própria unidade.",
+            )
+
+        return solicitacao
 
     def listar(
         self,

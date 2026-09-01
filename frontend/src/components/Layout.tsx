@@ -3,14 +3,15 @@ import { useAuth } from '../context/AuthContext';
 import { permissoesDe } from '../lib/permissoes';
 import { classeRailUnidade, labelPerfil } from '../lib/formato';
 import { NotificacaoEstoquePopup } from './NotificacaoEstoquePopup';
+import { NotificacaoRessuprimentoCarrinhoPopup } from './NotificacaoRessuprimentoCarrinhoPopup';
 
 /** Casca da aplicação pós-login: barra institucional no topo +
  * sidebar de navegação + conteúdo da tela. Itens de menu sem permissão
  * somem da lista (não aparecem desabilitados) — pedido explícito do
  * cliente, replicado do protótipo aprovado. */
 export function Layout() {
-  const { config, usuario, trocarUnidade, sair } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { config, usuario, matrizPermissoes, trocarUnidade, sair } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   const hospitalNome = config?.hospital_nome ?? 'Hospital Exemplo';
   const organizacao = config?.organizacao ?? 'Rede de Saúde Exemplo';
@@ -25,6 +26,7 @@ export function Layout() {
         <span className="fesf-div" />
         <span className="fesf-app">Estoque Farmácia — Farmácia Hospitalar</span>
         <NotificacaoEstoquePopup />
+        <NotificacaoRessuprimentoCarrinhoPopup />
       </div>
 
       <div className="app">
@@ -87,6 +89,12 @@ export function Layout() {
                 <span className="lbl">Transferência</span>
               </NavLink>
             )}
+            {permissoes.telasOperacionais && (
+              <NavLink to="/ressuprimento" className="nav-btn">
+                <span className="ic">↺</span>
+                <span className="lbl">Ressuprimento</span>
+              </NavLink>
+            )}
             {permissoes.saida && (
               <NavLink to="/saida" className="nav-btn">
                 <span className="ic">↑</span>
@@ -99,10 +107,10 @@ export function Layout() {
                 <span className="lbl">Empréstimo / Doação</span>
               </NavLink>
             )}
-            {permissoes.reporCarrinho && (
+            {permissoes.telasOperacionais && (
               <NavLink to="/reposicao-carrinho" className="nav-btn">
                 <span className="ic">↻</span>
-                <span className="lbl">Reposição de Carrinhos</span>
+                <span className="lbl">Carrinhos de Emergência</span>
               </NavLink>
             )}
             {permissoes.ajustarEstoque && (
@@ -121,6 +129,12 @@ export function Layout() {
               <NavLink to="/usuarios" className="nav-btn">
                 <span className="ic">⚉</span>
                 <span className="lbl">Usuários</span>
+              </NavLink>
+            )}
+            {permissoes.gerenciarPermissoes && (
+              <NavLink to="/permissoes" className="nav-btn">
+                <span className="ic">🔑</span>
+                <span className="lbl">Permissões</span>
               </NavLink>
             )}
           </nav>

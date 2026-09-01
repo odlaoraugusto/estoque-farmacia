@@ -8,14 +8,18 @@ import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
 import { formatarMoeda, paraDecimalApi } from '../lib/formato';
 import type { LoteDetalhadoOut } from '../types';
 
-/** Ajuste de estoque — exclusivo do Coordenador (pedido do cliente,
- * 2026-08-14). Corrige o saldo de um lote fora dos fluxos normais (ex.:
+/** Ajuste de estoque (quantidade) — qualquer perfil operacional, inclusive
+ * Atendente (2026-08-31, pedido do cliente; era Farmacêutico/Coordenador
+ * só). Corrige o saldo de um lote fora dos fluxos normais (ex.:
  * divergência encontrada numa contagem física), sempre com motivo
- * obrigatório. A tela some do menu para os demais perfis; mesmo assim
- * guardamos aqui contra acesso direto pela URL. */
+ * obrigatório. A correção de VALOR unitário (financeiro) é uma permissão
+ * separada, continua só Farmacêutico/Coordenador — ver
+ * `FormularioCorrigirValor` abaixo. A tela some do menu para quem não tem
+ * nenhuma das duas; mesmo assim guardamos aqui contra acesso direto pela
+ * URL. */
 export function AjustePage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, token, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
   const unidadeAtivaId = usuario?.unidade_ativa_id ?? null;
 
   if (!permissoes.ajustarEstoque) {
@@ -26,16 +30,30 @@ export function AjustePage() {
         </div>
         <div className="locked-panel">
           <span className="lock-icon">🔒</span>
-          Ajuste de estoque é exclusivo do Coordenador.
+          Seu perfil não tem acesso ao ajuste de estoque.
         </div>
       </section>
     );
   }
 
-  return <FormularioAjuste token={token} unidadeAtivaId={unidadeAtivaId} />;
+  return (
+    <FormularioAjuste
+      token={token}
+      unidadeAtivaId={unidadeAtivaId}
+      podeCorrigirValor={permissoes.corrigirValorUnitario}
+    />
+  );
 }
 
-function FormularioAjuste({ token, unidadeAtivaId }: { token: string | null; unidadeAtivaId: number | null }) {
+function FormularioAjuste({
+  token,
+  unidadeAtivaId,
+  podeCorrigirValor,
+}: {
+  token: string | null;
+  unidadeAtivaId: number | null;
+  podeCorrigirValor: boolean;
+}) {
   const [lotes, setLotes] = useState<LoteDetalhadoOut[]>([]);
   const [busca, setBusca] = useState('');
   const [loteSelecionado, setLoteSelecionado] = useState<LoteDetalhadoOut | null>(null);
@@ -115,7 +133,6 @@ function FormularioAjuste({ token, unidadeAtivaId }: { token: string | null; uni
     <section>
       <div className="screen-head">
         <h1>Ajuste de Estoque</h1>
-        <span className="screen-tag">Farmacêutico e Coordenador</span>
       </div>
       <p className="screen-sub">
         Corrige o saldo de um lote fora dos fluxos normais — use depois de uma contagem física que bateu diferente
@@ -203,7 +220,12 @@ function FormularioAjuste({ token, unidadeAtivaId }: { token: string | null; uni
         </div>
       </form>
 
-      <FormularioCorrigirValor token={token} unidadeAtivaId={unidadeAtivaId} lotes={lotes} recarregarLotes={carregarLotes} />
+      {podeCorrigirValor && (
+        <FormularioCorrigirValor token={token} unidadeAtivaId={unidadeAtivaId} lotes={lotes} recarregarLotes={carregarLotes} />
+      )}
+      {podeCorrigirValor && (
+        <FormularioCorrigirLote token={token} unidadeAtivaId={unidadeAtivaId} lotes={lotes} recarregarLotes={carregarLotes} />
+      )}
     </section>
   );
 }
@@ -341,6 +363,157 @@ function FormularioCorrigirValor({
       </div>
       <div className="actions">
         <button type="submit" className="btn" disabled={enviando}>
+          {enviando ? 'Salvando…' : 'Confirmar correção'}
+        </button>
+        <button type="button" className="btn ghost" onClick={limparFormulario} disabled={enviando}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Corrigir nº do lote e/ou validade (2026-08-31, pedido do cliente) —
+ * mesma permissão de corrigir valor unitário (é a mesma categoria: dado
+ * do lote, não saldo físico). Não mexe em quantidade nem em valor. */
+function FormularioCorrigirLote({
+  token,
+  unidadeAtivaId,
+  lotes,
+  recarregarLotes,
+}: {
+  token: string | null;
+  unidadeAtivaId: number | null;
+  lotes: LoteDetalhadoOut[];
+  recarregarLotes: () => void;
+}) {
+  const [busca, setBusca] = useState('');
+  const [loteSelecionado, setLoteSelecionado] = useState<LoteDetalhadoOut | null>(null);
+  const [numeroLoteNovo, setNumeroLoteNovo] = useState('');
+  const [validadeNova, setValidadeNova] = useState('');
+  const [motivo, setMotivo] = useState('');
+
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  function limparFormulario() {
+    setBusca('');
+    setLoteSelecionado(null);
+    setNumeroLoteNovo('');
+    setValidadeNova('');
+    setMotivo('');
+  }
+
+  function selecionarLote(l: LoteDetalhadoOut) {
+    setLoteSelecionado(l);
+    setBusca(`${l.medicamento.nome} · ${l.numero_lote}`);
+    setNumeroLoteNovo(l.numero_lote ?? '');
+    setValidadeNova(l.data_validade ?? '');
+  }
+
+  async function aoSubmeter(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    setSucesso(null);
+
+    if (!loteSelecionado) {
+      setErro('Selecione um lote.');
+      return;
+    }
+    if (!motivo.trim()) {
+      setErro('Motivo da correção é obrigatório.');
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      await api.post(
+        '/ajustes/lote',
+        {
+          lote_id: loteSelecionado.id,
+          numero_lote: numeroLoteNovo.trim() || null,
+          data_validade: validadeNova || null,
+          motivo: motivo.trim(),
+        },
+        { token },
+      );
+      setSucesso(`Lote de ${loteSelecionado.medicamento.nome} corrigido.`);
+      limparFormulario();
+      recarregarLotes();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível corrigir o lote.'));
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  if (unidadeAtivaId == null) return null;
+
+  return (
+    <form className="panel" onSubmit={aoSubmeter} style={{ marginTop: 20 }}>
+      <h2>Corrigir nº do lote / validade</h2>
+      {erro && <Alerta tipo="erro">{erro}</Alerta>}
+      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      <p className="screen-sub" style={{ marginTop: -4 }}>
+        Para erro de digitação na Entrada — não mexe no saldo físico nem no valor do lote.
+      </p>
+      <div className="grid">
+        <div className="field span2">
+          <label htmlFor="busca-lote-numero">
+            Lote <span className="req">*</span>
+          </label>
+          <BuscaAutocomplete
+            id="busca-lote-numero"
+            itens={lotes}
+            valor={loteSelecionado ? `${loteSelecionado.medicamento.nome} · ${loteSelecionado.numero_lote}` : busca}
+            aoMudarValor={(v) => {
+              setBusca(v);
+              setLoteSelecionado(null);
+            }}
+            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · vence ${l.data_validade ?? 's/ validade'} · ${l.unidade.nome}`}
+            chave={(l) => l.id}
+            aoSelecionar={selecionarLote}
+            placeholder="buscar por medicamento ou nº do lote — estoque da unidade ativa"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="numero-lote-novo">Nº do lote</label>
+          <input
+            id="numero-lote-novo"
+            type="text"
+            placeholder="deixe em branco se não tiver"
+            value={numeroLoteNovo}
+            onChange={(e) => setNumeroLoteNovo(e.target.value)}
+            disabled={!loteSelecionado}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="validade-novo">Validade</label>
+          <input
+            id="validade-novo"
+            type="date"
+            value={validadeNova}
+            onChange={(e) => setValidadeNova(e.target.value)}
+            disabled={!loteSelecionado}
+          />
+        </div>
+        <div className="field span2">
+          <label htmlFor="motivo-lote">
+            Motivo da correção <span className="req">*</span>
+          </label>
+          <input
+            id="motivo-lote"
+            type="text"
+            placeholder="ex.: nº do lote digitado errado na Entrada"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+      <div className="actions">
+        <button type="submit" className="btn" disabled={enviando || !loteSelecionado}>
           {enviando ? 'Salvando…' : 'Confirmar correção'}
         </button>
         <button type="button" className="btn ghost" onClick={limparFormulario} disabled={enviando}>

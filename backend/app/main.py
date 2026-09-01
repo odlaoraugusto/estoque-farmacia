@@ -9,7 +9,10 @@ from app.api.routes.entradas import router as entradas_router
 from app.api.routes.lotes import router as lotes_router
 from app.api.routes.medicamentos import router as medicamentos_router
 from app.api.routes.pacientes import router as pacientes_router
+from app.api.routes.permissoes import router as permissoes_router
 from app.api.routes.relatorios import router as relatorios_router
+from app.api.routes.ressuprimento import router as ressuprimento_router
+from app.api.routes.ressuprimento_carrinho import router as ressuprimento_carrinho_router
 from app.api.routes.saidas import router as saidas_router
 from app.api.routes.solicitacoes import router as solicitacoes_router
 from app.api.routes.transferencias import router as transferencias_router
@@ -53,6 +56,9 @@ app.include_router(lotes_router)
 app.include_router(relatorios_router)
 app.include_router(pacientes_router)
 app.include_router(usuarios_router)
+app.include_router(permissoes_router)
+app.include_router(ressuprimento_router)
+app.include_router(ressuprimento_carrinho_router)
 
 
 @app.get("/")

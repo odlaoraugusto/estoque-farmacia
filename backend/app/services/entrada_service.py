@@ -81,3 +81,34 @@ class EntradaService:
         self.movimentacao_repository.create(db, movimentacao)
 
         return lote
+
+    def obter_para_comprovante(
+        self, db: Session, numero_nota_fiscal: str | None, lote_id: int | None
+    ) -> list[Lote]:
+        """Pra imprimir o comprovante do que acabou de ser registrado
+        (2026-09-01, pedido do cliente: "qualquer modalidade") — compra
+        tem vários lotes sob a mesma NF (`numero_nota_fiscal`), doação/
+        empréstimo é sempre um lote só (`lote_id`, sem NF)."""
+        if lote_id is not None:
+            lote = self.lote_repository.get_by_id(db, lote_id)
+            if lote is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Lote não encontrado."
+                )
+            return [lote]
+
+        if numero_nota_fiscal:
+            lotes = self.lote_repository.listar(
+                db, numero_nota_fiscal=numero_nota_fiscal, apenas_disponivel=False
+            )
+            if not lotes:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Nenhum lote encontrado para esta nota fiscal.",
+                )
+            return lotes
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Informe numero_nota_fiscal ou lote_id.",
+        )

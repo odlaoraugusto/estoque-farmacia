@@ -1,18 +1,23 @@
 from sqlalchemy.orm import Session
 
 from app.repositories.lote_repository import LoteRepository
-from app.repositories.unidade_repository import UnidadeRepository
 from app.schemas.lote import LoteDetalhadoOut
 
 
 class LoteService:
     """Estoque atual e busca por FEFO (First-Expire-First-Out) — regra 5:
     a busca de lote para saída deve ordenar por validade mais próxima e
-    sinalizar o lote sugerido."""
+    sinalizar o lote sugerido.
+
+    Carrinho de emergência é estoque À PARTE da unidade "pai" que o
+    hospeda (2026-08-31, pedido do cliente: desvincular de vez — antes o
+    escopo de uma unidade era ampliado para incluir os carrinhos filhos
+    dela em Estoque atual/FEFO/relatórios, misturando os dois estoques).
+    `unidade_id` aqui sempre significa só aquela unidade, nunca ela +
+    carrinhos."""
 
     def __init__(self):
         self.lote_repository = LoteRepository()
-        self.unidade_repository = UnidadeRepository()
 
     def listar_estoque(
         self,
@@ -22,16 +27,12 @@ class LoteService:
         numero_nota_fiscal: str | None = None,
         apenas_disponivel: bool = True,
     ) -> list[LoteDetalhadoOut]:
-        """Quando `unidade_id` vem preenchido, o escopo é ampliado para
-        incluir os carrinhos de emergência filhos dessa unidade (2026-08-13)
-        — o estoque posicionado num carrinho tem que aparecer junto do
-        estoque da unidade real "pai" dele. `unidade_id=None` (Coordenador
-        sem filtro) continua sem filtro nenhum, vendo tudo."""
-        escopo = self._expandir_escopo(db, unidade_id)
-
+        """`unidade_id=None` (Coordenador sem filtro) continua sem filtro
+        nenhum, vendo tudo — inclusive carrinhos, se quiser filtrar por
+        um especificamente passando o id dele direto."""
         lotes = self.lote_repository.listar(
             db,
-            unidade_id=escopo,
+            unidade_id=unidade_id,
             medicamento_id=medicamento_id,
             numero_nota_fiscal=numero_nota_fiscal,
             apenas_disponivel=apenas_disponivel,
@@ -50,16 +51,9 @@ class LoteService:
     def listar_vencimentos_proximos(
         self, db: Session, dias: int, unidade_id: int | None = None
     ) -> list[LoteDetalhadoOut]:
-        escopo = self._expandir_escopo(db, unidade_id)
-        lotes = self.lote_repository.listar_vencimento_proximo(db, dias, escopo)
+        lotes = self.lote_repository.listar_vencimento_proximo(db, dias, unidade_id)
 
         return [LoteDetalhadoOut.model_validate(lote) for lote in lotes]
-
-    def _expandir_escopo(self, db: Session, unidade_id: int | None) -> int | list[int] | None:
-        if unidade_id is None:
-            return None
-
-        return self.unidade_repository.listar_ids_com_carrinhos(db, unidade_id)
 
     def _marcar_sugerido_fefo(self, lotes) -> list[LoteDetalhadoOut]:
         """Sinaliza o primeiro lote (menor validade) de cada medicamento

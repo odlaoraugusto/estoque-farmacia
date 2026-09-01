@@ -158,9 +158,42 @@ class RelatorioTransferenciasOut(BaseModel):
     """Rastreabilidade de transferências entre unidades (2026-08-20) —
     confirma se um medicamento realmente saiu de uma unidade e chegou na
     outra: origem, destino, quantidade enviada x recebida (divergência
-    fica visível comparando as duas), quem enviou/confirmou e quando."""
+    fica visível comparando as duas), quem enviou/confirmou e quando.
+    Carrega o lote inteiro (inclui valor_unitario) — por isso continua
+    atrás da permissão `relatorios_financeiro`."""
 
     metadados: RelatorioMetadados
     periodo_inicio: date | None
     periodo_fim: date | None
     itens: list[MovimentacaoDetalhadaOut]
+
+
+class MovimentacaoTransferenciaItem(BaseModel):
+    """Uma transferência, sem nenhum dado financeiro (nem valor pago, nem
+    nota fiscal) — versão enxuta de `MovimentacaoDetalhadaOut` pensada
+    especificamente para o relatório aberto a todos os perfis
+    (2026-08-31, pedido do cliente: "todos têm acesso")."""
+
+    movimentacao_id: int
+    medicamento_nome: str
+    numero_lote: str
+    unidade_origem: str
+    unidade_destino: str
+    quantidade_enviada: int
+    quantidade_recebida: int | None
+    usuario_envio: str
+    usuario_confirmacao: str | None
+    data_hora: datetime
+    data_confirmacao: datetime | None
+
+
+class RelatorioMovimentacaoTransferenciasOut(BaseModel):
+    """Movimentação de transferências (2026-08-31) — mesma rastreabilidade
+    de `RelatorioTransferenciasOut`, mas sem nenhum dado financeiro, por
+    isso liberado a qualquer perfil autenticado (não passa por
+    `relatorios_financeiro`)."""
+
+    metadados: RelatorioMetadados
+    periodo_inicio: date | None
+    periodo_fim: date | None
+    itens: list[MovimentacaoTransferenciaItem]

@@ -17,11 +17,23 @@ from sqlalchemy.orm import Session
 from app.core.security import decodificar_access_token
 from app.database.session import get_db
 from app.models.enums import PerfilEnum
+from app.repositories.permissao_repository import PermissaoRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.usuario import UsuarioMe
 
 _security = HTTPBearer(auto_error=True)
 _usuario_repository = UsuarioRepository()
+_permissao_repository = PermissaoRepository()
+
+_CHAVES_PERMISSAO_VALIDAS = {
+    "entrada",
+    "medicamentos",
+    "ajustar_estoque",
+    "corrigir_valor_unitario",
+    "transferencia_enviar",
+    "reposicao_carrinho",
+    "relatorios_financeiro",
+}
 
 
 def get_current_user(
@@ -99,6 +111,40 @@ def resolver_unidade_escopo(
         )
 
     return usuario.unidade_ativa_id
+
+
+def exigir_permissao(chave: str):
+    """Factory de dependência para restringir um endpoint a uma ação
+    controlada pela matriz configurável de `/permissoes` (tela exclusiva
+    do Admin, `app/services/permissao_service.py`). Diferente de
+    `exigir_perfis`, o resultado não é fixo no código: Farmacêutico e
+    Atendente dependem do que o Admin liberou na tela; Coordenador e
+    Admin sempre passam, sem consultar a matriz — são superusuários
+    implícitos e nunca têm linha própria em `permissoes_perfil`
+    (2026-08-31 — pedido do cliente foi especificamente sobre Atendente
+    e Farmacêutico, Coordenador continua com tudo liberado como sempre
+    foi)."""
+
+    if chave not in _CHAVES_PERMISSAO_VALIDAS:
+        raise ValueError(f"Chave de permissão desconhecida: {chave!r}")
+
+    def verificador(
+        usuario: UsuarioMe = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> UsuarioMe:
+        if usuario.perfil in (PerfilEnum.admin, PerfilEnum.coordenador):
+            return usuario
+
+        permissao = _permissao_repository.get_by_perfil(db, usuario.perfil)
+        if permissao is None or not getattr(permissao, chave):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Perfil sem permissão para esta operação.",
+            )
+
+        return usuario
+
+    return verificador
 
 
 def exigir_perfis(*perfis_permitidos: PerfilEnum):

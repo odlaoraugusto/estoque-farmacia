@@ -86,6 +86,16 @@ class StatusTransferenciaEnum(str, enum.Enum):
     recebido = "recebido"
 
 
+class StatusRessuprimentoCarrinhoEnum(str, enum.Enum):
+    """Status de cada uma das DUAS ações independentes de uma solicitação
+    pública de ressuprimento de carrinho (2026-08-31) — saída direta do
+    carrinho e transferência de reposição, cada uma confirmada (ou não)
+    em momento próprio pela farmácia."""
+
+    pendente = "pendente"
+    confirmada = "confirmada"
+
+
 class TipoMovimentacaoEnum(str, enum.Enum):
     entrada = "entrada"
     transferencia = "transferencia"

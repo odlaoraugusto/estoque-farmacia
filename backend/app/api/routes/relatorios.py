@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import exigir_perfis, get_current_user, resolver_unidade_escopo
+from app.api.deps import exigir_perfis, exigir_permissao, get_current_user, resolver_unidade_escopo
 from app.api.exportacao_utils import exportar_relatorio
 from app.core.config import settings
 from app.database.session import get_db
@@ -17,6 +17,7 @@ from app.schemas.relatorio import (
     RelatorioCustoPorSetorOut,
     RelatorioEstoqueConsolidadoOut,
     RelatorioEstoqueCriticoOut,
+    RelatorioMovimentacaoTransferenciasOut,
     RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
@@ -28,6 +29,7 @@ from app.services.exportacao.relatorio_tabela_builder import (
     tabela_custo_por_setor,
     tabela_estoque_consolidado,
     tabela_estoque_critico,
+    tabela_movimentacao_transferencias,
     tabela_transferencias,
     tabela_vencimentos_proximos,
 )
@@ -37,10 +39,21 @@ router = APIRouter(prefix="/relatorios", tags=["Relatórios"])
 
 service = RelatorioService()
 
-# Regra 7: relatórios financeiros — Farmacêutico e Coordenador, ambos
-# com acesso ao consolidado de todas as unidades (2026-08-19, ampliado —
-# ver resolver_unidade_escopo); Atendente sem acesso.
-_PODE_VER_FINANCEIRO = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
+# Regra 7: relatórios financeiros — controlado pela matriz de permissões
+# (2026-08-31, chave `relatorios_financeiro`; antes fixo em
+# farmacêutico/coordenador). Escopo de "todas as unidades" continua fixo
+# em farmacêutico/coordenador via resolver_unidade_escopo — decisão
+# deliberada: quem tem a chave mas é Atendente ainda fica restrito à
+# própria unidade ativa, não passa a enxergar o hospital inteiro.
+_PODE_VER_FINANCEIRO = exigir_permissao("relatorios_financeiro")
+
+# Antimicrobianos/controlados: o conteúdo é dado de paciente (nome +
+# prontuário), não passa pelo filtro `visivel_para` (ver comentário nos
+# routers abaixo) — por isso NÃO entra na matriz configurável, fica
+# hardcoded em farmacêutico/coordenador sempre, para não abrir uma
+# brecha de LGPD via toggle do Admin (2026-08-31).
+_PODE_VER_FINANCEIRO_PACIENTE = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
+
 # Trilha de auditoria completa: só Coordenador.
 _PODE_VER_AUDITORIA = exigir_perfis(PerfilEnum.coordenador)
 
@@ -186,7 +199,7 @@ def relatorio_antimicrobianos(
     unidade_id: int | None = None,
     dias_minimo: int = 7,
     formato: FormatoExportacao | None = None,
-    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
+    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO_PACIENTE),
     db: Session = Depends(get_db),
 ):
     """DOT — programa de uso racional de antimicrobianos (2026-08-19).
@@ -209,7 +222,7 @@ def relatorio_controlados(
     unidade_id: int | None = None,
     dias_minimo: int = 0,
     formato: FormatoExportacao | None = None,
-    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO),
+    usuario: UsuarioMe = Depends(_PODE_VER_FINANCEIRO_PACIENTE),
     db: Session = Depends(get_db),
 ):
     """Vigilância diária de medicamentos controlados (2026-08-20) — mesma
@@ -259,6 +272,30 @@ def relatorio_transferencias(
         return relatorio
 
     return exportar_relatorio(formato, "transferencias", tabela_transferencias(relatorio))
+
+
+@router.get("/movimentacao-transferencias", response_model=RelatorioMovimentacaoTransferenciasOut)
+def relatorio_movimentacao_transferencias(
+    unidade_id: int | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    formato: FormatoExportacao | None = None,
+    usuario: UsuarioMe = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Movimentação de transferências (2026-08-31, pedido do cliente:
+    "todos têm acesso") — mesma rastreabilidade de `/transferencias`, mas
+    sem nenhum dado financeiro no retorno, por isso liberado a qualquer
+    perfil autenticado (não passa por `_PODE_VER_FINANCEIRO`)."""
+    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
+    relatorio = service.movimentacao_transferencias(db, usuario, unidade_escopo, data_inicio, data_fim)
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(
+        formato, "movimentacao-transferencias", tabela_movimentacao_transferencias(relatorio)
+    )
 
 
 @router.get("/vencimentos-proximos", response_model=RelatorioVencimentosProximosOut)

@@ -26,12 +26,15 @@ def listar_estoque(
 
     `numero_nota_fiscal` (2026-08-20): conferência dos itens já
     registrados sob uma mesma nota fiscal, na tela de Entrada — ignora
-    `apenas_disponivel` (quer ver tudo que entrou, mesmo já consumido)."""
+    `apenas_disponivel` (quer ver tudo que entrou, mesmo já consumido).
+
+    Estoque de carrinho de emergência nunca aparece aqui pra ninguém
+    (2026-08-31, pedido do cliente: carrinho é estoque à parte da unidade
+    "pai") — só é alcançado pelos fluxos dedicados de Reposição/Devolução
+    de carrinho."""
     unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
 
-    return service.listar_estoque(
-        db, unidade_escopo, medicamento_id, numero_nota_fiscal, apenas_disponivel
-    )
+    return service.listar_estoque(db, unidade_escopo, medicamento_id, numero_nota_fiscal, apenas_disponivel)
 
 
 @router.get("/busca-fefo", response_model=list[LoteDetalhadoOut])

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api, mensagemErro } from '../lib/api';
+import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { permissoesDe, unidadeEhCaf } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
@@ -31,8 +31,8 @@ interface ItemNotaFiscal {
  * farmacêutico/coordenador; mesmo assim guardamos aqui contra acesso
  * direto pela URL. */
 export function EntradaPage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, token, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   if (!permissoes.entrada) {
     return (
@@ -132,6 +132,21 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
   const [progresso, setProgresso] = useState<{ ok: number; total: number } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [ultimaNotaRegistrada, setUltimaNotaRegistrada] = useState<string | null>(null);
+  const [imprimindo, setImprimindo] = useState(false);
+
+  async function imprimirComprovante() {
+    if (!ultimaNotaRegistrada) return;
+    setErro(null);
+    setImprimindo(true);
+    try {
+      await baixarArquivo('/entradas/comprovante', { token, params: { formato: 'pdf', numero_nota_fiscal: ultimaNotaRegistrada } });
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
+    } finally {
+      setImprimindo(false);
+    }
+  }
 
   function limparCampoItem() {
     setBuscaMedicamento('');
@@ -190,6 +205,7 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
   async function registrarTodos() {
     setErro(null);
     setSucesso(null);
+    setUltimaNotaRegistrada(null);
     setRegistrando(true);
     setProgresso({ ok: 0, total: itens.length });
 
@@ -227,6 +243,7 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
     }
 
     setSucesso(`${ok} item(ns) da nota ${numeroNotaFiscal} registrado(s) com sucesso.`);
+    setUltimaNotaRegistrada(numeroNotaFiscal.trim());
     setNumeroNotaFiscal('');
     setValorTotalNota('');
     setValorEditadoManualmente(false);
@@ -399,7 +416,14 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
       <div className="panel">
         <h2>Itens desta nota ({itens.length})</h2>
         {erro && <Alerta tipo="erro">{erro}</Alerta>}
-        {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+        {sucesso && (
+          <Alerta tipo="sucesso">
+            {sucesso}{' '}
+            <button type="button" className="btn ghost sm" disabled={imprimindo} onClick={imprimirComprovante}>
+              {imprimindo ? 'Gerando…' : 'Imprimir comprovante'}
+            </button>
+          </Alerta>
+        )}
         <div className="table-wrap">
           <table>
             <thead>
@@ -485,7 +509,10 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
 }
 
 /** Doação/Empréstimo: continua sendo um item por vez — não há nota
- * fiscal nem valor a conferir nesses casos (valor sempre zerado). */
+ * fiscal (não existe nota de doação/empréstimo), mas o valor unitário
+ * agora é editável (2026-09-01, pedido do cliente — antes sempre zerado;
+ * o hospital pode saber o valor de mercado/referência mesmo sem ter
+ * pago). Opcional: em branco continua registrando como R$ 0,00. */
 function FormularioItemUnico({
   token,
   medicamentos,
@@ -500,11 +527,14 @@ function FormularioItemUnico({
   const [numeroLote, setNumeroLote] = useState('');
   const [dataValidade, setDataValidade] = useState('');
   const [quantidade, setQuantidade] = useState('');
+  const [valorUnitario, setValorUnitario] = useState('');
   const [procedenciaExterna, setProcedenciaExterna] = useState('');
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [ultimoLoteId, setUltimoLoteId] = useState<number | null>(null);
+  const [imprimindo, setImprimindo] = useState(false);
 
   function limparFormulario() {
     setBuscaMedicamento('');
@@ -512,6 +542,7 @@ function FormularioItemUnico({
     setNumeroLote('');
     setDataValidade('');
     setQuantidade('');
+    setValorUnitario('');
     setProcedenciaExterna('');
   }
 
@@ -519,6 +550,7 @@ function FormularioItemUnico({
     e.preventDefault();
     setErro(null);
     setSucesso(null);
+    setUltimoLoteId(null);
 
     if (!medicamentoSelecionado) {
       setErro('Selecione um medicamento na busca.');
@@ -531,14 +563,14 @@ function FormularioItemUnico({
 
     setEnviando(true);
     try {
-      const lote = await api.post<{ numero_lote: string }>(
+      const lote = await api.post<{ id: number; numero_lote: string }>(
         '/entradas',
         {
           medicamento_id: medicamentoSelecionado.id,
           numero_lote: numeroLote,
           data_validade: dataValidade,
           quantidade: Number(quantidade),
-          valor_unitario: '0',
+          valor_unitario: valorUnitario.trim() ? paraDecimalApi(valorUnitario) : '0',
           origem,
           numero_nota_fiscal: null,
           numero_afm: null,
@@ -547,6 +579,7 @@ function FormularioItemUnico({
         { token },
       );
       setSucesso(`Entrada registrada — lote ${lote.numero_lote}.`);
+      setUltimoLoteId(lote.id);
       limparFormulario();
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível registrar a entrada.'));
@@ -555,11 +588,31 @@ function FormularioItemUnico({
     }
   }
 
+  async function imprimirComprovante() {
+    if (!ultimoLoteId) return;
+    setErro(null);
+    setImprimindo(true);
+    try {
+      await baixarArquivo('/entradas/comprovante', { token, params: { formato: 'pdf', lote_id: ultimoLoteId } });
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
+    } finally {
+      setImprimindo(false);
+    }
+  }
+
   return (
     <form className="panel" onSubmit={aoSubmeter}>
       <h2>Novo lote — {origem === 'doacao' ? 'Doação' : 'Empréstimo'}</h2>
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
-      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      {sucesso && (
+        <Alerta tipo="sucesso">
+          {sucesso}{' '}
+          <button type="button" className="btn ghost sm" disabled={imprimindo} onClick={imprimirComprovante}>
+            {imprimindo ? 'Gerando…' : 'Imprimir comprovante'}
+          </button>
+        </Alerta>
+      )}
       <div className="grid">
         <div className="field span2">
           <label htmlFor="busca-medicamento-unico">
@@ -649,6 +702,17 @@ function FormularioItemUnico({
             Unidade <span className="tag">fixa</span>
           </label>
           <input type="text" disabled value="CAF" />
+        </div>
+        <div className="field">
+          <label htmlFor="valor-unitario-unico">Valor unitário (opcional)</label>
+          <input
+            id="valor-unitario-unico"
+            type="text"
+            inputMode="decimal"
+            placeholder="R$ 0,00"
+            value={valorUnitario}
+            onChange={(e) => setValorUnitario(e.target.value)}
+          />
         </div>
         <div className="field span2">
           <label htmlFor="procedencia-externa-unico">

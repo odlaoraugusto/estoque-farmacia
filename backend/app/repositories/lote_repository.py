@@ -38,10 +38,12 @@ class LoteRepository:
         apenas_disponivel: bool = True,
         ordenar_fefo: bool = True,
     ) -> list[Lote]:
-        """`unidade_id` aceita uma lista (além de um único id) para cobrir o
-        escopo ampliado unidade real + carrinhos-filho dela (carrinhos de
-        emergência, docs/00_PROJETO.md) — quem decide se amplia ou não é a
-        camada de service, aqui só aplicamos o filtro que vier.
+        """`unidade_id` aceita uma lista, além de um único id — capacidade
+        genérica do filtro, sem chamador nenhum usando isso hoje: não há
+        mais escopo "ampliado" automático de unidade real + carrinhos
+        filhos (carrinho é estoque à parte da unidade que o hospeda,
+        2026-08-31) nem outro caso que precise filtrar por várias
+        unidades de uma vez.
 
         `numero_nota_fiscal` (2026-08-20): conferência de todos os itens
         de uma mesma nota fiscal (Entrada) — várias linhas de compra

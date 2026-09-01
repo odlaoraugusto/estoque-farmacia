@@ -13,12 +13,29 @@ const CATEGORIAS: { valor: CategoriaSaida; rotulo: string }[] = [
   { valor: 'vencimento', rotulo: 'Baixa por vencimento' },
 ];
 
+interface ItemListaSaida {
+  medicamento: MedicamentoOut;
+  lote: LoteDetalhadoOut;
+  quantidade: string;
+}
+
 /** Saída / Dispensação — qualquer perfil pode registrar (regra 5 do
- * doc). FEFO: o lote com validade mais próxima vem sinalizado
- * (`sugerido_fefo`) pelo backend em /lotes/busca-fefo. Empréstimo/
- * doação/permuta pra fora do hospital tem tela própria (2026-08-20,
- * ver EmprestimoDoacaoPage) — aqui só fica a dispensação interna e a
- * baixa de vencidos. */
+ * doc). FEFO ("usar primeiro"): o lote com validade mais próxima vem
+ * sinalizado (`sugerido_fefo`) pelo backend em /lotes/busca-fefo.
+ * Empréstimo/doação/permuta pra fora do hospital tem tela própria
+ * (2026-08-20, ver EmprestimoDoacaoPage) — aqui só fica a dispensação
+ * interna e a baixa de vencidos.
+ *
+ * Lista (2026-09-01, pedido do cliente: "acrescenta a lista para
+ * dispensar mais de um medicamento por vez") — mesmo padrão já usado em
+ * Solicitar/Enviar lote: monta uma listinha local (cada item com seu
+ * próprio medicamento/lote escolhido via FEFO) antes de enviar tudo numa
+ * passada, uma chamada `POST /saidas` por item (não existe endpoint de
+ * lote no backend pra isso). Categoria e setor consumidor valem pra
+ * lista inteira (é uma sessão de dispensação/baixa só); paciente/
+ * prontuário também — obrigatório se QUALQUER item da lista for
+ * antimicrobiano ou controlado, mesmo espírito do formulário público de
+ * carrinho (`PublicoRessuprimentoCarrinhoPage`). */
 export function SaidaPage() {
   const { token } = useAuth();
 
@@ -28,8 +45,10 @@ export function SaidaPage() {
   const [lotesFefo, setLotesFefo] = useState<LoteDetalhadoOut[]>([]);
   const [loteSelecionadoId, setLoteSelecionadoId] = useState<number | null>(null);
   const [buscandoFefo, setBuscandoFefo] = useState(false);
+  const [quantidadeItem, setQuantidadeItem] = useState('');
 
-  const [quantidade, setQuantidade] = useState('');
+  const [itensLista, setItensLista] = useState<ItemListaSaida[]>([]);
+
   const [setorConsumidor, setSetorConsumidor] = useState('');
   const [categoria, setCategoria] = useState<CategoriaSaida>('normal');
 
@@ -116,20 +135,56 @@ export function SaidaPage() {
 
   const loteSelecionado = lotesFefo.find((l) => l.id === loteSelecionadoId) ?? null;
 
-  // Vigilância por paciente (2026-08-20): antimicrobiano (DOT) e
-  // controlado exigem paciente/prontuário pela mesma regra — ver
-  // SaidaService, que é quem de fato bloqueia no backend.
-  const exigePaciente = Boolean(medicamentoSelecionado?.e_antimicrobiano || medicamentoSelecionado?.e_controlado);
+  function limparSelecao() {
+    setBusca('');
+    setMedicamentoSelecionado(null);
+    setLotesFefo([]);
+    setLoteSelecionadoId(null);
+    setQuantidadeItem('');
+  }
 
-  async function aoSubmeter(e: FormEvent) {
-    e.preventDefault();
+  function adicionarNaLista() {
     setErro(null);
-    setSucesso(null);
-    if (!loteSelecionado) {
+    if (!medicamentoSelecionado || !loteSelecionado) {
       setErro('Busque um medicamento e selecione o lote.');
       return;
     }
-    if (!setorConsumidor) {
+    const qtd = Number(quantidadeItem);
+    if (!qtd || qtd <= 0) {
+      setErro('Informe uma quantidade válida.');
+      return;
+    }
+    if (qtd > loteSelecionado.quantidade_atual) {
+      setErro(`Quantidade maior que o saldo disponível (${loteSelecionado.quantidade_atual}).`);
+      return;
+    }
+    if (itensLista.some((i) => i.medicamento.id === medicamentoSelecionado.id)) {
+      setErro(`${medicamentoSelecionado.nome} já está na lista.`);
+      return;
+    }
+    setItensLista((atual) => [...atual, { medicamento: medicamentoSelecionado, lote: loteSelecionado, quantidade: quantidadeItem }]);
+    limparSelecao();
+  }
+
+  function removerDaLista(medicamentoId: number) {
+    setItensLista((atual) => atual.filter((i) => i.medicamento.id !== medicamentoId));
+  }
+
+  // Vigilância por paciente (2026-08-20): antimicrobiano (DOT) e
+  // controlado exigem paciente/prontuário pela mesma regra — ver
+  // SaidaService, que é quem de fato bloqueia no backend. Aqui vale pra
+  // lista inteira: basta UM item ser antimicrobiano/controlado.
+  const exigePaciente = itensLista.some((i) => i.medicamento.e_antimicrobiano || i.medicamento.e_controlado);
+
+  async function enviarLista(e: FormEvent) {
+    e.preventDefault();
+    setErro(null);
+    setSucesso(null);
+    if (itensLista.length === 0) {
+      setErro('Adicione ao menos um medicamento à lista antes de registrar.');
+      return;
+    }
+    if (categoria !== 'vencimento' && !setorConsumidor) {
       setErro('Informe o setor consumidor.');
       return;
     }
@@ -140,41 +195,52 @@ export function SaidaPage() {
       return;
     }
     if (exigePaciente && !prontuarioPreenchido) {
-      const classe = medicamentoSelecionado?.e_antimicrobiano ? 'antimicrobiano' : 'controlado';
-      setErro(`${medicamentoSelecionado?.nome} é ${classe} — paciente e prontuário são obrigatórios nesta saída.`);
+      const item = itensLista.find((i) => i.medicamento.e_antimicrobiano || i.medicamento.e_controlado);
+      const classe = item?.medicamento.e_antimicrobiano ? 'antimicrobiano' : 'controlado';
+      setErro(`${item?.medicamento.nome} é ${classe} — paciente e prontuário são obrigatórios nesta saída.`);
       return;
     }
+
     setEnviando(true);
-    try {
-      await api.post(
-        '/saidas',
-        {
-          lote_id: loteSelecionado.id,
-          quantidade: Number(quantidade),
-          setor_consumidor: setorConsumidor,
-          categoria,
-          // Opcionais — só vão no corpo quando pelo menos um foi preenchido
-          // (o backend exige os dois juntos ou nenhum; nunca string vazia).
-          ...(prontuarioPreenchido || nomePreenchido
-            ? { paciente_prontuario: prontuario.trim(), paciente_nome: pacienteNome.trim() }
-            : {}),
-        },
-        { token },
-      );
-      setSucesso('Saída registrada com sucesso.');
-      setBusca('');
-      setMedicamentoSelecionado(null);
-      setLotesFefo([]);
-      setLoteSelecionadoId(null);
-      setQuantidade('');
+    const idsComFalha = new Set<number>();
+    const mensagensFalha: string[] = [];
+    for (const item of itensLista) {
+      try {
+        // eslint-disable-next-line no-await-in-loop -- cada item é uma saída própria, sequencial de propósito
+        await api.post(
+          '/saidas',
+          {
+            lote_id: item.lote.id,
+            quantidade: Number(item.quantidade),
+            categoria,
+            // setor_consumidor não se aplica à baixa por vencimento — omitido
+            // nesse caso em vez de mandar string vazia (backend exige null).
+            ...(categoria !== 'vencimento' ? { setor_consumidor: setorConsumidor } : {}),
+            // Opcionais — só vão no corpo quando pelo menos um foi preenchido
+            // (o backend exige os dois juntos ou nenhum; nunca string vazia).
+            ...(prontuarioPreenchido || nomePreenchido
+              ? { paciente_prontuario: prontuario.trim(), paciente_nome: pacienteNome.trim() }
+              : {}),
+          },
+          { token },
+        );
+      } catch (err) {
+        idsComFalha.add(item.medicamento.id);
+        mensagensFalha.push(`${item.medicamento.nome} (${mensagemErro(err)})`);
+      }
+    }
+    setEnviando(false);
+    if (idsComFalha.size === 0) {
+      setSucesso(`${itensLista.length} saída(s) registrada(s) com sucesso.`);
+      setItensLista([]);
+      setSetorConsumidor('');
       setCategoria('normal');
       setProntuario('');
       setPacienteNome('');
       setPacienteEncontrado(false);
-    } catch (err) {
-      setErro(mensagemErro(err, 'Não foi possível registrar a saída.'));
-    } finally {
-      setEnviando(false);
+    } else {
+      setItensLista((atual) => atual.filter((i) => idsComFalha.has(i.medicamento.id)));
+      setErro(`Não foi possível registrar: ${mensagensFalha.join('; ')}. O restante da lista foi registrado com sucesso.`);
     }
   }
 
@@ -184,20 +250,19 @@ export function SaidaPage() {
         <h1>Saída / Dispensação</h1>
         <span className="screen-tag">dispensação de medicamento</span>
       </div>
-      <p className="screen-sub">FEFO: o lote com validade mais próxima aparece destacado no topo da busca.</p>
+      <p className="screen-sub">Usar primeiro: o lote com validade mais próxima aparece destacado no topo da busca.</p>
 
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
       {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
 
-      <form className="panel" style={{ maxWidth: 540 }} onSubmit={aoSubmeter}>
+      <form className="panel" style={{ maxWidth: 640 }} onSubmit={enviarLista}>
         <h2>Registrar saída</h2>
+        <p className="screen-sub">Adicione um ou mais medicamentos à lista e registre tudo de uma vez.</p>
         <div className="field" style={{ marginBottom: 16 }}>
-          <label htmlFor="busca-medicamento-saida">
-            Medicamento <span className="req">*</span>
-          </label>
+          <label htmlFor="busca-medicamento-saida">Medicamento</label>
           <BuscaAutocomplete
             id="busca-medicamento-saida"
-            itens={medicamentos}
+            itens={medicamentos.filter((m) => !itensLista.some((i) => i.medicamento.id === m.id))}
             valor={medicamentoSelecionado ? medicamentoSelecionado.nome : busca}
             aoMudarValor={(v) => {
               setBusca(v);
@@ -212,47 +277,99 @@ export function SaidaPage() {
           />
         </div>
 
-        {buscandoFefo && <p className="carregando">Buscando lotes (FEFO)…</p>}
+        {buscandoFefo && <p className="carregando">Buscando lotes (usar primeiro)…</p>}
 
         {!buscandoFefo && lotesFefo.length > 0 && (
-          <div className="field" style={{ marginBottom: 16 }}>
-            <label htmlFor="lote-fefo">Lote</label>
-            <select id="lote-fefo" value={loteSelecionadoId ?? ''} onChange={(e) => setLoteSelecionadoId(Number(e.target.value))}>
-              {lotesFefo.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.numero_lote} · vence {formatarData(l.data_validade)} · saldo {l.quantidade_atual} · {l.unidade.nome}
-                  {l.sugerido_fefo ? ' · sugerido (FEFO)' : ''}
-                </option>
-              ))}
-            </select>
-            {loteSelecionado?.sugerido_fefo && (
-              <div className="box" style={{ background: 'var(--warn-bg)', color: 'var(--ink)', borderColor: 'var(--warn)', justifyContent: 'space-between', marginTop: 8 }}>
-                <span>
-                  {loteSelecionado.medicamento.nome} · {loteSelecionado.numero_lote} · vence {formatarData(loteSelecionado.data_validade)}
-                </span>
-                <span className="pill pend">sugerido (FEFO)</span>
-              </div>
-            )}
+          <div className="grid" style={{ marginBottom: 0 }}>
+            <div className="field span2">
+              <label htmlFor="lote-fefo">Lote</label>
+              <select id="lote-fefo" value={loteSelecionadoId ?? ''} onChange={(e) => setLoteSelecionadoId(Number(e.target.value))}>
+                {lotesFefo.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.numero_lote} · vence {formatarData(l.data_validade)} · saldo {l.quantidade_atual} · {l.unidade.nome}
+                    {l.sugerido_fefo ? ' · sugerido (usar primeiro)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="qtd-item-saida">Quantidade</label>
+              <input
+                id="qtd-item-saida"
+                type="number"
+                min={1}
+                max={loteSelecionado?.quantidade_atual}
+                placeholder={loteSelecionado ? `≤ ${loteSelecionado.quantidade_atual}` : '0'}
+                value={quantidadeItem}
+                onChange={(e) => setQuantidadeItem(e.target.value)}
+              />
+            </div>
           </div>
         )}
-
+        {loteSelecionado?.sugerido_fefo && (
+          <div className="box" style={{ background: 'var(--warn-bg)', color: 'var(--ink)', borderColor: 'var(--warn)', justifyContent: 'space-between', marginTop: 8 }}>
+            <span>
+              {loteSelecionado.medicamento.nome} · {loteSelecionado.numero_lote} · vence {formatarData(loteSelecionado.data_validade)}
+            </span>
+            <span className="pill pend">sugerido (usar primeiro)</span>
+          </div>
+        )}
         {!buscandoFefo && medicamentoSelecionado && lotesFefo.length === 0 && (
           <p className="carregando">Nenhum lote disponível para este medicamento na unidade ativa.</p>
+        )}
+
+        <div className="actions" style={{ marginTop: 12 }}>
+          <button type="button" className="btn ghost" disabled={!loteSelecionado} onClick={adicionarNaLista}>
+            + Adicionar à lista
+          </button>
+        </div>
+
+        {itensLista.length > 0 && (
+          <div className="table-wrap" style={{ marginTop: 16 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Medicamento</th>
+                  <th>Lote</th>
+                  <th className="num">Qtd.</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {itensLista.map((i) => (
+                  <tr key={i.medicamento.id}>
+                    <td>
+                      {i.medicamento.nome}
+                      {(i.medicamento.e_antimicrobiano || i.medicamento.e_controlado) && (
+                        <span className="tag" style={{ marginLeft: 6 }}>
+                          {i.medicamento.e_controlado ? 'controlado' : 'antimicrobiano'}
+                        </span>
+                      )}
+                    </td>
+                    <td className="mono">{i.lote.numero_lote}</td>
+                    <td className="num">{i.quantidade}</td>
+                    <td>
+                      <button type="button" className="btn ghost sm" onClick={() => removerDaLista(i.medicamento.id)}>
+                        Remover
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {exigePaciente && (
           <div
             className="box"
-            style={{ background: 'var(--danger-bg)', color: 'var(--ink)', borderColor: 'var(--danger)', marginBottom: 16 }}
+            style={{ background: 'var(--danger-bg)', color: 'var(--ink)', borderColor: 'var(--danger)', marginTop: 16 }}
           >
-            <span>
-              <b>{medicamentoSelecionado?.nome}</b> é {medicamentoSelecionado?.e_antimicrobiano ? 'antimicrobiano' : 'controlado'} —
-              paciente e prontuário são obrigatórios nesta saída.
-            </span>
+            <span>Há medicamento antimicrobiano ou controlado na lista — paciente e prontuário são obrigatórios.</span>
           </div>
         )}
 
-        <div className="grid">
+        <div className="grid" style={{ marginTop: 16 }}>
           <div className="field">
             <label htmlFor="categoria-saida">Categoria</label>
             <select id="categoria-saida" value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaSaida)}>
@@ -264,26 +381,17 @@ export function SaidaPage() {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="qtd-saida">
-              Quantidade <span className="req">*</span>
-            </label>
-            <input
-              id="qtd-saida"
-              type="number"
-              min={1}
-              max={loteSelecionado?.quantidade_atual}
-              placeholder="0"
-              value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
-              required
-            />
-          </div>
-          <div className="field">
             <label htmlFor="setor-consumidor">
-              Setor consumidor <span className="req">*</span>
+              Setor consumidor {categoria !== 'vencimento' && <span className="req">*</span>}
             </label>
-            <select id="setor-consumidor" value={setorConsumidor} onChange={(e) => setSetorConsumidor(e.target.value)} required>
-              <option value="">Selecione…</option>
+            <select
+              id="setor-consumidor"
+              value={setorConsumidor}
+              onChange={(e) => setSetorConsumidor(e.target.value)}
+              disabled={categoria === 'vencimento'}
+              required={categoria !== 'vencimento'}
+            >
+              <option value="">{categoria === 'vencimento' ? 'Não se aplica' : 'Selecione…'}</option>
               {SETORES_DISPENSACAO.map((setor) => (
                 <option key={setor} value={setor}>
                   {setor}
@@ -330,8 +438,8 @@ export function SaidaPage() {
           </div>
         </div>
         <div className="actions">
-          <button type="submit" className="btn" disabled={enviando || !loteSelecionado}>
-            {enviando ? 'Registrando…' : 'Registrar saída'}
+          <button type="submit" className="btn" disabled={enviando || itensLista.length === 0}>
+            {enviando ? 'Registrando…' : `Registrar saída ${itensLista.length > 0 ? `(${itensLista.length})` : ''}`}
           </button>
         </div>
         <div className="note">Quantidade acima do saldo do lote bloqueia o registro — sem saldo negativo.</div>

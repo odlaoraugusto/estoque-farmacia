@@ -53,3 +53,10 @@ class SolicitacaoRepository:
             query = query.filter(SolicitacaoTransferencia.status == status)
 
         return query.order_by(SolicitacaoTransferencia.data_solicitacao.desc()).all()
+
+    def get_by_id(self, db: Session, solicitacao_id: int) -> SolicitacaoTransferencia | None:
+        return (
+            db.query(SolicitacaoTransferencia)
+            .filter(SolicitacaoTransferencia.id == solicitacao_id)
+            .first()
+        )

@@ -24,8 +24,8 @@ const FORM_VAZIO = {
  * marcá-lo como inativo via PUT (preserva a FK de lotes históricos que
  * já referenciam esse medicamento). */
 export function MedicamentosPage() {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, token, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   if (!permissoes.medicamentos) {
     return (
@@ -211,7 +211,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="med-estoque-minimo">Estoque mínimo</label>
+            <label htmlFor="med-estoque-minimo">Estoque crítico</label>
             <input
               id="med-estoque-minimo"
               type="number"
@@ -283,7 +283,7 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
                   <th>Concentração</th>
                   <th>Fabricante</th>
                   <th>Acondicionamento</th>
-                  <th className="num">Estoque mínimo</th>
+                  <th className="num">Estoque crítico</th>
                   <th>Antimicrobiano</th>
                   <th>Controlado</th>
                   <th>Status</th>

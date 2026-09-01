@@ -40,8 +40,8 @@ const VAZIO: AlertasEstoque = {
  * alimentar mais de um lugar (popup + painel de alertas no dashboard)
  * sem duplicar a busca/regra de níveis de vencimento. */
 export function useAlertasEstoque(): AlertasEstoque {
-  const { usuario, token } = useAuth();
-  const permissoes = permissoesDe(usuario);
+  const { usuario, token, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   const [dados, setDados] = useState<AlertasEstoque>(VAZIO);
 

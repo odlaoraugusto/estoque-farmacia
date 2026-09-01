@@ -11,14 +11,11 @@
 
 $ErrorActionPreference = "Stop"
 
-$backendDir = "C:\Users\odlaoralmeida\Desktop\ESTOQUE FARMACIA\backend"
-$backupDir = "$backendDir\backups"
+$backendDir = "C:\Users\suporte1\Documents\Nova pasta\ESTOQUE-FARMACIA\backend"
+$backupDir = "C:\Backups\EstoqueFarmacia"
 New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
 
-# Ajustar para o caminho do pg_dump.exe da instalacao oficial no servidor
-# real (ex.: "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe") - este
-# aponta para a versao portatil usada so no ambiente de teste local.
-$pgDump = "C:\Users\odlaoralmeida\Desktop\pgportable\pgsql\bin\pg_dump.exe"
+$pgDump = "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe"
 
 $envPath = "$backendDir\.env"
 if (-not (Test-Path $envPath)) {

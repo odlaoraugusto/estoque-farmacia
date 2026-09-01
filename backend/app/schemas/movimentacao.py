@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -48,7 +48,12 @@ class DevolverCarrinhoCreate(BaseModel):
 class SaidaCreate(BaseModel):
     lote_id: int
     quantidade: int = Field(gt=0)
-    setor_consumidor: str
+
+    # Obrigatório, exceto para `categoria=vencimento` (2026-08-31): baixa
+    # de lote vencido é perda, não dispensação pra um setor — não faz
+    # sentido pedir "quem consumiu" nesse caso. Validado abaixo, junto
+    # com destino_externo, porque a obrigatoriedade depende da categoria.
+    setor_consumidor: str | None = None
 
     # Categoria (2026-08-19): normal (default) ou empréstimo/doação pra
     # fora do hospital — mesma Saída de sempre, só com esse metadado a
@@ -93,6 +98,16 @@ class SaidaCreate(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def validar_setor_consumidor(self) -> "SaidaCreate":
+        if self.categoria == CategoriaSaidaEnum.vencimento:
+            return self
+
+        if not self.setor_consumidor or not self.setor_consumidor.strip():
+            raise ValueError("setor_consumidor é obrigatório, exceto para baixa por vencimento.")
+
+        return self
+
+    @model_validator(mode="after")
     def validar_destino_externo(self) -> "SaidaCreate":
         exige_destino = self.categoria in CATEGORIAS_SAIDA_EXTERNA
         tem_destino = bool(self.destino_externo and self.destino_externo.strip())
@@ -119,6 +134,18 @@ class AjusteCreate(BaseModel):
     lote_id: int
     quantidade_nova: int = Field(ge=0)
     motivo_ajuste: str
+
+
+class AjusteLoteCreate(BaseModel):
+    """Corrigir nº do lote e/ou validade de um lote existente (2026-08-31,
+    pedido do cliente) — não mexe em saldo nem em valor. `numero_lote`/
+    `data_validade` aceitam `None` (material sem lote formal ou sem
+    vencimento é uma situação válida, mesma regra da Entrada)."""
+
+    lote_id: int
+    numero_lote: str | None = None
+    data_validade: date | None = None
+    motivo: str
 
 
 class AjusteValorCreate(BaseModel):

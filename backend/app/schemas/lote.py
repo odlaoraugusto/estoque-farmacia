@@ -29,12 +29,15 @@ class EntradaCreate(BaseModel):
 
     @model_validator(mode="after")
     def normalizar_por_origem(self) -> "EntradaCreate":
-        """Nunca confia no que o cliente manda para valor/nota fiscal:
-        doação/empréstimo sempre zeram o valor e dispensam nota fiscal;
-        compra exige ambos. Empréstimo exige procedência (de onde veio)."""
+        """Doação/empréstimo (2026-09-01, pedido do cliente): valor
+        unitário deixou de ser forçado a zero — o hospital pode saber o
+        valor de mercado/referência do item mesmo sem ter pago por ele,
+        útil pro Consolidado Geral de Estoque refletir o valor real em
+        estoque. Continua opcional (`0` por padrão se não informado,
+        nunca obrigatório) — só COMPRA exige valor > 0. Nota fiscal
+        continua dispensada pra doação/empréstimo (não existe nota de
+        doação/empréstimo). Empréstimo exige procedência (de onde veio)."""
         if self.origem in (OrigemEnum.doacao, OrigemEnum.emprestimo):
-            self.valor_unitario = Decimal("0")
-
             if self.origem == OrigemEnum.emprestimo and not (
                 self.procedencia_externa and self.procedencia_externa.strip()
             ):

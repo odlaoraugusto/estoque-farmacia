@@ -106,7 +106,8 @@ export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAle
           <ul>
             {alertas.itensVencidos.map((lote) => (
               <li key={lote.id}>
-                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · venceu em {formatarData(lote.data_validade)}
+                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · venceu em {formatarData(lote.data_validade)} ·{' '}
+                {lote.unidade.nome}
               </li>
             ))}
           </ul>
@@ -120,7 +121,7 @@ export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAle
             {alertas.itensAmarelo.map((lote) => (
               <li key={lote.id}>
                 <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
-                {diasAteVencer(lote.data_validade)}d)
+                {diasAteVencer(lote.data_validade)}d) · {lote.unidade.nome}
               </li>
             ))}
           </ul>
@@ -137,7 +138,7 @@ export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAle
                   OK
                 </span>
                 <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
-                {diasAteVencer(lote.data_validade)}d)
+                {diasAteVencer(lote.data_validade)}d) · {lote.unidade.nome}
               </li>
             ))}
           </ul>

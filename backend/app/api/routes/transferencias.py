@@ -2,13 +2,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
-    exigir_perfis,
+    exigir_permissao,
     get_current_user,
     get_unidade_ativa_id,
     resolver_unidade_escopo,
 )
 from app.database.session import get_db
-from app.models.enums import PerfilEnum
 from app.schemas.movimentacao import (
     DevolverCarrinhoCreate,
     MovimentacaoDetalhadaOut,
@@ -23,17 +22,16 @@ router = APIRouter(prefix="/transferencias", tags=["Transferências"])
 
 service = TransferenciaService()
 
-# Regra 3: enviar é restrito a farmacêutico/coordenador.
-_PODE_ENVIAR = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
+# Regra 3: enviar — controlado pela matriz de permissões (2026-08-31,
+# mesma chave usada em _PODE_ATENDER de solicitacoes.py, é a mesma ação
+# de dispensar por baixo dos panos).
+_PODE_ENVIAR = exigir_permissao("transferencia_enviar")
 
-# Regra 1 dos carrinhos: reposição de carrinho — farmacêutico e
-# coordenador (2026-08-19, ampliado; até então era exclusiva do
-# farmacêutico, "Coordenador NÃO repõe carrinho").
-_PODE_REPOR_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
-
-# Devolução de carrinho -> CAF (seção 22 do doc): mesma ampliação da
-# reposição (2026-08-19).
-_PODE_DEVOLVER_CARRINHO = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnum.coordenador)
+# Regras 1/2 dos carrinhos: reposição e devolução — mesma chave
+# (2026-08-31: controlado pela matriz; antes fixo em
+# farmacêutico/coordenador).
+_PODE_REPOR_CARRINHO = exigir_permissao("reposicao_carrinho")
+_PODE_DEVOLVER_CARRINHO = exigir_permissao("reposicao_carrinho")
 
 
 @router.post("/enviar", response_model=MovimentacaoDetalhadaOut)

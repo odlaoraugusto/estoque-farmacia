@@ -14,6 +14,22 @@ class SolicitacaoCreate(BaseModel):
     observacao: str | None = None
 
 
+class SolicitacaoItemLote(BaseModel):
+    medicamento_id: int
+    quantidade_desejada: int = Field(gt=0)
+
+
+class SolicitacaoLoteCreate(BaseModel):
+    """Pedir vários medicamentos de uma vez (2026-08-31, pedido do
+    cliente: "tipo uma lista") — cria uma `SolicitacaoTransferencia` por
+    item, todas com a mesma `observacao`. Não é um novo tipo de registro,
+    só um jeito mais rápido de criar várias solicitações normais numa
+    chamada só."""
+
+    itens: list[SolicitacaoItemLote] = Field(min_length=1)
+    observacao: str | None = None
+
+
 class SolicitacaoAceitarCreate(BaseModel):
     """A CAF escolhe QUAL lote enviar e a quantidade — pode divergir da
     `quantidade_desejada` (atendimento parcial), mesma flexibilidade que

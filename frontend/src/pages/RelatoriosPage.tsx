@@ -14,6 +14,7 @@ import type {
   RelatorioEstoqueConsolidadoOut,
   RelatorioEstoqueCriticoOut,
   RelatorioAuditoriaOut,
+  RelatorioMovimentacaoTransferenciasOut,
   RelatorioTransferenciasOut,
   RelatorioVencimentosProximosOut,
   TipoMovimentacao,
@@ -25,6 +26,7 @@ type AbaRelatorio =
   | 'custo'
   | 'consumo'
   | 'transferencias'
+  | 'movimentacao'
   | 'auditoria'
   | 'vencimentos'
   | 'critico'
@@ -36,6 +38,7 @@ const TITULOS: Record<AbaRelatorio, string> = {
   custo: 'Custo por setor',
   consumo: 'Consumo de medicamentos',
   transferencias: 'Rastreabilidade de transferências',
+  movimentacao: 'Movimentação de transferências',
   auditoria: 'Trilha de auditoria',
   vencimentos: 'Vencimentos próximos',
   critico: 'Estoque Crítico',
@@ -48,6 +51,7 @@ const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
   custo: '/relatorios/custo-por-setor',
   consumo: '/relatorios/consumo-medicamentos',
   transferencias: '/relatorios/transferencias',
+  movimentacao: '/relatorios/movimentacao-transferencias',
   auditoria: '/relatorios/auditoria',
   vencimentos: '/relatorios/vencimentos-proximos',
   critico: '/relatorios/estoque-critico',
@@ -57,7 +61,7 @@ const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
 
 // Abas que usam o filtro de período (de/até) — mesmo padrão de Custo/
 // Auditoria já existente.
-const ABAS_COM_PERIODO: AbaRelatorio[] = ['custo', 'consumo', 'transferencias', 'auditoria'];
+const ABAS_COM_PERIODO: AbaRelatorio[] = ['custo', 'consumo', 'transferencias', 'movimentacao', 'auditoria'];
 
 // Espelha RELATORIO_AUDITORIA_DIAS_PADRAO/LIMITE_PADRAO (backend/app/core/
 // config.py) — só pra pré-preencher o filtro de período na tela (o backend
@@ -77,15 +81,24 @@ function dataIsoHaDias(dias: number): string {
  * perfil não tem acesso (financeiro: farmacêutico/coordenador; auditoria:
  * só coordenador), em vez de aparecer desabilitada. */
 export function RelatoriosPage() {
-  const { usuario, token, config } = useAuth();
-  const permissoes = permissoesDe(usuario);
-  const ehCoordenador = usuario?.perfil === 'coordenador';
+  const { usuario, token, config, matrizPermissoes } = useAuth();
+  const permissoes = permissoesDe(usuario, matrizPermissoes);
+  // Farmacêutico e Coordenador enxergam o consolidado de todas as
+  // unidades nesses relatórios (mesma regra de `resolver_unidade_escopo`
+  // no backend) — a coluna "Unidade" só faz sentido pra eles; Atendente
+  // sempre vê só a própria unidade ativa. 2026-09-01: renomeado de
+  // `ehCoordenador`, que excluía Farmacêutico por engano e escondia a
+  // unidade de cada lote também pra esse perfil.
+  const veTodasUnidades = usuario?.perfil === 'coordenador' || usuario?.perfil === 'farmaceutico';
 
   const abasDisponiveis = useMemo<AbaRelatorio[]>(() => {
     const abas: AbaRelatorio[] = [];
     if (permissoes.relatoriosFinanceiro) abas.push('consolidado', 'custo', 'consumo', 'transferencias');
     if (permissoes.relatoriosAuditoria) abas.push('auditoria');
-    abas.push('vencimentos');
+    // Movimentação de transferências (2026-08-31, pedido do cliente:
+    // "todos têm acesso") — sem dado financeiro, liberado a qualquer
+    // perfil, igual vencimentos-próximos logo abaixo.
+    abas.push('movimentacao', 'vencimentos');
     if (permissoes.notificacaoEstoqueCritico) abas.push('critico', 'antimicrobianos', 'controlados');
     return abas;
   }, [permissoes.relatoriosFinanceiro, permissoes.relatoriosAuditoria, permissoes.notificacaoEstoqueCritico]);
@@ -101,6 +114,35 @@ export function RelatoriosPage() {
     if (!token) return;
     api.get<UnidadeOut[]>('/unidades', { token, params: { tipo: 'unidade' } }).then(setUnidades).catch(() => {});
   }, [token]);
+
+  // Consolidado geral (2026-08-31, pedido do cliente): filtro de unidade
+  // dessa aba também lista carrinhos de emergência, para dar pra ver o
+  // estoque posicionado num carrinho específico — o backend já aceita o
+  // id de um carrinho direto em `unidade_id` (RelatorioService.
+  // _expandir_escopo devolve só o próprio id quando não tem filhos). As
+  // outras abas (custo/consumo/transferências) continuam só com unidades
+  // reais: aquelas consultas filtram por `unidade_origem_id`, que nunca é
+  // um carrinho (Saída sempre grava a unidade real ativa da sessão).
+  const [unidadesComCarrinhos, setUnidadesComCarrinhos] = useState<UnidadeOut[]>([]);
+  useEffect(() => {
+    if (!token) return;
+    api.get<UnidadeOut[]>('/unidades', { token }).then(setUnidadesComCarrinhos).catch(() => {});
+  }, [token]);
+
+  const opcoesFiltroUnidade = useMemo(() => {
+    if (abaAtiva !== 'consolidado') {
+      return unidades.map((u) => ({ id: u.id, rotulo: u.nome }));
+    }
+
+    const opcoes: { id: number; rotulo: string }[] = [];
+    for (const u of unidadesComCarrinhos.filter((u) => u.tipo === 'unidade')) {
+      opcoes.push({ id: u.id, rotulo: u.nome });
+      for (const carrinho of unidadesComCarrinhos.filter((c) => c.unidade_pai_id === u.id)) {
+        opcoes.push({ id: carrinho.id, rotulo: `↳ ${carrinho.nome}` });
+      }
+    }
+    return opcoes;
+  }, [abaAtiva, unidades, unidadesComCarrinhos]);
 
   // Filtros — só relevantes para quem pode enxergar mais de uma unidade
   // (Coordenador); os demais perfis são forçados à própria unidade ativa
@@ -141,6 +183,7 @@ export function RelatoriosPage() {
   const [custo, setCusto] = useState<RelatorioCustoPorSetorOut | null>(null);
   const [consumo, setConsumo] = useState<RelatorioConsumoMedicamentosOut | null>(null);
   const [transferencias, setTransferencias] = useState<RelatorioTransferenciasOut | null>(null);
+  const [movimentacao, setMovimentacao] = useState<RelatorioMovimentacaoTransferenciasOut | null>(null);
   const [auditoria, setAuditoria] = useState<RelatorioAuditoriaOut | null>(null);
   const [vencimentos, setVencimentos] = useState<RelatorioVencimentosProximosOut | null>(null);
   const [critico, setCritico] = useState<RelatorioEstoqueCriticoOut | null>(null);
@@ -184,6 +227,13 @@ export function RelatoriosPage() {
                     params: { unidade_id: unidadeId, data_inicio: dataInicio || undefined, data_fim: dataFim || undefined },
                   })
                   .then(setTransferencias)
+              : abaAtiva === 'movimentacao'
+                ? api
+                    .get<RelatorioMovimentacaoTransferenciasOut>('/relatorios/movimentacao-transferencias', {
+                      token,
+                      params: { unidade_id: unidadeId, data_inicio: dataInicio || undefined, data_fim: dataFim || undefined },
+                    })
+                    .then(setMovimentacao)
               : abaAtiva === 'auditoria'
             ? api
                 .get<RelatorioAuditoriaOut>('/relatorios/auditoria', {
@@ -277,6 +327,7 @@ export function RelatoriosPage() {
     (abaAtiva === 'custo' && custo?.metadados) ||
     (abaAtiva === 'consumo' && consumo?.metadados) ||
     (abaAtiva === 'transferencias' && transferencias?.metadados) ||
+    (abaAtiva === 'movimentacao' && movimentacao?.metadados) ||
     (abaAtiva === 'auditoria' && auditoria?.metadados) ||
     (abaAtiva === 'vencimentos' && vencimentos?.metadados) ||
     (abaAtiva === 'antimicrobianos' && antimicrobianos?.metadados) ||
@@ -301,7 +352,7 @@ export function RelatoriosPage() {
               titulo_relatorio: TITULOS[abaAtiva],
               gerado_em: new Date().toISOString(),
               gerado_por: usuario.nome,
-              unidade: ehCoordenador ? 'Todas as unidades' : (usuario.unidade_ativa_nome ?? '—'),
+              unidade: veTodasUnidades ? 'Todas as unidades' : (usuario.unidade_ativa_nome ?? '—'),
             }}
           />
         )
@@ -318,15 +369,23 @@ export function RelatoriosPage() {
       </div>
 
       <div className="panel">
+        <div className="actions" style={{ justifyContent: 'flex-end', marginBottom: 16 }}>
+          <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('pdf')}>
+            {exportando === 'pdf' ? 'Gerando PDF…' : 'Exportar PDF'}
+          </button>
+          <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('excel')}>
+            {exportando === 'excel' ? 'Gerando Excel…' : 'Exportar Excel'}
+          </button>
+        </div>
         <div className="grid g3" style={{ marginBottom: 18 }}>
-          {permissoes.relatoriosFinanceiro && (
+          {(permissoes.relatoriosFinanceiro || abaAtiva === 'movimentacao') && (
             <div className="field">
               <label htmlFor="filtro-unidade">Unidade</label>
               <select id="filtro-unidade" value={unidadeFiltro} onChange={(e) => setUnidadeFiltro(e.target.value)}>
                 <option value="">Todas as unidades</option>
-                {unidades.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nome}
+                {opcoesFiltroUnidade.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.rotulo}
                   </option>
                 ))}
               </select>
@@ -407,15 +466,16 @@ export function RelatoriosPage() {
         {carregando && <p className="carregando">Carregando relatório…</p>}
 
         {!carregando && abaAtiva === 'consolidado' && (
-          <TabelaConsolidado dados={consolidado} ehCoordenador={ehCoordenador} />
+          <TabelaConsolidado dados={consolidado} veTodasUnidades={veTodasUnidades} />
         )}
         {!carregando && abaAtiva === 'custo' && <TabelaCusto dados={custo} />}
         {!carregando && abaAtiva === 'consumo' && <TabelaConsumo dados={consumo} />}
         {!carregando && abaAtiva === 'transferencias' && <TabelaTransferencias dados={transferencias} />}
+        {!carregando && abaAtiva === 'movimentacao' && <TabelaMovimentacaoTransferencias dados={movimentacao} />}
         {!carregando && abaAtiva === 'auditoria' && (
           <TabelaAuditoria dados={auditoria} onCarregarMais={() => setLimiteAuditoria((l) => l + AUDITORIA_LIMITE_PASSO)} />
         )}
-        {!carregando && abaAtiva === 'vencimentos' && <TabelaVencimentos dados={vencimentos} ehCoordenador={ehCoordenador} />}
+        {!carregando && abaAtiva === 'vencimentos' && <TabelaVencimentos dados={vencimentos} veTodasUnidades={veTodasUnidades} />}
         {!carregando && abaAtiva === 'critico' && <TabelaEstoqueCritico dados={critico} />}
         {!carregando && abaAtiva === 'antimicrobianos' && (
           <TabelaAntimicrobianos
@@ -426,21 +486,12 @@ export function RelatoriosPage() {
         {!carregando && abaAtiva === 'controlados' && (
           <TabelaAntimicrobianos dados={controlados} vazio={() => 'Nenhuma dispensação de medicamento controlado no momento.'} />
         )}
-
-        <div className="actions">
-          <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('pdf')}>
-            {exportando === 'pdf' ? 'Gerando PDF…' : 'Exportar PDF'}
-          </button>
-          <button type="button" className="btn ghost" disabled={exportando !== null} onClick={() => exportar('excel')}>
-            {exportando === 'excel' ? 'Gerando Excel…' : 'Exportar Excel'}
-          </button>
-        </div>
       </div>
     </section>
   );
 }
 
-function TabelaConsolidado({ dados, ehCoordenador }: { dados: RelatorioEstoqueConsolidadoOut | null; ehCoordenador: boolean }) {
+function TabelaConsolidado({ dados, veTodasUnidades }: { dados: RelatorioEstoqueConsolidadoOut | null; veTodasUnidades: boolean }) {
   if (!dados) return null;
   return (
     <div className="table-wrap">
@@ -449,7 +500,7 @@ function TabelaConsolidado({ dados, ehCoordenador }: { dados: RelatorioEstoqueCo
           <tr>
             <th>Medicamento</th>
             <th>Lote</th>
-            {ehCoordenador && <th>Unidade</th>}
+            {veTodasUnidades && <th>Unidade</th>}
             <th className="num">Qtd.</th>
             <th className="num">Valor unit.</th>
             <th className="num">Valor total</th>
@@ -458,7 +509,7 @@ function TabelaConsolidado({ dados, ehCoordenador }: { dados: RelatorioEstoqueCo
         <tbody>
           {dados.itens.length === 0 && (
             <tr>
-              <td colSpan={ehCoordenador ? 6 : 5} className="vazio-tabela">
+              <td colSpan={veTodasUnidades ? 6 : 5} className="vazio-tabela">
                 Sem lotes no período.
               </td>
             </tr>
@@ -467,7 +518,7 @@ function TabelaConsolidado({ dados, ehCoordenador }: { dados: RelatorioEstoqueCo
             <tr key={item.lote.id}>
               <td>{item.lote.medicamento.nome}</td>
               <td className="mono">{item.lote.numero_lote}</td>
-              {ehCoordenador && <td>{item.lote.unidade.nome}</td>}
+              {veTodasUnidades && <td>{item.lote.unidade.nome}</td>}
               <td className="num">{item.lote.quantidade_atual}</td>
               <td className="num">{formatarMoeda(item.lote.valor_unitario)}</td>
               <td className="num">{formatarMoeda(item.valor_total_lote)}</td>
@@ -477,7 +528,7 @@ function TabelaConsolidado({ dados, ehCoordenador }: { dados: RelatorioEstoqueCo
         {dados.itens.length > 0 && (
           <tfoot>
             <tr>
-              <td colSpan={ehCoordenador ? 5 : 4} style={{ fontWeight: 700 }}>
+              <td colSpan={veTodasUnidades ? 5 : 4} style={{ fontWeight: 700 }}>
                 Valor total geral
               </td>
               <td className="num" style={{ fontWeight: 700 }}>
@@ -654,6 +705,57 @@ function TabelaTransferencias({ dados }: { dados: RelatorioTransferenciasOut | n
   );
 }
 
+function TabelaMovimentacaoTransferencias({ dados }: { dados: RelatorioMovimentacaoTransferenciasOut | null }) {
+  if (!dados) return null;
+  return (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data/hora</th>
+            <th>Medicamento</th>
+            <th>Lote</th>
+            <th>Origem</th>
+            <th>Destino</th>
+            <th className="num">Qtd. enviada</th>
+            <th className="num">Qtd. recebida</th>
+            <th>Enviado por</th>
+            <th>Confirmado por</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dados.itens.length === 0 && (
+            <tr>
+              <td colSpan={9} className="vazio-tabela">
+                Nenhuma transferência no período.
+              </td>
+            </tr>
+          )}
+          {dados.itens.map((item) => {
+            const divergiu = item.quantidade_recebida !== null && item.quantidade_recebida !== item.quantidade_enviada;
+            return (
+              <tr key={item.movimentacao_id}>
+                <td className="mono">{formatarDataHora(item.data_hora)}</td>
+                <td>{item.medicamento_nome}</td>
+                <td className="mono">{item.numero_lote}</td>
+                <td>{item.unidade_origem}</td>
+                <td>{item.unidade_destino}</td>
+                <td className="num">{item.quantidade_enviada}</td>
+                <td className="num">
+                  {item.quantidade_recebida ?? '—'}
+                  {divergiu && <span className="pill danger" style={{ marginLeft: 6 }}>divergiu</span>}
+                </td>
+                <td>{item.usuario_envio}</td>
+                <td>{item.usuario_confirmacao ?? <span className="pill pend">pendente</span>}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function detalheMovimentacao(mov: MovimentacaoDetalhadaOut): string {
   switch (mov.tipo) {
     case 'saida':
@@ -782,7 +884,7 @@ function TabelaAntimicrobianos({
   );
 }
 
-function TabelaVencimentos({ dados, ehCoordenador }: { dados: RelatorioVencimentosProximosOut | null; ehCoordenador: boolean }) {
+function TabelaVencimentos({ dados, veTodasUnidades }: { dados: RelatorioVencimentosProximosOut | null; veTodasUnidades: boolean }) {
   if (!dados) return null;
   return (
     <div className="table-wrap">
@@ -791,7 +893,7 @@ function TabelaVencimentos({ dados, ehCoordenador }: { dados: RelatorioVenciment
           <tr>
             <th>Medicamento</th>
             <th>Lote</th>
-            {ehCoordenador && <th>Unidade</th>}
+            {veTodasUnidades && <th>Unidade</th>}
             <th>Validade</th>
             <th className="num">Qtd.</th>
           </tr>
@@ -799,7 +901,7 @@ function TabelaVencimentos({ dados, ehCoordenador }: { dados: RelatorioVenciment
         <tbody>
           {dados.itens.length === 0 && (
             <tr>
-              <td colSpan={ehCoordenador ? 5 : 4} className="vazio-tabela">
+              <td colSpan={veTodasUnidades ? 5 : 4} className="vazio-tabela">
                 Nenhum lote vencendo nos próximos {dados.dias_considerados} dias.
               </td>
             </tr>
@@ -808,7 +910,7 @@ function TabelaVencimentos({ dados, ehCoordenador }: { dados: RelatorioVenciment
             <tr key={lote.id}>
               <td>{lote.medicamento.nome}</td>
               <td className="mono">{lote.numero_lote}</td>
-              {ehCoordenador && <td>{lote.unidade.nome}</td>}
+              {veTodasUnidades && <td>{lote.unidade.nome}</td>}
               <td>{formatarData(lote.data_validade)}</td>
               <td className="num">{lote.quantidade_atual}</td>
             </tr>
