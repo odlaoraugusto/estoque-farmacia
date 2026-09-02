@@ -1,11 +1,11 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.enums import TipoMovimentacaoEnum
+from app.models.enums import CategoriaSaidaEnum, TipoMovimentacaoEnum
 from app.models.movimentacao import Movimentacao
 from app.repositories.lote_repository import LoteRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
-from app.schemas.movimentacao import SaidaCreate
+from app.schemas.movimentacao import CorrigirPacienteSaidaCreate, CorrigirSetorSaidaCreate, SaidaCreate
 from app.schemas.usuario import UsuarioMe
 from app.services.paciente_service import PacienteService
 
@@ -114,3 +114,146 @@ class SaidaService:
             movimentacao.paciente_nome = nome
 
         return self.movimentacao_repository.create(db, movimentacao)
+
+    def corrigir_setor(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        movimentacao_id: int,
+        dados: CorrigirSetorSaidaCreate,
+    ) -> Movimentacao:
+        """Corrigir o setor consumidor de uma Saída já registrada
+        (2026-09-01, pedido do cliente: "conferir e corrigir o que fez")
+        — SELF-SERVICE: só quem registrou a saída pode corrigir, qualquer
+        perfil (checagem de autoria abaixo, não passa pela matriz de
+        permissões nem pelo escopo de unidade)."""
+        movimentacao = self.movimentacao_repository.get_by_id_for_update(db, movimentacao_id)
+
+        if movimentacao is None or movimentacao.tipo != TipoMovimentacaoEnum.saida:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Saída não encontrada."
+            )
+
+        if movimentacao.usuario_id != usuario.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Só quem registrou esta saída pode corrigi-la.",
+            )
+
+        if movimentacao.categoria_saida == CategoriaSaidaEnum.vencimento:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Baixa por vencimento não tem setor consumidor.",
+            )
+
+        setor_antigo = movimentacao.setor_consumidor
+        novo = dados.setor_consumidor.strip()
+        if novo == setor_antigo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Setor informado já é o atual — nada para corrigir.",
+            )
+
+        movimentacao.setor_consumidor = novo
+        self.movimentacao_repository.salvar(db, movimentacao)
+
+        correcao = Movimentacao(
+            tipo=TipoMovimentacaoEnum.correcao_valor,
+            lote_id=movimentacao.lote_id,
+            quantidade=0,
+            unidade_origem_id=movimentacao.unidade_origem_id,
+            motivo_ajuste=(
+                f"Correção da saída #{movimentacao.id}: setor consumidor "
+                f"{setor_antigo or '—'} -> {novo}. {dados.motivo.strip()}"
+            ),
+            usuario_id=usuario.id,
+        )
+        self.movimentacao_repository.create(db, correcao)
+
+        return movimentacao
+
+    def obter_para_comprovante(self, db: Session, movimentacao_ids: list[int]) -> list[Movimentacao]:
+        """Pra imprimir o comprovante do que acabou de ser registrado
+        (2026-09-02, pedido do cliente: controle de Empréstimo/Doação/
+        Permuta) — o front acumula os ids devolvidos por cada `POST
+        /saidas` da lista (uma remessa pode ter vários medicamentos, cada
+        um sua própria Movimentacao) e manda todos juntos aqui."""
+        if not movimentacao_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Informe ao menos um id de saída."
+            )
+
+        movimentacoes = []
+        for movimentacao_id in movimentacao_ids:
+            movimentacao = self.movimentacao_repository.get_by_id(db, movimentacao_id)
+            if movimentacao is None or movimentacao.tipo != TipoMovimentacaoEnum.saida:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Saída #{movimentacao_id} não encontrada.",
+                )
+            movimentacoes.append(movimentacao)
+
+        return movimentacoes
+
+    def corrigir_paciente(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        movimentacao_id: int,
+        dados: CorrigirPacienteSaidaCreate,
+    ) -> Movimentacao:
+        """Corrigir paciente/prontuário de uma Saída já registrada
+        (2026-09-01, pedido do cliente) — mesma regra de `corrigir_setor`
+        (self-service, só quem registrou). NÃO usa `PacienteService.
+        resolver_para_saida` de propósito: aquele método, ao achar um
+        prontuário já cadastrado, ignora o nome novo e devolve o nome
+        antigo (regra pensada pra Saída normal, onde o prontuário já
+        identifica o paciente) — aqui é o oposto, o usuário está dizendo
+        que o nome/prontuário registrados estavam ERRADOS, então grava
+        exatamente o que foi corrigido nesta Saída, sem tocar no cadastro
+        compartilhado de `pacientes` (outras Saídas do mesmo prontuário
+        não são afetadas)."""
+        movimentacao = self.movimentacao_repository.get_by_id_for_update(db, movimentacao_id)
+
+        if movimentacao is None or movimentacao.tipo != TipoMovimentacaoEnum.saida:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Saída não encontrada."
+            )
+
+        if movimentacao.usuario_id != usuario.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Só quem registrou esta saída pode corrigi-la.",
+            )
+
+        novo_prontuario = dados.paciente_prontuario.strip()
+        novo_nome = dados.paciente_nome.strip().upper()
+
+        if novo_prontuario == movimentacao.paciente_prontuario and novo_nome == movimentacao.paciente_nome:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Paciente/prontuário informados já são os atuais — nada para corrigir.",
+            )
+
+        movimentacao.paciente_prontuario = novo_prontuario
+        movimentacao.paciente_nome = novo_nome
+        self.movimentacao_repository.salvar(db, movimentacao)
+
+        # Nunca embutir nome/prontuário de paciente no texto livre da
+        # correção (motivo_ajuste não passa pela redação de
+        # `visivel_para` — vazaria dado de paciente pra quem não tem
+        # acesso, ver MovimentacaoOut.visivel_para).
+        correcao = Movimentacao(
+            tipo=TipoMovimentacaoEnum.correcao_valor,
+            lote_id=movimentacao.lote_id,
+            quantidade=0,
+            unidade_origem_id=movimentacao.unidade_origem_id,
+            motivo_ajuste=(
+                f"Correção da saída #{movimentacao.id}: paciente/prontuário "
+                f"atualizados. {dados.motivo.strip()}"
+            ),
+            usuario_id=usuario.id,
+        )
+        self.movimentacao_repository.create(db, correcao)
+
+        return movimentacao

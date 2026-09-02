@@ -337,6 +337,61 @@ def tabela_comprovante_entrada(metadados: RelatorioMetadados, lotes) -> TabelaRe
     )
 
 
+_CATEGORIA_SAIDA_LABEL = {
+    "normal": "Normal",
+    "emprestimo": "Empréstimo",
+    "doacao": "Doação",
+    "vencimento": "Vencimento",
+    "permuta": "Permuta",
+}
+
+
+def tabela_comprovante_saida(metadados: RelatorioMetadados, movimentacoes) -> TabelaRelatorio:
+    """Comprovante de uma ou mais Saídas (2026-09-02, pedido do cliente:
+    controle de Empréstimo/Doação/Permuta, "precisamos do registro pra
+    controle") — uma linha por medicamento; uma remessa inteira pode
+    cobrir vários (mesmo destino/destinatário), cada um sua própria
+    `Movimentacao`. Sem colunas de paciente/prontuário de propósito —
+    Empréstimo/Doação/Permuta nunca carrega esse dado (só a dispensação
+    normal usa), então não há necessidade de aplicar a regra de
+    visibilidade LGPD aqui."""
+    colunas = [
+        "Medicamento",
+        "Lote",
+        "Quantidade",
+        "Categoria",
+        "Setor Responsável",
+        "Destino",
+        "Destinatário",
+        "Data/Hora",
+    ]
+    linhas = [
+        [
+            m.lote.medicamento.nome,
+            m.lote.numero_lote,
+            str(m.quantidade),
+            _CATEGORIA_SAIDA_LABEL.get(
+                m.categoria_saida.value if m.categoria_saida else "normal", "Normal"
+            ),
+            m.setor_consumidor or "",
+            m.destino_externo or "",
+            m.destinatario or "",
+            formatar_data_hora(m.data_hora),
+        ]
+        for m in movimentacoes
+    ]
+
+    informacoes_extra = [f"Registrado por: {movimentacoes[0].usuario.nome}"]
+
+    return TabelaRelatorio(
+        metadados=metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[1.4, 0.9, 0.7, 0.9, 1.1, 1.3, 1.1, 1.3],
+    )
+
+
 def tabela_comprovante_solicitacao(metadados: RelatorioMetadados, solicitacao) -> TabelaRelatorio:
     """Comprovante de UMA solicitação de ressuprimento (2026-09-01,
     pedido do cliente: botão "Imprimir" ao lado de "Minhas

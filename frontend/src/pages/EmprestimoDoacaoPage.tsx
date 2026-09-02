@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api, mensagemErro } from '../lib/api';
+import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
 import { formatarData } from '../lib/formato';
-import type { CategoriaSaida, LoteDetalhadoOut, MedicamentoOut, UnidadeOut } from '../types';
+import type { CategoriaSaida, LoteDetalhadoOut, MedicamentoOut, MovimentacaoOut, UnidadeOut } from '../types';
 
 const CATEGORIAS: { valor: CategoriaSaida; rotulo: string }[] = [
   { valor: 'emprestimo', rotulo: 'Empréstimo' },
@@ -55,6 +55,8 @@ export function EmprestimoDoacaoPage() {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [ultimasSaidasIds, setUltimasSaidasIds] = useState<number[]>([]);
+  const [imprimindo, setImprimindo] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -151,12 +153,14 @@ export function EmprestimoDoacaoPage() {
     }
 
     setEnviando(true);
+    setUltimasSaidasIds([]);
     const idsComFalha = new Set<number>();
     const mensagensFalha: string[] = [];
+    const idsRegistrados: number[] = [];
     for (const item of itensLista) {
       try {
         // eslint-disable-next-line no-await-in-loop -- cada item é uma saída própria, sequencial de propósito
-        await api.post(
+        const movimentacao = await api.post<MovimentacaoOut>(
           '/saidas',
           {
             lote_id: item.lote.id,
@@ -168,6 +172,7 @@ export function EmprestimoDoacaoPage() {
           },
           { token },
         );
+        idsRegistrados.push(movimentacao.id);
       } catch (err) {
         idsComFalha.add(item.medicamento.id);
         mensagensFalha.push(`${item.medicamento.nome} (${mensagemErro(err)})`);
@@ -176,6 +181,7 @@ export function EmprestimoDoacaoPage() {
     setEnviando(false);
     if (idsComFalha.size === 0) {
       setSucesso(`${itensLista.length} saída(s) registrada(s) com sucesso.`);
+      setUltimasSaidasIds(idsRegistrados);
       setItensLista([]);
       setCategoria('emprestimo');
       setDestinoExterno('');
@@ -183,6 +189,18 @@ export function EmprestimoDoacaoPage() {
     } else {
       setItensLista((atual) => atual.filter((i) => idsComFalha.has(i.medicamento.id)));
       setErro(`Não foi possível registrar: ${mensagensFalha.join('; ')}. O restante da lista foi registrado com sucesso.`);
+    }
+  }
+
+  async function imprimirComprovante() {
+    setErro(null);
+    setImprimindo(true);
+    try {
+      await baixarArquivo('/saidas/comprovante', { token, params: { formato: 'pdf', ids: ultimasSaidasIds.join(',') } });
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
+    } finally {
+      setImprimindo(false);
     }
   }
 
@@ -198,7 +216,16 @@ export function EmprestimoDoacaoPage() {
       </p>
 
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
-      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      {sucesso && (
+        <Alerta tipo="sucesso">
+          {sucesso}{' '}
+          {ultimasSaidasIds.length > 0 && (
+            <button type="button" className="btn ghost sm" disabled={imprimindo} onClick={imprimirComprovante}>
+              {imprimindo ? 'Gerando…' : 'Imprimir comprovante'}
+            </button>
+          )}
+        </Alerta>
+      )}
 
       <form className="panel" style={{ maxWidth: 640 }} onSubmit={enviarLista}>
         <h2>Registrar saída</h2>
