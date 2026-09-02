@@ -142,6 +142,18 @@ class SolicitacaoService:
             db, unidade_solicitante_id=unidade_filtro, status=status_filtro
         )
 
+    def listar_pendentes_atender(self, db: Session) -> list[SolicitacaoTransferencia]:
+        """Fila de solicitações pendentes de QUALQUER satélite pra CAF
+        (2026-09-02, pedido do cliente) — pro sino de notificação
+        avisar o Farmacêutico/Coordenador mesmo quando a unidade ativa
+        da sessão dele não é a CAF (achado do dia: farmacêutico só via
+        a aba "Atender Solicitações" quando já estava logado na CAF,
+        e sem aviso nenhum ficava sem saber que tinha fila esperando
+        enquanto operava outra unidade). Diferente de `listar` acima,
+        que espelha o escopo de quem está vendo — aqui é sempre a fila
+        real da CAF, não importa onde a sessão está."""
+        return self.repository.listar(db, unidade_solicitante_id=None, status=StatusSolicitacaoEnum.pendente)
+
     def aceitar(
         self,
         db: Session,

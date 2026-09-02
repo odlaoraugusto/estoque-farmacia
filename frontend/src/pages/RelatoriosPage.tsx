@@ -7,6 +7,7 @@ import { Letterhead } from '../components/Letterhead';
 import { formatarData, formatarDataHora, formatarMoeda, labelTipoMovimentacao } from '../lib/formato';
 import { SETORES_DISPENSACAO } from '../lib/setores';
 import type {
+  CategoriaMovimentacaoGeral,
   MovimentacaoDetalhadaOut,
   RelatorioAntimicrobianoOut,
   RelatorioConsumoMedicamentosOut,
@@ -15,6 +16,7 @@ import type {
   RelatorioEstoqueCriticoOut,
   RelatorioAuditoriaOut,
   RelatorioMovimentacaoTransferenciasOut,
+  RelatorioMovimentacoesGeralOut,
   RelatorioTransferenciasOut,
   RelatorioVencimentosProximosOut,
   TipoMovimentacao,
@@ -28,6 +30,7 @@ type AbaRelatorio =
   | 'transferencias'
   | 'movimentacao'
   | 'auditoria'
+  | 'movimentacoesGeral'
   | 'vencimentos'
   | 'critico'
   | 'antimicrobianos'
@@ -40,6 +43,7 @@ const TITULOS: Record<AbaRelatorio, string> = {
   transferencias: 'Rastreabilidade de transferências',
   movimentacao: 'Movimentação de transferências',
   auditoria: 'Trilha de auditoria',
+  movimentacoesGeral: 'Relatório Geral de Movimentações',
   vencimentos: 'Vencimentos próximos',
   critico: 'Estoque Crítico',
   antimicrobianos: 'Antimicrobianos',
@@ -53,6 +57,7 @@ const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
   transferencias: '/relatorios/transferencias',
   movimentacao: '/relatorios/movimentacao-transferencias',
   auditoria: '/relatorios/auditoria',
+  movimentacoesGeral: '/relatorios/movimentacoes-geral',
   vencimentos: '/relatorios/vencimentos-proximos',
   critico: '/relatorios/estoque-critico',
   antimicrobianos: '/relatorios/antimicrobianos',
@@ -61,7 +66,15 @@ const CAMINHO_RELATORIO: Record<AbaRelatorio, string> = {
 
 // Abas que usam o filtro de período (de/até) — mesmo padrão de Custo/
 // Auditoria já existente.
-const ABAS_COM_PERIODO: AbaRelatorio[] = ['custo', 'consumo', 'transferencias', 'movimentacao', 'auditoria'];
+const ABAS_COM_PERIODO: AbaRelatorio[] = ['custo', 'consumo', 'transferencias', 'movimentacao', 'auditoria', 'movimentacoesGeral'];
+
+const CATEGORIAS_MOVIMENTACAO_GERAL: { valor: CategoriaMovimentacaoGeral; rotulo: string }[] = [
+  { valor: 'entrada', rotulo: 'Entrada' },
+  { valor: 'saida', rotulo: 'Saída' },
+  { valor: 'transferencia', rotulo: 'Transferência' },
+  { valor: 'reposicao_carrinho', rotulo: 'Reposição de Carrinho' },
+  { valor: 'devolucao', rotulo: 'Devolução de Medicamento' },
+];
 
 // Espelha RELATORIO_AUDITORIA_DIAS_PADRAO/LIMITE_PADRAO (backend/app/core/
 // config.py) — só pra pré-preencher o filtro de período na tela (o backend
@@ -95,13 +108,14 @@ export function RelatoriosPage() {
     const abas: AbaRelatorio[] = [];
     if (permissoes.relatoriosFinanceiro) abas.push('consolidado', 'custo', 'consumo', 'transferencias');
     if (permissoes.relatoriosAuditoria) abas.push('auditoria');
+    if (permissoes.movimentacoesGeral) abas.push('movimentacoesGeral');
     // Movimentação de transferências (2026-08-31, pedido do cliente:
     // "todos têm acesso") — sem dado financeiro, liberado a qualquer
     // perfil, igual vencimentos-próximos logo abaixo.
     abas.push('movimentacao', 'vencimentos');
     if (permissoes.notificacaoEstoqueCritico) abas.push('critico', 'antimicrobianos', 'controlados');
     return abas;
-  }, [permissoes.relatoriosFinanceiro, permissoes.relatoriosAuditoria, permissoes.notificacaoEstoqueCritico]);
+  }, [permissoes.relatoriosFinanceiro, permissoes.relatoriosAuditoria, permissoes.movimentacoesGeral, permissoes.notificacaoEstoqueCritico]);
 
   const [abaAtiva, setAbaAtiva] = useState<AbaRelatorio>(abasDisponiveis[0] ?? 'vencimentos');
   useEffect(() => {
@@ -151,31 +165,36 @@ export function RelatoriosPage() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<TipoMovimentacao | ''>('');
+  const [categoriaMovGeralFiltro, setCategoriaMovGeralFiltro] = useState<CategoriaMovimentacaoGeral | ''>('');
   const [setorFiltro, setSetorFiltro] = useState('');
   const [dias, setDias] = useState('');
   const [diasMinimoAntimicrobiano, setDiasMinimoAntimicrobiano] = useState('');
   const [diasMinimoControlado, setDiasMinimoControlado] = useState('');
   const [limiteAuditoria, setLimiteAuditoria] = useState(AUDITORIA_LIMITE_PASSO);
+  const [limiteMovGeral, setLimiteMovGeral] = useState(AUDITORIA_LIMITE_PASSO);
 
-  // Ao entrar na aba de Auditoria, pré-preenche o período com os últimos
-  // 90 dias — o mesmo padrão que o backend aplicaria de qualquer forma se
-  // a data viesse vazia, só que aqui fica visível e ajustável em vez de
-  // acontecer escondido (2026-08-19, achado do diagnóstico de carga: sem
-  // isso a trilha inteira — 1192 linhas / 1,7MB no teste — vinha de uma
-  // vez só). Só preenche se o campo ainda estiver vazio, pra não pisar
-  // numa data que o usuário já tenha escolhido.
+  // Ao entrar na aba de Auditoria/Relatório Geral de Movimentações,
+  // pré-preenche o período com os últimos 90 dias — o mesmo padrão que
+  // o backend aplicaria de qualquer forma se a data viesse vazia, só que
+  // aqui fica visível e ajustável em vez de acontecer escondido
+  // (2026-08-19, achado do diagnóstico de carga: sem isso a trilha
+  // inteira — 1192 linhas / 1,7MB no teste — vinha de uma vez só). Só
+  // preenche se o campo ainda estiver vazio, pra não pisar numa data que
+  // o usuário já tenha escolhido.
   useEffect(() => {
-    if (abaAtiva === 'auditoria' && !dataInicio) {
+    if ((abaAtiva === 'auditoria' || abaAtiva === 'movimentacoesGeral') && !dataInicio) {
       setDataInicio(dataIsoHaDias(AUDITORIA_DIAS_PADRAO));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abaAtiva]);
 
   // Trocar de aba/filtro/unidade reseta quanto já foi "carregado a mais"
-  // na Auditoria — senão um "carregar mais" antigo vazaria pro filtro novo.
+  // na Auditoria/Relatório Geral — senão um "carregar mais" antigo
+  // vazaria pro filtro novo.
   useEffect(() => {
     setLimiteAuditoria(AUDITORIA_LIMITE_PASSO);
-  }, [abaAtiva, unidadeFiltro, dataInicio, dataFim, tipoFiltro]);
+    setLimiteMovGeral(AUDITORIA_LIMITE_PASSO);
+  }, [abaAtiva, unidadeFiltro, dataInicio, dataFim, tipoFiltro, categoriaMovGeralFiltro]);
 
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -185,6 +204,7 @@ export function RelatoriosPage() {
   const [transferencias, setTransferencias] = useState<RelatorioTransferenciasOut | null>(null);
   const [movimentacao, setMovimentacao] = useState<RelatorioMovimentacaoTransferenciasOut | null>(null);
   const [auditoria, setAuditoria] = useState<RelatorioAuditoriaOut | null>(null);
+  const [movimentacoesGeral, setMovimentacoesGeral] = useState<RelatorioMovimentacoesGeralOut | null>(null);
   const [vencimentos, setVencimentos] = useState<RelatorioVencimentosProximosOut | null>(null);
   const [critico, setCritico] = useState<RelatorioEstoqueCriticoOut | null>(null);
   const [antimicrobianos, setAntimicrobianos] = useState<RelatorioAntimicrobianoOut | null>(null);
@@ -247,6 +267,19 @@ export function RelatoriosPage() {
                   },
                 })
                 .then(setAuditoria)
+            : abaAtiva === 'movimentacoesGeral'
+              ? api
+                  .get<RelatorioMovimentacoesGeralOut>('/relatorios/movimentacoes-geral', {
+                    token,
+                    params: {
+                      unidade_id: unidadeId,
+                      categoria: categoriaMovGeralFiltro || undefined,
+                      data_inicio: dataInicio || undefined,
+                      data_fim: dataFim || undefined,
+                      limit: limiteMovGeral,
+                    },
+                  })
+                  .then(setMovimentacoesGeral)
             : abaAtiva === 'vencimentos'
               ? api
                   .get<RelatorioVencimentosProximosOut>('/relatorios/vencimentos-proximos', {
@@ -288,6 +321,8 @@ export function RelatoriosPage() {
     diasMinimoAntimicrobiano,
     diasMinimoControlado,
     limiteAuditoria,
+    categoriaMovGeralFiltro,
+    limiteMovGeral,
   ]);
 
   const [exportando, setExportando] = useState<'pdf' | 'excel' | null>(null);
@@ -305,6 +340,7 @@ export function RelatoriosPage() {
           data_inicio: ABAS_COM_PERIODO.includes(abaAtiva) ? dataInicio || undefined : undefined,
           data_fim: ABAS_COM_PERIODO.includes(abaAtiva) ? dataFim || undefined : undefined,
           tipo: abaAtiva === 'auditoria' ? tipoFiltro || undefined : undefined,
+          categoria: abaAtiva === 'movimentacoesGeral' ? categoriaMovGeralFiltro || undefined : undefined,
           setor_consumidor: abaAtiva === 'consumo' ? setorFiltro || undefined : undefined,
           dias: abaAtiva === 'vencimentos' ? dias || undefined : undefined,
           dias_minimo:
@@ -329,6 +365,7 @@ export function RelatoriosPage() {
     (abaAtiva === 'transferencias' && transferencias?.metadados) ||
     (abaAtiva === 'movimentacao' && movimentacao?.metadados) ||
     (abaAtiva === 'auditoria' && auditoria?.metadados) ||
+    (abaAtiva === 'movimentacoesGeral' && movimentacoesGeral?.metadados) ||
     (abaAtiva === 'vencimentos' && vencimentos?.metadados) ||
     (abaAtiva === 'antimicrobianos' && antimicrobianos?.metadados) ||
     (abaAtiva === 'controlados' && controlados?.metadados) ||
@@ -378,7 +415,7 @@ export function RelatoriosPage() {
           </button>
         </div>
         <div className="grid g3" style={{ marginBottom: 18 }}>
-          {(permissoes.relatoriosFinanceiro || abaAtiva === 'movimentacao') && (
+          {(permissoes.relatoriosFinanceiro || abaAtiva === 'movimentacao' || abaAtiva === 'movimentacoesGeral') && (
             <div className="field">
               <label htmlFor="filtro-unidade">Unidade</label>
               <select id="filtro-unidade" value={unidadeFiltro} onChange={(e) => setUnidadeFiltro(e.target.value)}>
@@ -413,6 +450,23 @@ export function RelatoriosPage() {
                 <option value="saida">Saída</option>
                 <option value="descarte">Descarte</option>
                 <option value="ajuste">Ajuste</option>
+              </select>
+            </div>
+          )}
+          {abaAtiva === 'movimentacoesGeral' && (
+            <div className="field">
+              <label htmlFor="filtro-categoria-mov-geral">Tipo de movimentação</label>
+              <select
+                id="filtro-categoria-mov-geral"
+                value={categoriaMovGeralFiltro}
+                onChange={(e) => setCategoriaMovGeralFiltro(e.target.value as CategoriaMovimentacaoGeral | '')}
+              >
+                <option value="">Todas</option>
+                {CATEGORIAS_MOVIMENTACAO_GERAL.map((c) => (
+                  <option key={c.valor} value={c.valor}>
+                    {c.rotulo}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -474,6 +528,9 @@ export function RelatoriosPage() {
         {!carregando && abaAtiva === 'movimentacao' && <TabelaMovimentacaoTransferencias dados={movimentacao} />}
         {!carregando && abaAtiva === 'auditoria' && (
           <TabelaAuditoria dados={auditoria} onCarregarMais={() => setLimiteAuditoria((l) => l + AUDITORIA_LIMITE_PASSO)} />
+        )}
+        {!carregando && abaAtiva === 'movimentacoesGeral' && (
+          <TabelaMovimentacoesGeral dados={movimentacoesGeral} onCarregarMais={() => setLimiteMovGeral((l) => l + AUDITORIA_LIMITE_PASSO)} />
         )}
         {!carregando && abaAtiva === 'vencimentos' && <TabelaVencimentos dados={vencimentos} veTodasUnidades={veTodasUnidades} />}
         {!carregando && abaAtiva === 'critico' && <TabelaEstoqueCritico dados={critico} />}
@@ -772,6 +829,10 @@ function detalheMovimentacao(mov: MovimentacaoDetalhadaOut): string {
       const sinal = mov.quantidade > 0 ? `+${mov.quantidade}` : String(mov.quantidade);
       return `${sinal} un. — ${mov.motivo_ajuste ?? '—'}`;
     }
+    case 'correcao_valor':
+      return mov.motivo_ajuste ?? '—';
+    case 'entrada':
+      return mov.lote.numero_nota_fiscal ? `NF ${mov.lote.numero_nota_fiscal}` : '—';
     default:
       return '—';
   }
@@ -809,6 +870,82 @@ function TabelaAuditoria({ dados, onCarregarMais }: { dados: RelatorioAuditoriaO
                 <td className="mono">{formatarDataHora(mov.data_hora)}</td>
                 <td>{labelTipoMovimentacao(mov.tipo)}</td>
                 <td className="mono">{mov.lote.numero_lote}</td>
+                <td>{mov.usuario.nome}</td>
+                <td>{detalheMovimentacao(mov)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {temMais && (
+        <div className="actions" style={{ marginTop: 12 }}>
+          <button type="button" className="btn ghost" onClick={onCarregarMais}>
+            Carregar mais {Math.min(200, dados.total - dados.itens.length)}
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+const CATEGORIA_MOVIMENTACAO_GERAL_LABEL: Record<CategoriaMovimentacaoGeral, string> = {
+  entrada: 'Entrada',
+  saida: 'Saída',
+  transferencia: 'Transferência',
+  reposicao_carrinho: 'Reposição de Carrinho',
+  devolucao: 'Devolução de Medicamento',
+};
+
+/** Entrada, Saída, Transferência, Reposição de Carrinho e Devolução de
+ * Medicamento numa aba só (2026-09-02, pedido do cliente) — mesmo
+ * padrão de paginação de `TabelaAuditoria` acima, com Medicamento/
+ * Quantidade em destaque (o foco aqui é "o que" e "quanto" moveu). */
+function TabelaMovimentacoesGeral({
+  dados,
+  onCarregarMais,
+}: {
+  dados: RelatorioMovimentacoesGeralOut | null;
+  onCarregarMais: () => void;
+}) {
+  if (!dados) return null;
+  const temMais = dados.itens.length < dados.total;
+  return (
+    <>
+      <p className="note" style={{ marginTop: 0 }}>
+        Mostrando {dados.itens.length} de {dados.total} movimentação(ões).
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Categoria</th>
+              <th>Data/hora</th>
+              <th>Medicamento</th>
+              <th>Lote</th>
+              <th className="num">Qtd.</th>
+              <th>Unid. Origem</th>
+              <th>Unid. Destino</th>
+              <th>Usuário</th>
+              <th>Detalhe</th>
+            </tr>
+          </thead>
+          <tbody>
+            {dados.itens.length === 0 && (
+              <tr>
+                <td colSpan={9} className="vazio-tabela">
+                  Nenhuma movimentação no período.
+                </td>
+              </tr>
+            )}
+            {dados.itens.map((mov) => (
+              <tr key={mov.id}>
+                <td>{CATEGORIA_MOVIMENTACAO_GERAL_LABEL[mov.categoria]}</td>
+                <td className="mono">{formatarDataHora(mov.data_hora)}</td>
+                <td>{mov.lote.medicamento.nome}</td>
+                <td className="mono">{mov.lote.numero_lote}</td>
+                <td className="num">{mov.quantidade}</td>
+                <td>{mov.unidade_origem?.nome ?? '—'}</td>
+                <td>{mov.unidade_destino?.nome ?? '—'}</td>
                 <td>{mov.usuario.nome}</td>
                 <td>{detalheMovimentacao(mov)}</td>
               </tr>

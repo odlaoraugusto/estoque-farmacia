@@ -50,6 +50,7 @@ export interface PermissaoPerfil {
   transferencia_enviar: boolean;
   reposicao_carrinho: boolean;
   relatorios_financeiro: boolean;
+  movimentacoes_geral: boolean;
 }
 
 export interface UsuarioMe {
@@ -382,6 +383,26 @@ export interface RelatorioAuditoriaOut {
   limit: number | null;
   offset: number;
   itens: MovimentacaoDetalhadaOut[];
+}
+
+/** Relatório Geral de Movimentações (2026-09-02) — Entrada, Saída,
+ * Transferência, Reposição de Carrinho e Devolução de Medicamento numa
+ * aba só. As duas últimas NÃO são um `tipo` de movimentação próprio no
+ * banco — são categorias derivadas (ver
+ * RelatorioService._categorizar_movimentacao no backend), por isso
+ * `categoria` é um campo à parte de `tipo`. */
+export type CategoriaMovimentacaoGeral = 'entrada' | 'saida' | 'transferencia' | 'reposicao_carrinho' | 'devolucao';
+
+export interface MovimentacaoGeralOut extends MovimentacaoDetalhadaOut {
+  categoria: CategoriaMovimentacaoGeral;
+}
+
+export interface RelatorioMovimentacoesGeralOut {
+  metadados: RelatorioMetadados;
+  total: number;
+  limit: number | null;
+  offset: number;
+  itens: MovimentacaoGeralOut[];
 }
 
 export interface RelatorioVencimentosProximosOut {

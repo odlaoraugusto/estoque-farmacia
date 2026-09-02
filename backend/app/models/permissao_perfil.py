@@ -20,3 +20,4 @@ class PermissaoPerfil(Base):
     transferencia_enviar = Column(Boolean, nullable=False, server_default="false")
     reposicao_carrinho = Column(Boolean, nullable=False, server_default="false")
     relatorios_financeiro = Column(Boolean, nullable=False, server_default="false")
+    movimentacoes_geral = Column(Boolean, nullable=False, server_default="false")

@@ -67,6 +67,20 @@ def listar_solicitacoes(
     return service.listar(db, usuario, unidade_ativa_id, status)
 
 
+@router.get("/pendentes-atender", response_model=list[SolicitacaoDetalhadaOut])
+def listar_pendentes_atender(
+    usuario: UsuarioMe = Depends(_PODE_ATENDER),
+    db: Session = Depends(get_db),
+):
+    """Fila real da CAF, pro sino de notificação (2026-09-02, pedido do
+    cliente) — sem depender de `unidade_ativa_id`: quem tem a permissão
+    de atender precisa saber que existe fila esperando mesmo quando a
+    unidade ativa da sessão não é a CAF no momento (só pra confirmar/
+    recusar de fato é que precisa trocar pra CAF antes, isso não muda
+    aqui)."""
+    return service.listar_pendentes_atender(db)
+
+
 @router.get("/{solicitacao_id}/comprovante")
 def comprovante_solicitacao(
     solicitacao_id: int,

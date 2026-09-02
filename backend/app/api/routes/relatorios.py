@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.database.session import get_db
 from app.models.enums import PerfilEnum, TipoMovimentacaoEnum
 from app.schemas.exportacao import FormatoExportacao
+from app.schemas.movimentacao import CategoriaMovimentacaoGeral
 from app.schemas.relatorio import (
     RelatorioAntimicrobianoOut,
     RelatorioAtividadeRecenteOut,
@@ -18,6 +19,7 @@ from app.schemas.relatorio import (
     RelatorioEstoqueConsolidadoOut,
     RelatorioEstoqueCriticoOut,
     RelatorioMovimentacaoTransferenciasOut,
+    RelatorioMovimentacoesGeralOut,
     RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
@@ -30,6 +32,7 @@ from app.services.exportacao.relatorio_tabela_builder import (
     tabela_estoque_consolidado,
     tabela_estoque_critico,
     tabela_movimentacao_transferencias,
+    tabela_movimentacoes_geral,
     tabela_transferencias,
     tabela_vencimentos_proximos,
 )
@@ -56,6 +59,13 @@ _PODE_VER_FINANCEIRO_PACIENTE = exigir_perfis(PerfilEnum.farmaceutico, PerfilEnu
 
 # Trilha de auditoria completa: só Coordenador.
 _PODE_VER_AUDITORIA = exigir_perfis(PerfilEnum.coordenador)
+
+# Relatório Geral de Movimentações (2026-09-02, pedido do cliente):
+# controlado pela matriz configurável, mesmo espírito de
+# `_PODE_VER_FINANCEIRO` — quem tem a chave mas é Atendente ainda fica
+# restrito à própria unidade ativa via `resolver_unidade_escopo` abaixo,
+# não passa a enxergar o hospital inteiro.
+_PODE_VER_MOVIMENTACOES_GERAL = exigir_permissao("movimentacoes_geral")
 
 
 @router.get("/estoque-consolidado", response_model=RelatorioEstoqueConsolidadoOut)
@@ -172,6 +182,82 @@ def relatorio_auditoria(
         return relatorio
 
     return exportar_relatorio(formato, "auditoria", tabela_auditoria(relatorio))
+
+
+@router.get("/movimentacoes-geral", response_model=RelatorioMovimentacoesGeralOut)
+def relatorio_movimentacoes_geral(
+    categoria: CategoriaMovimentacaoGeral | None = None,
+    unidade_id: int | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    formato: FormatoExportacao | None = None,
+    usuario: UsuarioMe = Depends(_PODE_VER_MOVIMENTACOES_GERAL),
+    db: Session = Depends(get_db),
+):
+    """Entrada, Saída, Transferência, Reposição de Carrinho e Devolução
+    de Medicamento numa aba só (2026-09-02, pedido do cliente),
+    filtrável por qualquer uma delas via `categoria`. Mesmo período
+    padrão/paginação/teto de `_AUDITORIA_LIMITE_MAXIMO` da Trilha de
+    Auditoria — filtro de unidade aqui passa por
+    `resolver_unidade_escopo` (diferente de `/auditoria`, que é
+    Coordenador-only e livre): Atendente com a chave liberada ainda fica
+    restrito à própria unidade ativa."""
+    unidade_escopo = resolver_unidade_escopo(usuario, unidade_id)
+
+    if data_inicio is None and data_fim is None:
+        data_inicio = date.today() - timedelta(days=settings.RELATORIO_AUDITORIA_DIAS_PADRAO)
+
+    if formato is not None:
+        limite = None
+    elif limit is not None:
+        limite = min(limit, _AUDITORIA_LIMITE_MAXIMO)
+    else:
+        limite = settings.RELATORIO_AUDITORIA_LIMITE_PADRAO
+
+    relatorio = service.movimentacoes_geral(
+        db, usuario, categoria, unidade_escopo, data_inicio, data_fim, limite, offset
+    )
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(formato, "movimentacoes-geral", tabela_movimentacoes_geral(relatorio))
+
+
+@router.get("/minhas-movimentacoes", response_model=RelatorioAuditoriaOut)
+def relatorio_minhas_movimentacoes(
+    tipo: TipoMovimentacaoEnum | None = None,
+    data_inicio: date | None = None,
+    data_fim: date | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+    formato: FormatoExportacao | None = None,
+    usuario: UsuarioMe = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """"Minhas Ações" (2026-09-01, pedido do cliente: "conferir as coisas
+    que fez") — qualquer perfil autenticado, sempre escopado ao próprio
+    usuário logado (usuario_id nunca vem de fora). Diferente de
+    `/auditoria` (trilha completa, só Coordenador) — mesmo período
+    padrão/paginação/teto de `_AUDITORIA_LIMITE_MAXIMO`."""
+    if data_inicio is None and data_fim is None:
+        data_inicio = date.today() - timedelta(days=settings.RELATORIO_AUDITORIA_DIAS_PADRAO)
+
+    if formato is not None:
+        limite = None
+    elif limit is not None:
+        limite = min(limit, _AUDITORIA_LIMITE_MAXIMO)
+    else:
+        limite = settings.RELATORIO_AUDITORIA_LIMITE_PADRAO
+
+    relatorio = service.minhas_movimentacoes(db, usuario, tipo, data_inicio, data_fim, limite, offset)
+
+    if formato is None:
+        return relatorio
+
+    return exportar_relatorio(formato, "minhas-movimentacoes", tabela_auditoria(relatorio))
 
 
 @router.get("/estoque-critico", response_model=RelatorioEstoqueCriticoOut)

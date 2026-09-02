@@ -12,6 +12,7 @@ from app.schemas.relatorio import (
     RelatorioEstoqueCriticoOut,
     RelatorioMetadados,
     RelatorioMovimentacaoTransferenciasOut,
+    RelatorioMovimentacoesGeralOut,
     RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
@@ -34,6 +35,14 @@ _TIPO_MOVIMENTACAO_LABEL = {
     TipoMovimentacaoEnum.transferencia: "Transferência",
     TipoMovimentacaoEnum.saida: "Saída",
     TipoMovimentacaoEnum.descarte: "Descarte",
+}
+
+_CATEGORIA_MOVIMENTACAO_GERAL_LABEL = {
+    "entrada": "Entrada",
+    "saida": "Saída",
+    "transferencia": "Transferência",
+    "reposicao_carrinho": "Reposição de Carrinho",
+    "devolucao": "Devolução de Medicamento",
 }
 
 _STATUS_DESCARTE_LABEL = {
@@ -423,6 +432,47 @@ def tabela_auditoria(relatorio: RelatorioAuditoriaOut) -> TabelaRelatorio:
         larguras_relativas=[
             1.3, 0.8, 1.6, 0.8, 1.0, 1.0, 0.7, 0.8, 1.1, 1.3, 0.9, 1.1, 1.1, 1.1, 1.1, 1.3,
         ],
+    )
+
+
+def tabela_movimentacoes_geral(relatorio: RelatorioMovimentacoesGeralOut) -> TabelaRelatorio:
+    """Entrada, Saída, Transferência, Reposição de Carrinho e Devolução
+    de Medicamento numa aba só (2026-09-02, pedido do cliente) — cópia de
+    `tabela_auditoria` acima, com a categoria derivada (`item.categoria`,
+    ver RelatorioService._categorizar_movimentacao) no lugar de `tipo`
+    cru, e com Medicamento/Quantidade em destaque (o foco aqui é "o que"
+    e "quanto" moveu, não só a trilha de auditoria bruta)."""
+    colunas = [
+        "Categoria",
+        "Data/Hora",
+        "Medicamento",
+        "Nº Lote",
+        "Quantidade",
+        "Unid. Origem",
+        "Unid. Destino",
+        "Setor Consumidor",
+        "Usuário",
+    ]
+    linhas = [
+        [
+            _CATEGORIA_MOVIMENTACAO_GERAL_LABEL.get(m.categoria, m.categoria),
+            formatar_data_hora(m.data_hora),
+            m.lote.medicamento.nome,
+            m.lote.numero_lote,
+            str(m.quantidade),
+            m.unidade_origem.nome if m.unidade_origem else "",
+            m.unidade_destino.nome if m.unidade_destino else "",
+            _texto(m.setor_consumidor),
+            m.usuario.nome,
+        ]
+        for m in relatorio.itens
+    ]
+
+    return TabelaRelatorio(
+        metadados=relatorio.metadados,
+        colunas=colunas,
+        linhas=linhas,
+        larguras_relativas=[1.2, 1.3, 1.6, 0.9, 0.8, 1.0, 1.0, 1.1, 1.1],
     )
 
 

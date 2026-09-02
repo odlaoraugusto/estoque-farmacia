@@ -5,6 +5,7 @@ import { classeRailUnidade, labelPerfil } from '../lib/formato';
 import { NotificacaoEstoquePopup } from './NotificacaoEstoquePopup';
 import { NotificacaoRessuprimentoCarrinhoPopup } from './NotificacaoRessuprimentoCarrinhoPopup';
 import { NotificacaoDevolucaoMedicamentoPopup } from './NotificacaoDevolucaoMedicamentoPopup';
+import { NotificacaoSolicitacaoTransferenciaPopup } from './NotificacaoSolicitacaoTransferenciaPopup';
 
 /** Casca da aplicação pós-login: barra institucional no topo +
  * sidebar de navegação + conteúdo da tela. Itens de menu sem permissão
@@ -29,6 +30,7 @@ export function Layout() {
         <NotificacaoEstoquePopup />
         <NotificacaoRessuprimentoCarrinhoPopup />
         <NotificacaoDevolucaoMedicamentoPopup />
+        <NotificacaoSolicitacaoTransferenciaPopup />
       </div>
 
       <div className="app">

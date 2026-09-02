@@ -110,12 +110,18 @@ class MovimentacaoRepository:
         data_fim: date | None = None,
         limit: int | None = None,
         offset: int = 0,
+        usuario_id: int | None = None,
     ) -> tuple[list[Movimentacao], int]:
         """`limit=None` devolve tudo que bate com o filtro, sem paginar —
         usado só na exportação (PDF/Excel), onde truncar silenciosamente
         seria pior que a tela lenta que a paginação existe pra evitar. A
         tela (JSON puro) sempre manda um `limit`. `total` é a contagem
-        ANTES de aplicar limit/offset, pra a tela saber quanto falta."""
+        ANTES de aplicar limit/offset, pra a tela saber quanto falta.
+
+        `usuario_id` (2026-09-01, pedido do cliente: "Minhas Ações") —
+        filtra só o que aquele usuário registrou (`Movimentacao.
+        usuario_id`), usado pelo self-service, nunca pela trilha completa
+        do Coordenador."""
         query = db.query(Movimentacao)
 
         if tipo is not None:
@@ -126,6 +132,9 @@ class MovimentacaoRepository:
                 (Movimentacao.unidade_origem_id == unidade_id)
                 | (Movimentacao.unidade_destino_id == unidade_id)
             )
+
+        if usuario_id is not None:
+            query = query.filter(Movimentacao.usuario_id == usuario_id)
 
         if data_inicio is not None:
             query = query.filter(
@@ -144,6 +153,49 @@ class MovimentacaoRepository:
             query = query.offset(offset).limit(limit)
 
         return query.all(), total
+
+    def listar_geral(
+        self,
+        db: Session,
+        unidade_id: int | None = None,
+        data_inicio: date | None = None,
+        data_fim: date | None = None,
+    ) -> list[Movimentacao]:
+        """Base do Relatório Geral de Movimentações (2026-09-02, pedido do
+        cliente) — Entrada, Saída, Transferência, Reposição de Carrinho e
+        Devolução de Medicamento juntas numa aba só. As 5 modalidades já
+        caem em `tipo` in (entrada, saida, transferencia); descarte/
+        ajuste/correcao_valor ficam fora (continuam só na Trilha de
+        Auditoria). Reposição de Carrinho e Devolução não são valores
+        próprios de `tipo` — são derivadas depois, em
+        `RelatorioService._categorizar_movimentacao`, a partir de
+        `unidade.tipo`/`Lote.origem` (por isso esta consulta não pagina:
+        a paginação real só pode acontecer depois de categorizar cada
+        linha, que depende dos relacionamentos já carregados via
+        `lazy='selectin'`)."""
+        query = db.query(Movimentacao).filter(
+            Movimentacao.tipo.in_(
+                [TipoMovimentacaoEnum.entrada, TipoMovimentacaoEnum.saida, TipoMovimentacaoEnum.transferencia]
+            )
+        )
+
+        if unidade_id is not None:
+            query = query.filter(
+                (Movimentacao.unidade_origem_id == unidade_id)
+                | (Movimentacao.unidade_destino_id == unidade_id)
+            )
+
+        if data_inicio is not None:
+            query = query.filter(
+                Movimentacao.data_hora >= datetime.combine(data_inicio, datetime.min.time())
+            )
+
+        if data_fim is not None:
+            query = query.filter(
+                Movimentacao.data_hora <= datetime.combine(data_fim, datetime.max.time())
+            )
+
+        return query.order_by(Movimentacao.data_hora.desc()).all()
 
     def listar_saidas_vigilancia(
         self,

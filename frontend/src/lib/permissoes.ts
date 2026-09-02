@@ -76,6 +76,13 @@ export function permissoesDe(usuario: UsuarioMe | null, matriz: PermissaoPerfil[
     relatoriosFinanceiro,
     relatoriosAuditoria: perfil === 'coordenador',
 
+    // Relatório Geral de Movimentações (2026-09-02: Entrada/Saída/
+    // Transferência/Reposição de Carrinho/Devolução numa aba só) —
+    // controlado pela matriz configurável, chave `movimentacoes_geral`.
+    // Diferente de `relatoriosAuditoria` (fixo em Coordenador): aqui o
+    // Admin decide quem vê, igual `relatoriosFinanceiro`.
+    movimentacoesGeral: temPermissao(usuario, matriz, 'movimentacoes_geral'),
+
     // Consolidado multi-unidade nos relatórios/estoque — continua fixo em
     // Farmacêutico/Coordenador (NÃO entrou na matriz, 2026-08-31: decisão
     // deliberada — mesmo que o Admin libere `relatorios_financeiro` pro
@@ -125,6 +132,15 @@ export function permissoesDe(usuario: UsuarioMe | null, matriz: PermissaoPerfil[
     // baixo dos panos, ver app/api/routes/solicitacoes.py, _PODE_ATENDER),
     // e só na CAF (regra estrutural).
     atenderSolicitacao: temPermissao(usuario, matriz, 'transferencia_enviar') && unidadeEhCaf(usuario),
+
+    // Notificação (sino) de solicitação pendente pra CAF (2026-09-02,
+    // achado do cliente: farmacêutico só ficava sabendo que tinha fila
+    // esperando quando por acaso já estava logado na CAF — sem aviso
+    // nenhum enquanto operava outra unidade). Mesma chave de
+    // `atenderSolicitacao`, mas SEM a restrição de unidade — é só um
+    // aviso, a ação de aceitar/recusar em si continua exigindo estar na
+    // CAF.
+    notificacaoSolicitacaoTransferencia: temPermissao(usuario, matriz, 'transferencia_enviar'),
 
     // Ajuste de estoque — quantidade (2026-08-31: controlado pela matriz,
     // chave `ajustar_estoque`). Corrige saldo fora dos fluxos normais

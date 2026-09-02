@@ -4,7 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 from app.schemas.lote import LoteDetalhadoOut
-from app.schemas.movimentacao import MovimentacaoDetalhadaOut
+from app.schemas.movimentacao import MovimentacaoDetalhadaOut, MovimentacaoGeralOut
 
 
 class RelatorioMetadados(BaseModel):
@@ -75,6 +75,18 @@ class RelatorioAuditoriaOut(BaseModel):
     limit: int | None
     offset: int
     itens: list[MovimentacaoDetalhadaOut]
+
+
+class RelatorioMovimentacoesGeralOut(BaseModel):
+    """Entrada, Saída, Transferência, Reposição de Carrinho e Devolução
+    de Medicamento numa aba só (2026-09-02, pedido do cliente) — mesmo
+    contrato de paginação de `RelatorioAuditoriaOut`."""
+
+    metadados: RelatorioMetadados
+    total: int
+    limit: int | None
+    offset: int
+    itens: list[MovimentacaoGeralOut]
 
 
 class RelatorioVencimentosProximosOut(BaseModel):

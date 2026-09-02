@@ -5,14 +5,14 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.enums import CategoriaSaidaEnum, TipoMovimentacaoEnum
+from app.models.enums import CategoriaSaidaEnum, OrigemEnum, TipoMovimentacaoEnum, TipoUnidadeEnum
 from app.models.movimentacao import Movimentacao
 from app.repositories.lote_repository import LoteRepository
 from app.repositories.medicamento_repository import MedicamentoRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
 from app.repositories.unidade_repository import UnidadeRepository
 from app.schemas.lote import LoteDetalhadoOut
-from app.schemas.movimentacao import MovimentacaoDetalhadaOut
+from app.schemas.movimentacao import CategoriaMovimentacaoGeral, MovimentacaoDetalhadaOut, MovimentacaoGeralOut
 from app.schemas.relatorio import (
     AtividadeRecenteItem,
     DoseAntimicrobianoItem,
@@ -31,6 +31,7 @@ from app.schemas.relatorio import (
     MovimentacaoTransferenciaItem,
     RelatorioMetadados,
     RelatorioMovimentacaoTransferenciasOut,
+    RelatorioMovimentacoesGeralOut,
     RelatorioTransferenciasOut,
     RelatorioVencimentosProximosOut,
 )
@@ -83,6 +84,17 @@ class RelatorioService:
         lotes = self.lote_repository.listar(
             db, unidade_id=unidade_id, apenas_disponivel=True, ordenar_fefo=False
         )
+
+        # `ordenar_fefo=False` acima não aplica NENHUM `ORDER BY` (ver
+        # LoteRepository.listar) — sem isso o Postgres devolve os lotes em
+        # ordem física/não determinística, então um lote recém-criado
+        # (entrada nova) podia "pular" pro fim da lista em vez de ficar
+        # agrupado com os outros do mesmo medicamento (2026-09-02, achado
+        # do cliente: entrada de Ivermectina sumindo do meio do
+        # Consolidado). Agrupa por nome do medicamento (ordem alfabética,
+        # como o usuário já espera ao escanear a lista) e, dentro do
+        # mesmo medicamento, pela validade mais próxima primeiro (FEFO).
+        lotes = sorted(lotes, key=lambda l: (l.medicamento.nome.lower(), l.data_validade))
 
         itens = []
         valor_total_geral = Decimal("0")
@@ -242,6 +254,96 @@ class RelatorioService:
                 MovimentacaoDetalhadaOut.visivel_para(m, usuario)
                 for m in movimentacoes
             ],
+        )
+
+    def minhas_movimentacoes(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        tipo: TipoMovimentacaoEnum | None,
+        data_inicio: date | None,
+        data_fim: date | None,
+        limit: int | None,
+        offset: int = 0,
+    ) -> RelatorioAuditoriaOut:
+        """"Minhas Ações" (2026-09-01, pedido do cliente: "conferir as
+        coisas que fez") — mesma consulta/paginação de `auditoria()`
+        acima, mas ABERTA A QUALQUER PERFIL (não só Coordenador) porque
+        `usuario_id` vem sempre forçado ao próprio usuário logado, nunca
+        um filtro livre — cada um só vê o que registrou, não a trilha dos
+        outros."""
+        movimentacoes, total = self.movimentacao_repository.listar_auditoria(
+            db, tipo, None, data_inicio, data_fim, limit, offset, usuario_id=usuario.id
+        )
+
+        return RelatorioAuditoriaOut(
+            metadados=self._metadados(usuario, "Minhas Ações", None, db),
+            total=total,
+            limit=limit,
+            offset=offset,
+            itens=[
+                MovimentacaoDetalhadaOut.visivel_para(m, usuario)
+                for m in movimentacoes
+            ],
+        )
+
+    def _categorizar_movimentacao(self, m: Movimentacao) -> CategoriaMovimentacaoGeral:
+        """Deriva a categoria do Relatório Geral de Movimentações
+        (2026-09-02) a partir de dados que já existem — nenhuma das 5
+        modalidades pedidas pelo cliente precisou de coluna nova:
+
+        - Devolução de Medicamento: `tipo=entrada` com o lote marcado
+          `origem=devolucao` (ver SolicitacaoDevolucaoMedicamentoService.
+          confirmar).
+        - Reposição de Carrinho: `tipo` saida/transferencia envolvendo
+          uma unidade `tipo=carrinho` (origem OU destino) — é o que
+          `RessuprimentoCarrinhoService.confirmar_saida`/
+          `confirmar_transferencia` gravam.
+        - Entrada/Saída/Transferência "puras": o que sobra."""
+        if m.tipo == TipoMovimentacaoEnum.entrada:
+            return "devolucao" if m.lote.origem == OrigemEnum.devolucao else "entrada"
+
+        origem_carrinho = m.unidade_origem is not None and m.unidade_origem.tipo == TipoUnidadeEnum.carrinho
+        destino_carrinho = m.unidade_destino is not None and m.unidade_destino.tipo == TipoUnidadeEnum.carrinho
+        if m.tipo in (TipoMovimentacaoEnum.saida, TipoMovimentacaoEnum.transferencia) and (
+            origem_carrinho or destino_carrinho
+        ):
+            return "reposicao_carrinho"
+
+        return "saida" if m.tipo == TipoMovimentacaoEnum.saida else "transferencia"
+
+    def movimentacoes_geral(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        categoria: CategoriaMovimentacaoGeral | None,
+        unidade_id: int | None,
+        data_inicio: date | None,
+        data_fim: date | None,
+        limit: int | None,
+        offset: int = 0,
+    ) -> RelatorioMovimentacoesGeralOut:
+        """Entrada, Saída, Transferência, Reposição de Carrinho e
+        Devolução de Medicamento numa aba só (2026-09-02, pedido do
+        cliente). A paginação só pode acontecer DEPOIS de categorizar —
+        `reposicao_carrinho`/`devolucao` não são um `tipo` de linha no
+        banco, só dá pra saber quantas linhas viram cada categoria depois
+        de olhar cada uma (ver `MovimentacaoRepository.listar_geral`)."""
+        movimentacoes = self.movimentacao_repository.listar_geral(db, unidade_id, data_inicio, data_fim)
+
+        categorizadas = [(m, self._categorizar_movimentacao(m)) for m in movimentacoes]
+        if categoria is not None:
+            categorizadas = [(m, c) for m, c in categorizadas if c == categoria]
+
+        total = len(categorizadas)
+        pagina = categorizadas[offset : offset + limit] if limit is not None else categorizadas
+
+        return RelatorioMovimentacoesGeralOut(
+            metadados=self._metadados(usuario, "Relatório Geral de Movimentações", unidade_id, db),
+            total=total,
+            limit=limit,
+            offset=offset,
+            itens=[MovimentacaoGeralOut.visivel_para(m, usuario, c) for m, c in pagina],
         )
 
     def estoque_critico(

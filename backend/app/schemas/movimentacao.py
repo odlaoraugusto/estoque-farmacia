@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -159,6 +159,43 @@ class AjusteValorCreate(BaseModel):
     motivo: str
 
 
+class AjusteNotaFiscalCreate(BaseModel):
+    """Corrigir nº da nota fiscal e/ou AFM de um lote (2026-09-01, pedido
+    do cliente: "conferir e corrigir o que fez") — não mexe em saldo,
+    valor, nº do lote ou validade. Diferente de `AjusteValorCreate`/
+    `AjusteLoteCreate` (Farmacêutico/Coordenador via matriz de
+    permissões), esta é self-service: só quem registrou a Entrada pode
+    corrigir a própria nota fiscal (ver
+    `AjusteService.ajustar_nota_fiscal`), qualquer perfil."""
+
+    lote_id: int
+    numero_nota_fiscal: str | None = None
+    numero_afm: str | None = None
+    motivo: str = Field(min_length=1)
+
+
+class CorrigirSetorSaidaCreate(BaseModel):
+    """Corrigir o setor consumidor de uma Saída já registrada (2026-09-01,
+    pedido do cliente) — self-service: só quem registrou a Saída pode
+    corrigir (ver `SaidaService.corrigir_setor`). Não se aplica a baixa
+    por vencimento (nunca teve setor)."""
+
+    setor_consumidor: str = Field(min_length=1)
+    motivo: str = Field(min_length=1)
+
+
+class CorrigirPacienteSaidaCreate(BaseModel):
+    """Corrigir paciente/prontuário de uma Saída já registrada (2026-09-01,
+    pedido do cliente) — self-service, mesma regra de
+    `CorrigirSetorSaidaCreate`. Os dois campos são obrigatórios juntos —
+    esta correção substitui por um paciente/prontuário certo, não serve
+    pra "limpar" um vínculo já feito."""
+
+    paciente_nome: str = Field(min_length=1)
+    paciente_prontuario: str = Field(min_length=1)
+    motivo: str = Field(min_length=1)
+
+
 class MovimentacaoOut(BaseModel):
     id: int
     tipo: TipoMovimentacaoEnum
@@ -236,3 +273,30 @@ class MovimentacaoDetalhadaOut(MovimentacaoOut):
     usuario_confirmacao: UsuarioResumo | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Relatório Geral de Movimentações (2026-09-02, pedido do cliente): as 5
+# modalidades abaixo já são só `Movimentacao.tipo` (entrada/saida/
+# transferencia) — "reposicao_carrinho" e "devolucao" são categorias
+# DERIVADAS (não existem como valor de `tipo` no banco), calculadas em
+# `RelatorioService._categorizar_movimentacao` a partir de
+# `unidade.tipo == carrinho` / `Lote.origem == devolucao`.
+CategoriaMovimentacaoGeral = Literal["entrada", "saida", "transferencia", "reposicao_carrinho", "devolucao"]
+
+
+class MovimentacaoGeralOut(MovimentacaoDetalhadaOut):
+    categoria: CategoriaMovimentacaoGeral
+
+    @classmethod
+    def visivel_para(cls, movimentacao: Any, usuario: UsuarioMe, categoria: CategoriaMovimentacaoGeral):
+        """Mesma regra de `MovimentacaoOut.visivel_para` (oculta paciente/
+        prontuário pra quem não é Farmacêutico/Coordenador), só que já
+        carimbando a categoria derivada calculada fora do model ORM."""
+        base = MovimentacaoDetalhadaOut.model_validate(movimentacao)
+        instancia = cls(**base.model_dump(), categoria=categoria)
+
+        if not pode_ver_dados_paciente(usuario.perfil):
+            instancia.paciente_nome = None
+            instancia.paciente_prontuario = None
+
+        return instancia

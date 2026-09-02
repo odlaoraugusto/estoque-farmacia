@@ -12,6 +12,7 @@ class PermissaoPerfilOut(BaseModel):
     transferencia_enviar: bool
     reposicao_carrinho: bool
     relatorios_financeiro: bool
+    movimentacoes_geral: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -24,6 +25,7 @@ class PermissaoPerfilUpdate(BaseModel):
     transferencia_enviar: bool
     reposicao_carrinho: bool
     relatorios_financeiro: bool
+    movimentacoes_geral: bool
 
 
 class MatrizPermissoesUpdate(BaseModel):

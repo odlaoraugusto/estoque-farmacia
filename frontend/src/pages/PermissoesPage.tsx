@@ -15,6 +15,7 @@ const LINHA_VAZIA: LinhaEditavel = {
   transferencia_enviar: false,
   reposicao_carrinho: false,
   relatorios_financeiro: false,
+  movimentacoes_geral: false,
 };
 
 const ACOES: { chave: keyof LinhaEditavel; rotulo: string; ajuda: string }[] = [
@@ -52,6 +53,11 @@ const ACOES: { chave: keyof LinhaEditavel; rotulo: string; ajuda: string }[] = [
     chave: 'relatorios_financeiro',
     rotulo: 'Relatórios financeiros',
     ajuda: 'Ver consolidado de estoque, custo por setor, consumo, estoque crítico e rastreabilidade de transferências.',
+  },
+  {
+    chave: 'movimentacoes_geral',
+    rotulo: 'Relatório Geral de Movimentações',
+    ajuda: 'Ver Entrada, Saída, Transferência, Reposição de Carrinho e Devolução de Medicamento numa aba só.',
   },
 ];
 

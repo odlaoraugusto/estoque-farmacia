@@ -33,6 +33,7 @@ _CHAVES_PERMISSAO_VALIDAS = {
     "transferencia_enviar",
     "reposicao_carrinho",
     "relatorios_financeiro",
+    "movimentacoes_geral",
 }
 
 
