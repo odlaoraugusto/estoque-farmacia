@@ -2,3 +2,7 @@
 # origem/referência — 178MB, muito acima do limite do GitHub, e
 # copyright do cliente, não do projeto).
 Manual de Aplicação de Marca*.pdf
+
+# Log de atividade do serviço em produção (NSSM AppStdout/AppStderr,
+# 2026-09-04) — operacional, não faz parte do código.
+backend/logs/
