@@ -16,18 +16,100 @@ export class ApiError extends Error {
   }
 }
 
+// Rótulo amigável por nome de campo — cobre os campos mais comuns entre
+// os vários formulários do sistema; campo sem entrada aqui cai no
+// fallback de humanizar o nome cru (troca "_" por espaço, primeira
+// maiúscula), então nunca fica sem indicar QUAL campo é.
+const CAMPO_LABEL: Record<string, string> = {
+  data_validade: 'Validade',
+  numero_lote: 'Nº do lote',
+  quantidade: 'Quantidade',
+  quantidade_nova: 'Quantidade',
+  quantidade_desejada: 'Quantidade',
+  quantidade_usada: 'Quantidade',
+  valor_unitario: 'Valor unitário',
+  motivo_ajuste: 'Motivo',
+  motivo_descarte: 'Motivo',
+  motivo: 'Motivo',
+  setor_consumidor: 'Setor',
+  setor: 'Setor',
+  paciente_nome: 'Nome do paciente',
+  paciente_prontuario: 'Prontuário',
+  destino_externo: 'Destino',
+  destinatario: 'Destinatário',
+  lote_id: 'Lote',
+  medicamento_id: 'Medicamento',
+  unidade_destino_id: 'Unidade de destino',
+  unidade_origem_id: 'Unidade de origem',
+  unidade_id: 'Unidade',
+  numero_nota_fiscal: 'Nº da nota fiscal',
+  numero_afm: 'Nº AFM',
+  login: 'Login',
+  senha: 'Senha',
+  senha_atual: 'Senha atual',
+  senha_nova: 'Nova senha',
+  nome: 'Nome',
+  crf: 'CRF',
+};
+
+function rotuloCampo(loc: unknown): string | null {
+  if (!Array.isArray(loc)) return null;
+  // Último elemento em texto (pula índice numérico de lista, ex.:
+  // ["body","itens",0,"data_validade"] -> "data_validade") — o campo de
+  // verdade é sempre o segmento mais à direita que não é um índice.
+  for (let i = loc.length - 1; i >= 0; i--) {
+    if (typeof loc[i] === 'string' && loc[i] !== 'body' && loc[i] !== 'query') {
+      const campo = loc[i] as string;
+      return CAMPO_LABEL[campo] ?? campo.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    }
+  }
+  return null;
+}
+
+// Traduz os tipos de erro embutidos do Pydantic mais comuns — erro
+// customizado (`value_error`, de um `raise ValueError(...)` nosso) já
+// vem em português, só remove o prefixo "Value error, " que o Pydantic
+// v2 adiciona na frente.
+function traduzirMensagemValidacao(tipo: string, msgOriginal: string): string {
+  if (tipo.startsWith('value_error')) {
+    return msgOriginal.replace(/^Value error,\s*/i, '');
+  }
+  const TRADUCOES: Record<string, string> = {
+    missing: 'é obrigatório.',
+    date_from_datetime_parsing: 'data inválida — confira o dia, o mês e o ano.',
+    date_parsing: 'data inválida — confira o dia, o mês e o ano.',
+    datetime_from_date_parsing: 'data/hora inválida.',
+    int_parsing: 'deve ser um número inteiro.',
+    float_parsing: 'deve ser um número.',
+    decimal_parsing: 'deve ser um número válido.',
+    greater_than: 'deve ser maior que zero.',
+    greater_than_equal: 'não pode ser negativo.',
+    string_too_short: 'não pode ficar em branco.',
+    string_type: 'deve ser preenchido com texto.',
+    bool_parsing: 'valor inválido.',
+    enum: 'valor não é uma opção válida.',
+  };
+  return TRADUCOES[tipo] ?? msgOriginal;
+}
+
 function extrairMensagem(status: number, body: unknown): string {
   if (body && typeof body === 'object' && 'detail' in body) {
     const detail = (body as { detail: unknown }).detail;
     if (typeof detail === 'string') return detail;
     if (Array.isArray(detail)) {
-      // Erro de validação (422) do Pydantic vem como lista de objetos.
+      // Erro de validação (422) do Pydantic vem como lista de objetos
+      // { loc, msg, type } — um por campo inválido. Monta "Campo: motivo"
+      // pra deixar claro QUAL informação está causando o problema, em
+      // vez de só devolver a mensagem crua (geralmente em inglês).
       return detail
-        .map((item) =>
-          item && typeof item === 'object' && 'msg' in item
-            ? String((item as { msg: unknown }).msg)
-            : JSON.stringify(item),
-        )
+        .map((item) => {
+          if (!(item && typeof item === 'object' && 'msg' in item)) return JSON.stringify(item);
+          const msgOriginal = String((item as { msg: unknown }).msg);
+          const tipo = 'type' in item ? String((item as { type: unknown }).type) : '';
+          const campo = rotuloCampo('loc' in item ? (item as { loc: unknown }).loc : null);
+          const mensagem = traduzirMensagemValidacao(tipo, msgOriginal);
+          return campo ? `${campo}: ${mensagem}` : mensagem;
+        })
         .join('; ');
     }
   }
