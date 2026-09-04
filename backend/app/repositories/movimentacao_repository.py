@@ -45,6 +45,22 @@ class MovimentacaoRepository:
 
         return movimentacao
 
+    def listar_por_solicitacao_devolucao(
+        self, db: Session, solicitacao_devolucao_id: int
+    ) -> list[Movimentacao]:
+        """Todos os lotes que resultaram da confirmação de UMA solicitação
+        de devolução de medicamento (2026-09-04) — pode ser mais de um
+        por item, quando o mesmo medicamento é dividido em lotes
+        diferentes na hora de confirmar (ver
+        SolicitacaoDevolucaoMedicamentoService.confirmar/
+        obter_lotes_para_comprovante)."""
+        return (
+            db.query(Movimentacao)
+            .filter(Movimentacao.solicitacao_devolucao_id == solicitacao_devolucao_id)
+            .order_by(Movimentacao.id.asc())
+            .all()
+        )
+
     def listar_transferencias_pendentes(
         self, db: Session, unidade_destino_id: int | None = None
     ) -> list[Movimentacao]:

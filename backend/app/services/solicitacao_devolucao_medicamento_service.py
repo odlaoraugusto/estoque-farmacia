@@ -128,7 +128,13 @@ class SolicitacaoDevolucaoMedicamentoService:
         """Pra imprimir o comprovante depois de confirmar — reaproveita o
         mesmo builder de comprovante de Entrada (`tabela_comprovante_entrada`),
         já que cada item confirmado virou um `Lote` normal com
-        `origem=devolucao` (ver `confirmar` abaixo)."""
+        `origem=devolucao` (ver `confirmar` abaixo).
+
+        Busca via `Movimentacao.solicitacao_devolucao_id` (2026-09-04),
+        não via `item.lote_id` — um mesmo item pode ter virado mais de um
+        lote (dividido na confirmação, ex.: 3 unidades devolvidas sendo
+        2 de um lote físico e 1 de outro), e `item.lote_id` é uma FK
+        única que só guarda o último."""
         solicitacao = self.repository.get_by_id(db, solicitacao_id)
         if solicitacao is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada.")
@@ -139,7 +145,8 @@ class SolicitacaoDevolucaoMedicamentoService:
                 detail="Só é possível imprimir o comprovante depois de confirmar a entrada.",
             )
 
-        lotes = [item.lote for item in solicitacao.itens if item.lote is not None]
+        movimentacoes = self.movimentacao_repository.listar_por_solicitacao_devolucao(db, solicitacao_id)
+        lotes = [m.lote for m in movimentacoes if m.lote is not None]
         if not lotes:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum lote encontrado.")
         return lotes
@@ -197,9 +204,16 @@ class SolicitacaoDevolucaoMedicamentoService:
                     quantidade=confirmacao.quantidade,
                     unidade_destino_id=unidade_ativa_id,
                     usuario_id=usuario.id,
+                    solicitacao_devolucao_id=solicitacao.id,
                 ),
             )
 
+            # Informativo (2026-09-04): quando o mesmo item vira mais de
+            # um lote (dividido na confirmação), esta FK única fica com
+            # o ÚLTIMO lote criado — não é a fonte de verdade de "todos
+            # os lotes desta solicitação" (isso é
+            # `Movimentacao.solicitacao_devolucao_id`, usado em
+            # `obter_lotes_para_comprovante` abaixo).
             item.lote_id = lote.id
             db.add(item)
 

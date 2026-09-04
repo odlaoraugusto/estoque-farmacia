@@ -830,8 +830,8 @@ function PainelDevolucoesPendentes({ token, unidadeAtivaId }: { token: string | 
 }
 
 interface LinhaConfirmacaoDevolucao {
+  chave: string;
   item_id: number;
-  medicamento_nome: string;
   numeroLote: string;
   dataValidade: string;
   quantidade: string;
@@ -860,8 +860,8 @@ function CardDevolucaoPendente({
     setConfirmada(false);
     setLinhas(
       solicitacao.itens.map((item) => ({
+        chave: `item-${item.id}-0`,
         item_id: item.id,
-        medicamento_nome: item.medicamento_nome,
         numeroLote: '',
         dataValidade: '',
         quantidade: String(item.quantidade),
@@ -869,6 +869,42 @@ function CardDevolucaoPendente({
       })),
     );
     setPopupAberto(true);
+  }
+
+  // Divide um item em mais de um lote (2026-09-04, pedido do cliente:
+  // "a enfermagem devolve 3 unidades de X, 2 de um lote e 1 de outro") —
+  // o backend já aceita várias entradas com o mesmo item_id, cada uma
+  // vira seu próprio lote na confirmação. Pré-preenche a quantidade
+  // nova com o que ainda falta alocar (saldo do que a enfermagem
+  // informou menos o que já foi distribuído nas linhas existentes).
+  function adicionarLoteParaItem(itemId: number) {
+    const item = solicitacao.itens.find((i) => i.id === itemId);
+    const jaAlocado = linhas
+      .filter((l) => l.item_id === itemId)
+      .reduce((soma, l) => soma + (Number(l.quantidade) || 0), 0);
+    const restante = item ? Math.max(item.quantidade - jaAlocado, 0) : 0;
+    setLinhas((atual) => [
+      ...atual,
+      {
+        chave: `item-${itemId}-${Date.now()}`,
+        item_id: itemId,
+        numeroLote: '',
+        dataValidade: '',
+        quantidade: restante > 0 ? String(restante) : '',
+        valorUnitario: '',
+      },
+    ]);
+  }
+
+  function removerLinha(chave: string) {
+    setLinhas((atual) => {
+      const linha = atual.find((l) => l.chave === chave);
+      if (!linha) return atual;
+      // Nunca remove a última linha de um item — pelo menos um lote é
+      // obrigatório pra cada medicamento devolvido.
+      if (atual.filter((l) => l.item_id === linha.item_id).length <= 1) return atual;
+      return atual.filter((l) => l.chave !== chave);
+    });
   }
 
   function fecharPopup() {
@@ -1001,62 +1037,89 @@ function CardDevolucaoPendente({
               </>
             ) : (
               <>
-                {linhas.map((linha, idx) => (
-              <div className="grid" key={linha.item_id} style={{ marginBottom: 10 }}>
-                <div className="field span2">
-                  <label>{linha.medicamento_nome}</label>
-                </div>
-                <div className="field">
-                  <label>
-                    Nº do lote <span className="req">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={linha.numeroLote}
-                    onChange={(e) =>
-                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, numeroLote: e.target.value } : l)))
-                    }
-                  />
-                </div>
-                <div className="field">
-                  <label>
-                    Validade <span className="req">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={linha.dataValidade}
-                    onChange={(e) =>
-                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, dataValidade: e.target.value } : l)))
-                    }
-                  />
-                </div>
-                <div className="field">
-                  <label>
-                    Quantidade <span className="req">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={linha.quantidade}
-                    onChange={(e) =>
-                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, quantidade: e.target.value } : l)))
-                    }
-                  />
-                </div>
-                <div className="field">
-                  <label>Valor unitário (opcional)</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="R$ 0,00"
-                    value={linha.valorUnitario}
-                    onChange={(e) =>
-                      setLinhas((atual) => atual.map((l, i) => (i === idx ? { ...l, valorUnitario: e.target.value } : l)))
-                    }
-                  />
-                </div>
-              </div>
-                ))}
+                {solicitacao.itens.map((item) => {
+                  const linhasDoItem = linhas.filter((l) => l.item_id === item.id);
+                  return (
+                    <div key={item.id} style={{ marginBottom: 14, paddingBottom: 10, borderBottom: '1px solid var(--line)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <b>
+                          {item.medicamento_nome} <span className="screen-sub" style={{ margin: 0 }}>(informado: {item.quantidade})</span>
+                        </b>
+                      </div>
+                      {linhasDoItem.map((linha) => (
+                        <div className="grid" key={linha.chave} style={{ marginBottom: 8, alignItems: 'end' }}>
+                          <div className="field">
+                            <label>
+                              Nº do lote <span className="req">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={linha.numeroLote}
+                              onChange={(e) =>
+                                setLinhas((atual) =>
+                                  atual.map((l) => (l.chave === linha.chave ? { ...l, numeroLote: e.target.value } : l)),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="field">
+                            <label>
+                              Validade <span className="req">*</span>
+                            </label>
+                            <input
+                              type="date"
+                              value={linha.dataValidade}
+                              onChange={(e) =>
+                                setLinhas((atual) =>
+                                  atual.map((l) => (l.chave === linha.chave ? { ...l, dataValidade: e.target.value } : l)),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="field">
+                            <label>
+                              Quantidade <span className="req">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={linha.quantidade}
+                              onChange={(e) =>
+                                setLinhas((atual) =>
+                                  atual.map((l) => (l.chave === linha.chave ? { ...l, quantidade: e.target.value } : l)),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="field">
+                            <label>Valor unitário (opcional)</label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="R$ 0,00"
+                              value={linha.valorUnitario}
+                              onChange={(e) =>
+                                setLinhas((atual) =>
+                                  atual.map((l) => (l.chave === linha.chave ? { ...l, valorUnitario: e.target.value } : l)),
+                                )
+                              }
+                            />
+                          </div>
+                          {linhasDoItem.length > 1 && (
+                            <div className="field" style={{ flexGrow: 0 }}>
+                              <button type="button" className="btn ghost sm" onClick={() => removerLinha(linha.chave)}>
+                                Remover lote
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" className="btn ghost sm" onClick={() => adicionarLoteParaItem(item.id)}>
+                        + Dividir em outro lote
+                      </button>
+                    </div>
+                  );
+                })}
 
                 <div className="actions">
                   <button type="button" className="btn" disabled={confirmando} onClick={confirmar}>

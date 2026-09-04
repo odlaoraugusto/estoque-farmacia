@@ -99,6 +99,18 @@ class Movimentacao(Base):
         nullable=True,  # só usado quando tipo = descarte
     )
 
+    # Preenchido só em tipo=entrada vindo da confirmação de uma devolução
+    # de medicamento (2026-09-04, pedido do cliente: um mesmo item pode
+    # virar mais de um Lote/Movimentacao quando dividido em lotes
+    # diferentes na confirmação — isso aqui é o que permite reencontrar
+    # TODOS eles depois, pro comprovante em PDF; `item.lote_id` sozinho
+    # não dá, é uma FK única que fica sobrescrita quando o item se
+    # divide). Mesmo padrão de `pedido_item_id`/`emprestimo_id` no
+    # projeto irmão Almoxarifado.
+    solicitacao_devolucao_id = Column(
+        Integer, ForeignKey("solicitacoes_devolucao_medicamento.id"), nullable=True
+    )
+
     usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     usuario_solicitante_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     usuario_aprovador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
