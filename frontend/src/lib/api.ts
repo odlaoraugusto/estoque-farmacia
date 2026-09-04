@@ -52,18 +52,31 @@ const CAMPO_LABEL: Record<string, string> = {
   crf: 'CRF',
 };
 
+/** Extrai um rótulo tipo "Item 3 — Validade" a partir de `loc`
+ * (ex.: `["body","itens",2,"data_validade"]`) — o campo de verdade é o
+ * segmento em texto mais à direita; se houver um índice numérico antes
+ * dele (formulário com lista de itens, ex. devolução com vários
+ * medicamentos), prefixa com a posição (1-based) pra quem está com
+ * várias linhas na tela saber ONDE está o problema, não só qual campo. */
 function rotuloCampo(loc: unknown): string | null {
   if (!Array.isArray(loc)) return null;
-  // Último elemento em texto (pula índice numérico de lista, ex.:
-  // ["body","itens",0,"data_validade"] -> "data_validade") — o campo de
-  // verdade é sempre o segmento mais à direita que não é um índice.
+
+  let campo: string | null = null;
+  let indiceItem: number | null = null;
   for (let i = loc.length - 1; i >= 0; i--) {
-    if (typeof loc[i] === 'string' && loc[i] !== 'body' && loc[i] !== 'query') {
-      const campo = loc[i] as string;
-      return CAMPO_LABEL[campo] ?? campo.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+    if (campo === null && typeof loc[i] === 'string' && loc[i] !== 'body' && loc[i] !== 'query') {
+      campo = loc[i] as string;
+      continue;
+    }
+    if (campo !== null && typeof loc[i] === 'number') {
+      indiceItem = (loc[i] as number) + 1;
+      break;
     }
   }
-  return null;
+  if (campo === null) return null;
+
+  const rotulo = CAMPO_LABEL[campo] ?? campo.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+  return indiceItem !== null ? `Item ${indiceItem} — ${rotulo}` : rotulo;
 }
 
 // Traduz os tipos de erro embutidos do Pydantic mais comuns — erro
