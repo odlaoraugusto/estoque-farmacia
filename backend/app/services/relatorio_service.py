@@ -272,7 +272,16 @@ class RelatorioService:
         acima, mas ABERTA A QUALQUER PERFIL (não só Coordenador) porque
         `usuario_id` vem sempre forçado ao próprio usuário logado, nunca
         um filtro livre — cada um só vê o que registrou, não a trilha dos
-        outros."""
+        outros.
+
+        Paciente/prontuário SEM `visivel_para` de propósito (2026-09-08,
+        pedido do cliente: "ajuda no controle, dispensa muita coisa igual
+        pra pacientes distintos") — mesma categoria de exceção já usada
+        no eco imediato de `POST /saidas` (ver `saidas.py`): quem está
+        vendo é sempre o próprio autor da Saída (`usuario_id=usuario.id`
+        acima), nunca a Saída de outra pessoa, então não é a restrição
+        mais ampla de LGPD que `visivel_para` existe pra cobrir — é só
+        "deixar a pessoa ver o que ela mesma já digitou"."""
         movimentacoes, total = self.movimentacao_repository.listar_auditoria(
             db, tipo, None, data_inicio, data_fim, limit, offset, usuario_id=usuario.id
         )
@@ -282,10 +291,7 @@ class RelatorioService:
             total=total,
             limit=limit,
             offset=offset,
-            itens=[
-                MovimentacaoDetalhadaOut.visivel_para(m, usuario)
-                for m in movimentacoes
-            ],
+            itens=[MovimentacaoDetalhadaOut.model_validate(m) for m in movimentacoes],
         )
 
     def _categorizar_movimentacao(self, m: Movimentacao) -> CategoriaMovimentacaoGeral:

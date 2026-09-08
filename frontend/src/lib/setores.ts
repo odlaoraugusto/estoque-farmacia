@@ -16,6 +16,7 @@ export const SETORES_DISPENSACAO = [
   'Alojamento Conjunto (Posto 1)',
   'Alojamento Conjunto (Posto 2)',
   'Centro Cirúrgico',
+  'CME',
   'Centro Obstétrico',
   'CPN',
   'Ambulatório',
