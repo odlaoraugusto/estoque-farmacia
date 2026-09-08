@@ -14,6 +14,7 @@ const CATEGORIAS: { valor: CategoriaSaida; rotulo: string }[] = [
 ];
 
 interface ItemListaSaida {
+  chave: string;
   medicamento: MedicamentoOut;
   lote: LoteDetalhadoOut;
   quantidade: string;
@@ -123,8 +124,18 @@ export function SaidaPage() {
         token,
         params: { medicamento_id: medicamento.id },
       });
-      setLotesFefo(lotes);
-      const sugerido = lotes.find((l) => l.sugerido_fefo) ?? lotes[0];
+      // Um medicamento pode aparecer mais de uma vez na lista, cada vez
+      // com um lote diferente (2026-09-08, pedido do cliente: "dar saída
+      // em mais de um lote de um mesmo medicamento" — ex.: o lote
+      // sugerido não tem saldo suficiente sozinho). Tira da seleção os
+      // lotes já usados pra ESTE medicamento na lista atual, pra não
+      // escolher o mesmo lote duas vezes.
+      const lotesJaUsados = new Set(
+        itensLista.filter((i) => i.medicamento.id === medicamento.id).map((i) => i.lote.id),
+      );
+      const lotesDisponiveis = lotes.filter((l) => !lotesJaUsados.has(l.id));
+      setLotesFefo(lotesDisponiveis);
+      const sugerido = lotesDisponiveis.find((l) => l.sugerido_fefo) ?? lotesDisponiveis[0];
       setLoteSelecionadoId(sugerido?.id ?? null);
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível buscar lotes para este medicamento.'));
@@ -158,16 +169,23 @@ export function SaidaPage() {
       setErro(`Quantidade maior que o saldo disponível (${loteSelecionado.quantidade_atual}).`);
       return;
     }
-    if (itensLista.some((i) => i.medicamento.id === medicamentoSelecionado.id)) {
-      setErro(`${medicamentoSelecionado.nome} já está na lista.`);
+    // Mesmo medicamento pode entrar mais de uma vez na lista, desde que
+    // seja de um LOTE diferente (2026-09-08, pedido do cliente) — o que
+    // não pode é repetir exatamente o mesmo lote (editar a quantidade da
+    // linha existente em vez disso).
+    if (itensLista.some((i) => i.lote.id === loteSelecionado.id)) {
+      setErro(`Lote ${loteSelecionado.numero_lote} já está na lista para ${medicamentoSelecionado.nome}.`);
       return;
     }
-    setItensLista((atual) => [...atual, { medicamento: medicamentoSelecionado, lote: loteSelecionado, quantidade: quantidadeItem }]);
+    setItensLista((atual) => [
+      ...atual,
+      { chave: `${medicamentoSelecionado.id}-${loteSelecionado.id}`, medicamento: medicamentoSelecionado, lote: loteSelecionado, quantidade: quantidadeItem },
+    ]);
     limparSelecao();
   }
 
-  function removerDaLista(medicamentoId: number) {
-    setItensLista((atual) => atual.filter((i) => i.medicamento.id !== medicamentoId));
+  function removerDaLista(chave: string) {
+    setItensLista((atual) => atual.filter((i) => i.chave !== chave));
   }
 
   // Vigilância por paciente (2026-08-20): antimicrobiano (DOT) e
@@ -202,7 +220,7 @@ export function SaidaPage() {
     }
 
     setEnviando(true);
-    const idsComFalha = new Set<number>();
+    const chavesComFalha = new Set<string>();
     const mensagensFalha: string[] = [];
     for (const item of itensLista) {
       try {
@@ -225,12 +243,12 @@ export function SaidaPage() {
           { token },
         );
       } catch (err) {
-        idsComFalha.add(item.medicamento.id);
-        mensagensFalha.push(`${item.medicamento.nome} (${mensagemErro(err)})`);
+        chavesComFalha.add(item.chave);
+        mensagensFalha.push(`${item.medicamento.nome} · lote ${item.lote.numero_lote} (${mensagemErro(err)})`);
       }
     }
     setEnviando(false);
-    if (idsComFalha.size === 0) {
+    if (chavesComFalha.size === 0) {
       setSucesso(`${itensLista.length} saída(s) registrada(s) com sucesso.`);
       setItensLista([]);
       setSetorConsumidor('');
@@ -239,7 +257,7 @@ export function SaidaPage() {
       setPacienteNome('');
       setPacienteEncontrado(false);
     } else {
-      setItensLista((atual) => atual.filter((i) => idsComFalha.has(i.medicamento.id)));
+      setItensLista((atual) => atual.filter((i) => chavesComFalha.has(i.chave)));
       setErro(`Não foi possível registrar: ${mensagensFalha.join('; ')}. O restante da lista foi registrado com sucesso.`);
     }
   }
@@ -262,7 +280,7 @@ export function SaidaPage() {
           <label htmlFor="busca-medicamento-saida">Medicamento</label>
           <BuscaAutocomplete
             id="busca-medicamento-saida"
-            itens={medicamentos.filter((m) => !itensLista.some((i) => i.medicamento.id === m.id))}
+            itens={medicamentos}
             valor={medicamentoSelecionado ? medicamentoSelecionado.nome : busca}
             aoMudarValor={(v) => {
               setBusca(v);
@@ -337,7 +355,7 @@ export function SaidaPage() {
               </thead>
               <tbody>
                 {itensLista.map((i) => (
-                  <tr key={i.medicamento.id}>
+                  <tr key={i.chave}>
                     <td>
                       {i.medicamento.nome}
                       {(i.medicamento.e_antimicrobiano || i.medicamento.e_controlado) && (
@@ -349,7 +367,7 @@ export function SaidaPage() {
                     <td className="mono">{i.lote.numero_lote}</td>
                     <td className="num">{i.quantidade}</td>
                     <td>
-                      <button type="button" className="btn ghost sm" onClick={() => removerDaLista(i.medicamento.id)}>
+                      <button type="button" className="btn ghost sm" onClick={() => removerDaLista(i.chave)}>
                         Remover
                       </button>
                     </td>
