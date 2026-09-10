@@ -66,6 +66,7 @@ def _apresentacao_e_concentracao(medicamento) -> str:
 def tabela_estoque_consolidado(relatorio: RelatorioEstoqueConsolidadoOut) -> TabelaRelatorio:
     colunas = [
         "Medicamento",
+        "Fabricante",
         "Apresentação",
         "Unidade",
         "Nº Lote",
@@ -78,6 +79,7 @@ def tabela_estoque_consolidado(relatorio: RelatorioEstoqueConsolidadoOut) -> Tab
     linhas = [
         [
             item.lote.medicamento.nome,
+            _texto(item.lote.medicamento.fabricante),
             _apresentacao_e_concentracao(item.lote.medicamento),
             item.lote.unidade.nome,
             item.lote.numero_lote,
@@ -95,7 +97,7 @@ def tabela_estoque_consolidado(relatorio: RelatorioEstoqueConsolidadoOut) -> Tab
         colunas=colunas,
         linhas=linhas,
         rodape=[f"Valor total geral em estoque: {formatar_moeda(relatorio.valor_total_geral)}"],
-        larguras_relativas=[1.6, 1.3, 1.0, 0.9, 0.9, 0.8, 1.0, 1.1, 0.8],
+        larguras_relativas=[1.5, 1.2, 1.2, 1.0, 0.9, 0.9, 0.8, 1.0, 1.1, 0.8],
     )
 
 
@@ -294,12 +296,18 @@ _STATUS_SOLICITACAO_LABEL = {
 }
 
 
-def tabela_comprovante_entrada(metadados: RelatorioMetadados, lotes) -> TabelaRelatorio:
+def tabela_comprovante_entrada(metadados: RelatorioMetadados, movimentacoes) -> TabelaRelatorio:
     """Comprovante do que acabou de ser registrado em Entrada, qualquer
-    modalidade (2026-09-01, pedido do cliente) — uma linha por lote;
-    compra normalmente traz vários lotes (mesma NF), doação/empréstimo
-    sempre um só. `lotes` é uma lista de `Lote` (relações já carregadas
-    via `lazy="selectin"`, ver app/models/lote.py)."""
+    modalidade (2026-09-01, pedido do cliente) — uma linha por
+    medicamento registrado; compra normalmente traz várias linhas (mesma
+    NF), doação/empréstimo sempre uma só. `movimentacoes` é uma lista de
+    `Movimentacao` (2026-09-09: deixou de ser `Lote` — desde que uma
+    entrada pode mergear num lote já existente
+    (`LoteRepository.buscar_para_merge`), `lote.quantidade_atual` passou
+    a ser o saldo ACUMULADO do lote, não a quantidade desta operação
+    específica; `mov.quantidade` sempre foi e continua sendo o valor
+    certo pra isso — cada evento tem sua própria `Movimentacao`, mesmo
+    quando o `Lote` é reaproveitado)."""
     colunas = [
         "Medicamento",
         "Lote",
@@ -313,20 +321,20 @@ def tabela_comprovante_entrada(metadados: RelatorioMetadados, lotes) -> TabelaRe
     ]
     linhas = [
         [
-            lote.medicamento.nome,
-            lote.numero_lote,
-            formatar_data(lote.data_validade),
-            str(lote.quantidade_atual),
-            formatar_moeda(lote.valor_unitario),
-            _ORIGEM_LABEL.get(lote.origem, lote.origem.value),
-            lote.numero_nota_fiscal or "",
-            lote.numero_afm or "",
-            lote.procedencia_externa or "",
+            mov.lote.medicamento.nome,
+            mov.lote.numero_lote,
+            formatar_data(mov.lote.data_validade),
+            str(mov.quantidade),
+            formatar_moeda(mov.lote.valor_unitario),
+            _ORIGEM_LABEL.get(mov.lote.origem, mov.lote.origem.value),
+            mov.lote.numero_nota_fiscal or "",
+            mov.lote.numero_afm or "",
+            mov.lote.procedencia_externa or "",
         ]
-        for lote in lotes
+        for mov in movimentacoes
     ]
 
-    informacoes_extra = [f"Registrado por: {lotes[0].usuario_entrada.nome}"]
+    informacoes_extra = [f"Registrado por: {movimentacoes[0].usuario.nome}"]
 
     return TabelaRelatorio(
         metadados=metadados,
@@ -534,6 +542,7 @@ def tabela_movimentacoes_geral(relatorio: RelatorioMovimentacoesGeralOut) -> Tab
 def tabela_vencimentos_proximos(relatorio: RelatorioVencimentosProximosOut) -> TabelaRelatorio:
     colunas = [
         "Medicamento",
+        "Fabricante",
         "Apresentação",
         "Unidade",
         "Nº Lote",
@@ -545,6 +554,7 @@ def tabela_vencimentos_proximos(relatorio: RelatorioVencimentosProximosOut) -> T
     linhas = [
         [
             lote.medicamento.nome,
+            _texto(lote.medicamento.fabricante),
             _apresentacao_e_concentracao(lote.medicamento),
             lote.unidade.nome,
             lote.numero_lote,
@@ -563,5 +573,5 @@ def tabela_vencimentos_proximos(relatorio: RelatorioVencimentosProximosOut) -> T
         informacoes_extra=[
             f"Considerando lotes que vencem nos próximos {relatorio.dias_considerados} dias"
         ],
-        larguras_relativas=[1.6, 1.3, 1.0, 0.9, 0.9, 0.8, 1.0, 0.8],
+        larguras_relativas=[1.5, 1.2, 1.2, 1.0, 0.9, 0.9, 0.8, 1.0, 0.8],
     )

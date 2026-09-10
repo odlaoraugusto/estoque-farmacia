@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -32,7 +34,17 @@ class EntradaService:
         usuario: UsuarioMe,
         unidade_ativa_id: int,
         dados: EntradaCreate,
-    ) -> Lote:
+    ) -> tuple[Lote, Movimentacao]:
+        """Se já existe um lote com a MESMA identidade física (medicamento
+        + unidade + nº de lote + validade + origem + NF/AFM), soma nele
+        em vez de criar linha nova (2026-09-09, pedido do cliente: "se
+        for o mesmo lote, integra aquele estoque") — ver
+        `LoteRepository.buscar_para_merge` pro critério exato. Cria a
+        `Movimentacao` de qualquer forma, então o rastro de auditoria
+        por evento continua intacto mesmo quando o lote em si é
+        reaproveitado; é ela (não `lote.quantidade_atual`) que o
+        comprovante usa pra saber a quantidade desta operação
+        específica."""
         unidade = self.unidade_repository.get_by_id(db, unidade_ativa_id)
 
         if unidade is None or unidade.nome.strip().upper() != NOME_UNIDADE_CAF:
@@ -54,22 +66,38 @@ class EntradaService:
                 detail="Quantidade deve ser maior que zero.",
             )
 
-        lote = Lote(
-            medicamento_id=dados.medicamento_id,
-            unidade_id=unidade.id,
-            numero_lote=dados.numero_lote,
-            data_validade=dados.data_validade,
-            quantidade_atual=dados.quantidade,
-            valor_unitario=dados.valor_unitario,
-            origem=dados.origem,
-            numero_nota_fiscal=dados.numero_nota_fiscal,
-            numero_afm=dados.numero_afm,
-            procedencia_externa=(
-                dados.procedencia_externa.strip() if dados.procedencia_externa else None
-            ),
-            usuario_entrada_id=usuario.id,
+        lote = self.lote_repository.buscar_para_merge(
+            db,
+            dados.medicamento_id,
+            unidade.id,
+            dados.numero_lote,
+            dados.data_validade,
+            dados.numero_nota_fiscal,
+            dados.numero_afm,
         )
-        lote = self.lote_repository.create(db, lote)
+
+        if lote is not None:
+            lote.quantidade_atual += dados.quantidade
+            if lote.valor_unitario in (None, Decimal("0")) and dados.valor_unitario:
+                lote.valor_unitario = dados.valor_unitario
+            lote = self.lote_repository.salvar(db, lote)
+        else:
+            lote = Lote(
+                medicamento_id=dados.medicamento_id,
+                unidade_id=unidade.id,
+                numero_lote=dados.numero_lote,
+                data_validade=dados.data_validade,
+                quantidade_atual=dados.quantidade,
+                valor_unitario=dados.valor_unitario,
+                origem=dados.origem,
+                numero_nota_fiscal=dados.numero_nota_fiscal,
+                numero_afm=dados.numero_afm,
+                procedencia_externa=(
+                    dados.procedencia_externa.strip() if dados.procedencia_externa else None
+                ),
+                usuario_entrada_id=usuario.id,
+            )
+            lote = self.lote_repository.create(db, lote)
 
         movimentacao = Movimentacao(
             tipo=TipoMovimentacaoEnum.entrada,
@@ -78,37 +106,34 @@ class EntradaService:
             unidade_destino_id=unidade.id,
             usuario_id=usuario.id,
         )
-        self.movimentacao_repository.create(db, movimentacao)
+        movimentacao = self.movimentacao_repository.create(db, movimentacao)
 
-        return lote
+        return lote, movimentacao
 
-    def obter_para_comprovante(
-        self, db: Session, numero_nota_fiscal: str | None, lote_id: int | None
-    ) -> list[Lote]:
+    def obter_para_comprovante(self, db: Session, movimentacao_ids: list[int]) -> list[Movimentacao]:
         """Pra imprimir o comprovante do que acabou de ser registrado
-        (2026-09-01, pedido do cliente: "qualquer modalidade") — compra
-        tem vários lotes sob a mesma NF (`numero_nota_fiscal`), doação/
-        empréstimo é sempre um lote só (`lote_id`, sem NF)."""
-        if lote_id is not None:
-            lote = self.lote_repository.get_by_id(db, lote_id)
-            if lote is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Lote não encontrado."
-                )
-            return [lote]
-
-        if numero_nota_fiscal:
-            lotes = self.lote_repository.listar(
-                db, numero_nota_fiscal=numero_nota_fiscal, apenas_disponivel=False
+        (2026-09-01, pedido do cliente: "qualquer modalidade") — chaveado
+        pelas `Movimentacao` desta operação específica (2026-09-09, não
+        mais por `numero_nota_fiscal`/`lote_id`), já que um lote pode ter
+        recebido merge de uma entrada anterior e `lote.quantidade_atual`
+        deixou de refletir só o que chegou agora. Mesmo padrão de
+        `SaidaService.obter_para_comprovante` (o front acumula os ids
+        devolvidos por cada `POST /entradas` da lista — compra registra
+        vários medicamentos, um `POST` por item — e manda todos juntos
+        aqui)."""
+        if not movimentacao_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Informe ao menos um id de entrada."
             )
-            if not lotes:
+
+        movimentacoes = []
+        for movimentacao_id in movimentacao_ids:
+            movimentacao = self.movimentacao_repository.get_by_id(db, movimentacao_id)
+            if movimentacao is None or movimentacao.tipo != TipoMovimentacaoEnum.entrada:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Nenhum lote encontrado para esta nota fiscal.",
+                    detail=f"Entrada #{movimentacao_id} não encontrada.",
                 )
-            return lotes
+            movimentacoes.append(movimentacao)
 
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Informe numero_nota_fiscal ou lote_id.",
-        )
+        return movimentacoes

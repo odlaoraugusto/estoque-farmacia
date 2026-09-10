@@ -36,7 +36,11 @@ export function Layout() {
       <div className="app">
         <aside className="sidebar">
           <div className="brand">
-            <div className="mark">Rx</div>
+            <div className="mark">
+              <svg className="ic">
+                <use href="#i-capsule" />
+              </svg>
+            </div>
             <div className="name">
               Estoque Farmácia
               <small>rede local</small>
@@ -57,11 +61,17 @@ export function Layout() {
             )}
             <div className="sair" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
               {permissoes.telasOperacionais && (
-                <button type="button" className="link-btn" onClick={trocarUnidade}>
+                <button type="button" className="btn ghost sm" onClick={trocarUnidade}>
+                  <svg className="ic">
+                    <use href="#i-swap" />
+                  </svg>
                   Trocar unidade
                 </button>
               )}
-              <button type="button" className="link-btn" onClick={sair}>
+              <button type="button" className="btn ghost sm" onClick={sair}>
+                <svg className="ic">
+                  <use href="#i-logout" />
+                </svg>
                 Sair
               </button>
             </div>
@@ -71,79 +81,105 @@ export function Layout() {
             <div className="eyebrow">Telas</div>
             {permissoes.telasOperacionais && (
               <NavLink to="/" end className="nav-btn">
-                <span className="ic">▤</span>
+                <svg className="ic">
+                  <use href="#i-layers" />
+                </svg>
                 <span className="lbl">Estoque atual</span>
               </NavLink>
             )}
             {(permissoes.entrada || permissoes.devolucaoMedicamento) && (
               <NavLink to="/entrada" className="nav-btn">
-                <span className="ic">↓</span>
+                <svg className="ic">
+                  <use href="#i-in" />
+                </svg>
                 <span className="lbl">Entrada</span>
               </NavLink>
             )}
             {permissoes.medicamentos && (
               <NavLink to="/medicamentos" className="nav-btn">
-                <span className="ic">℞</span>
+                <svg className="ic">
+                  <use href="#i-capsule" />
+                </svg>
                 <span className="lbl">Medicamentos</span>
               </NavLink>
             )}
             {permissoes.telasOperacionais && (
               <NavLink to="/transferencia" className="nav-btn">
-                <span className="ic">⇄</span>
+                <svg className="ic">
+                  <use href="#i-swap" />
+                </svg>
                 <span className="lbl">Transferência</span>
               </NavLink>
             )}
             {permissoes.telasOperacionais && (
               <NavLink to="/ressuprimento" className="nav-btn">
-                <span className="ic">↺</span>
+                <svg className="ic">
+                  <use href="#i-refresh" />
+                </svg>
                 <span className="lbl">Ressuprimento</span>
               </NavLink>
             )}
             {permissoes.saida && (
               <NavLink to="/saida" className="nav-btn">
-                <span className="ic">↑</span>
+                <svg className="ic">
+                  <use href="#i-out" />
+                </svg>
                 <span className="lbl">Saída / Dispensação</span>
               </NavLink>
             )}
             {permissoes.saidaExterna && (
               <NavLink to="/saida-externa" className="nav-btn">
-                <span className="ic">⇥</span>
+                <svg className="ic">
+                  <use href="#i-building" />
+                </svg>
                 <span className="lbl">Empréstimo / Doação</span>
               </NavLink>
             )}
             {permissoes.telasOperacionais && (
               <NavLink to="/reposicao-carrinho" className="nav-btn">
-                <span className="ic">↻</span>
+                <svg className="ic">
+                  <use href="#i-package" />
+                </svg>
                 <span className="lbl">Carrinhos de Emergência</span>
               </NavLink>
             )}
             {permissoes.ajustarEstoque && (
               <NavLink to="/ajuste" className="nav-btn">
-                <span className="ic">⚖</span>
+                <svg className="ic">
+                  <use href="#i-check" />
+                </svg>
                 <span className="lbl">Ajuste de Estoque</span>
               </NavLink>
             )}
             {permissoes.telasOperacionais && (
               <NavLink to="/minhas-acoes" className="nav-btn">
-                <span className="ic">📝</span>
+                <svg className="ic">
+                  <use href="#i-clipboard" />
+                </svg>
                 <span className="lbl">Minhas Ações</span>
               </NavLink>
             )}
             {permissoes.telasOperacionais && (
               <NavLink to="/relatorios" className="nav-btn">
-                <span className="ic">▦</span>
+                <svg className="ic">
+                  <use href="#i-chart" />
+                </svg>
                 <span className="lbl">Relatórios</span>
               </NavLink>
             )}
             {permissoes.gestaoUsuarios && (
               <NavLink to="/usuarios" className="nav-btn">
-                <span className="ic">⚉</span>
+                <svg className="ic">
+                  <use href="#i-users" />
+                </svg>
                 <span className="lbl">Usuários</span>
               </NavLink>
             )}
             {permissoes.gerenciarPermissoes && (
               <NavLink to="/permissoes" className="nav-btn">
-                <span className="ic">🔑</span>
+                <svg className="ic">
+                  <use href="#i-shield" />
+                </svg>
                 <span className="lbl">Permissões</span>
               </NavLink>
             )}

@@ -102,30 +102,38 @@ export function LoginPage() {
 
   return (
     <div className="login-wrap">
-      <div className="topbar">
-        <div className="fesf-id">
-          <span className="fesf-org">{organizacao}</span>
-          <span className="fesf-hospital">{hospitalNome}</span>
-        </div>
-        <span className="fesf-div" />
-        <span className="fesf-app">Estoque Farmácia — Farmácia Hospitalar</span>
-      </div>
-
-      <div className="login-main">
-        <div className="login-panels">
-          <div className="screen-head">
-            <h1>{precisaTrocarSenha ? 'Trocar senha' : precisaSelecionarUnidade ? 'Selecionar unidade' : 'Login'}</h1>
-            <span className="screen-tag">
-              {precisaTrocarSenha ? 'obrigatório no primeiro acesso' : precisaSelecionarUnidade ? 'passo 2 de 2' : 'passo 1 de 2'}
-            </span>
+      <div className="login-split">
+        <div className="login-brand">
+          <div>
+            <div className="login-brand-mark">
+              <svg className="ic">
+                <use href="#i-capsule" />
+              </svg>
+            </div>
+            <h2>Gestão de Estoque - Farmácia</h2>
+            <p>Sistema de gestão de estoque de farmácias satélites</p>
           </div>
-          <p className="screen-sub">
-            {precisaTrocarSenha
-              ? 'Sua senha ainda é a padrão temporária — cadastre uma nova antes de continuar.'
-              : 'A unidade escolhida vira o filtro de tudo que a sessão pode ver e movimentar.'}
-          </p>
+          <div className="login-brand-foot">
+            {organizacao} · {hospitalNome}
+          </div>
+          <div className="login-brand-ribbon" />
+        </div>
 
-          {precisaTrocarSenha && (
+        <div className="login-form-side">
+          <div className="login-panels">
+            <span className="login-step">
+              {precisaTrocarSenha ? 'PRIMEIRO ACESSO' : precisaSelecionarUnidade ? 'PASSO 2 DE 2' : 'PASSO 1 DE 2'}
+            </span>
+            <div className="screen-head">
+              <h1>{precisaTrocarSenha ? 'Trocar senha' : precisaSelecionarUnidade ? 'Selecionar unidade' : 'Login'}</h1>
+            </div>
+            <p className="screen-sub">
+              {precisaTrocarSenha
+                ? 'Sua senha ainda é a padrão temporária — cadastre uma nova antes de continuar.'
+                : 'A unidade escolhida vira o filtro de tudo que a sessão pode ver e movimentar.'}
+            </p>
+
+            {precisaTrocarSenha && (
             <form className="panel" onSubmit={aoSubmeterTrocarSenha}>
               <h2>Nova senha</h2>
               {erroTrocarSenha && <Alerta tipo="erro">{erroTrocarSenha}</Alerta>}
@@ -173,6 +181,9 @@ export function LoginPage() {
               </div>
               <div className="actions">
                 <button type="submit" className="btn" disabled={trocandoSenha}>
+                  <svg className="ic">
+                    <use href="#i-key" />
+                  </svg>
                   {trocandoSenha ? 'Salvando…' : 'Trocar senha e continuar'}
                 </button>
               </div>
@@ -213,6 +224,9 @@ export function LoginPage() {
               </div>
               <div className="actions">
                 <button type="submit" className="btn" disabled={entrando}>
+                  <svg className="ic">
+                    <use href="#i-key" />
+                  </svg>
                   {entrando ? 'Entrando…' : 'Entrar'}
                 </button>
               </div>
@@ -243,6 +257,9 @@ export function LoginPage() {
                       aria-pressed={unidadeSelecionada === unidade.id}
                       onClick={() => setUnidadeSelecionada(unidade.id)}
                     >
+                      <svg className="ic">
+                        <use href="#i-building" />
+                      </svg>
                       {unidade.nome}
                     </button>
                   ))}
@@ -255,11 +272,15 @@ export function LoginPage() {
                   disabled={unidadeSelecionada == null || confirmando}
                   onClick={confirmarUnidade}
                 >
+                  <svg className="ic">
+                    <use href="#i-check" />
+                  </svg>
                   {confirmando ? 'Confirmando…' : 'Confirmar e entrar'}
                 </button>
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

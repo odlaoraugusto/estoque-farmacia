@@ -5,7 +5,7 @@ import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
-import { formatarMoeda, paraDecimalApi } from '../lib/formato';
+import { formatarData, formatarMoeda, paraDecimalApi } from '../lib/formato';
 import type { LoteDetalhadoOut } from '../types';
 
 /** Ajuste de estoque (quantidade) — qualquer perfil operacional, inclusive
@@ -157,7 +157,9 @@ function FormularioAjuste({
                 setBusca(v);
                 setLoteSelecionado(null);
               }}
-              rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`}
+              rotulo={(l) =>
+                `${l.medicamento.nome} · ${l.numero_lote} · vence ${formatarData(l.data_validade)} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`
+              }
               chave={(l) => l.id}
               aoSelecionar={(l) => {
                 setLoteSelecionado(l);
@@ -318,7 +320,9 @@ function FormularioCorrigirValor({
               setBusca(v);
               setLoteSelecionado(null);
             }}
-            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · ${formatarMoeda(l.valor_unitario)} · ${l.unidade.nome}`}
+            rotulo={(l) =>
+              `${l.medicamento.nome} · ${l.numero_lote} · vence ${formatarData(l.data_validade)} · ${formatarMoeda(l.valor_unitario)} · ${l.unidade.nome}`
+            }
             chave={(l) => l.id}
             aoSelecionar={(l) => {
               setLoteSelecionado(l);
@@ -471,7 +475,9 @@ function FormularioCorrigirLote({
               setBusca(v);
               setLoteSelecionado(null);
             }}
-            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · vence ${l.data_validade ?? 's/ validade'} · ${l.unidade.nome}`}
+            rotulo={(l) =>
+              `${l.medicamento.nome} · ${l.numero_lote} · vence ${l.data_validade ? formatarData(l.data_validade) : 's/ validade'} · ${l.unidade.nome}`
+            }
             chave={(l) => l.id}
             aoSelecionar={selecionarLote}
             placeholder="buscar por medicamento ou nº do lote — estoque da unidade ativa"

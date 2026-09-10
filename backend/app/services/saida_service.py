@@ -74,8 +74,18 @@ class SaidaService:
         # não dá pra rastrear por paciente, então aqui a regra geral de
         # "opcional" não vale — checagem no service (não no schema)
         # porque só aqui já temos o medicamento do lote carregado.
-        if (lote.medicamento.e_antimicrobiano or lote.medicamento.e_controlado) and not (
-            dados.paciente_prontuario and dados.paciente_nome
+        #
+        # Só vale pra `categoria=normal` (2026-09-10, bug real corrigido):
+        # empréstimo/doação/permuta vão pra OUTRA INSTITUIÇÃO, não pra um
+        # paciente — não existe prontuário possível de informar, então a
+        # regra tornava IMPOSSÍVEL emprestar/doar/permutar qualquer
+        # controlado ou antimicrobiano (o formulário de Empréstimo/Doação
+        # nem tem esses campos, sempre falhava com 400). Baixa por
+        # vencimento também não tem paciente — é perda, não dispensação.
+        if (
+            dados.categoria == CategoriaSaidaEnum.normal
+            and (lote.medicamento.e_antimicrobiano or lote.medicamento.e_controlado)
+            and not (dados.paciente_prontuario and dados.paciente_nome)
         ):
             classe = "antimicrobiano" if lote.medicamento.e_antimicrobiano else "controlado"
             raise HTTPException(

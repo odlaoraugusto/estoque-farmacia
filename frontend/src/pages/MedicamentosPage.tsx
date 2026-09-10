@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
@@ -47,6 +47,7 @@ export function MedicamentosPage() {
 function GestaoMedicamentos({ token }: { token: string | null }) {
   const [medicamentos, setMedicamentos] = useState<MedicamentoOut[]>([]);
   const [mostrarInativos, setMostrarInativos] = useState(false);
+  const [busca, setBusca] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
@@ -68,6 +69,20 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // Sem isso, achar um medicamento pra editar exigia rolar o catálogo
+  // inteiro (2026-09-01, pedido do cliente). Busca por nome, apresentação
+  // ou fabricante.
+  const medicamentosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    if (!termo) return medicamentos;
+    return medicamentos.filter(
+      (m) =>
+        m.nome.toLowerCase().includes(termo) ||
+        m.apresentacao.toLowerCase().includes(termo) ||
+        (m.fabricante ?? '').toLowerCase().includes(termo),
+    );
+  }, [medicamentos, busca]);
 
   function iniciarEdicao(m: MedicamentoOut) {
     setEditandoId(m.id);
@@ -265,13 +280,22 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
       </form>
 
       <div className="panel">
-        <h2 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>Catálogo</span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, textTransform: 'none', fontSize: 12.5 }}>
-            <input type="checkbox" checked={mostrarInativos} onChange={(e) => setMostrarInativos(e.target.checked)} />
-            Mostrar inativos
-          </label>
-        </h2>
+        <div className="panel-head-busca">
+          <h2>Catálogo</h2>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500, fontSize: 12.5 }}>
+              <input type="checkbox" checked={mostrarInativos} onChange={(e) => setMostrarInativos(e.target.checked)} />
+              Mostrar inativos
+            </label>
+            <input
+              type="text"
+              className="busca-estoque"
+              placeholder="Buscar por nome, apresentação ou fabricante…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
+        </div>
         {carregando && <p className="carregando">Carregando…</p>}
         {!carregando && (
           <div className="table-wrap">
@@ -291,14 +315,14 @@ function GestaoMedicamentos({ token }: { token: string | null }) {
                 </tr>
               </thead>
               <tbody>
-                {medicamentos.length === 0 && (
+                {medicamentosFiltrados.length === 0 && (
                   <tr>
                     <td colSpan={10} className="vazio-tabela">
-                      Nenhum medicamento cadastrado.
+                      {medicamentos.length === 0 ? 'Nenhum medicamento cadastrado.' : 'Nenhum medicamento encontrado para essa busca.'}
                     </td>
                   </tr>
                 )}
-                {medicamentos.map((m) => (
+                {medicamentosFiltrados.map((m) => (
                   <tr key={m.id}>
                     <td>{m.nome}</td>
                     <td>{m.apresentacao}</td>

@@ -556,7 +556,9 @@ function TabelaConsolidado({ dados, veTodasUnidades }: { dados: RelatorioEstoque
         <thead>
           <tr>
             <th>Medicamento</th>
+            <th>Fabricante</th>
             <th>Lote</th>
+            <th>Validade</th>
             {veTodasUnidades && <th>Unidade</th>}
             <th className="num">Qtd.</th>
             <th className="num">Valor unit.</th>
@@ -566,7 +568,7 @@ function TabelaConsolidado({ dados, veTodasUnidades }: { dados: RelatorioEstoque
         <tbody>
           {dados.itens.length === 0 && (
             <tr>
-              <td colSpan={veTodasUnidades ? 6 : 5} className="vazio-tabela">
+              <td colSpan={veTodasUnidades ? 8 : 7} className="vazio-tabela">
                 Sem lotes no período.
               </td>
             </tr>
@@ -574,7 +576,9 @@ function TabelaConsolidado({ dados, veTodasUnidades }: { dados: RelatorioEstoque
           {dados.itens.map((item) => (
             <tr key={item.lote.id}>
               <td>{item.lote.medicamento.nome}</td>
+              <td>{item.lote.medicamento.fabricante ?? '—'}</td>
               <td className="mono">{item.lote.numero_lote}</td>
+              <td>{formatarData(item.lote.data_validade)}</td>
               {veTodasUnidades && <td>{item.lote.unidade.nome}</td>}
               <td className="num">{item.lote.quantidade_atual}</td>
               <td className="num">{formatarMoeda(item.lote.valor_unitario)}</td>
@@ -585,7 +589,7 @@ function TabelaConsolidado({ dados, veTodasUnidades }: { dados: RelatorioEstoque
         {dados.itens.length > 0 && (
           <tfoot>
             <tr>
-              <td colSpan={veTodasUnidades ? 5 : 4} style={{ fontWeight: 700 }}>
+              <td colSpan={veTodasUnidades ? 7 : 6} style={{ fontWeight: 700 }}>
                 Valor total geral
               </td>
               <td className="num" style={{ fontWeight: 700 }}>
@@ -1029,6 +1033,7 @@ function TabelaVencimentos({ dados, veTodasUnidades }: { dados: RelatorioVencime
         <thead>
           <tr>
             <th>Medicamento</th>
+            <th>Fabricante</th>
             <th>Lote</th>
             {veTodasUnidades && <th>Unidade</th>}
             <th>Validade</th>
@@ -1038,7 +1043,7 @@ function TabelaVencimentos({ dados, veTodasUnidades }: { dados: RelatorioVencime
         <tbody>
           {dados.itens.length === 0 && (
             <tr>
-              <td colSpan={veTodasUnidades ? 5 : 4} className="vazio-tabela">
+              <td colSpan={veTodasUnidades ? 6 : 5} className="vazio-tabela">
                 Nenhum lote vencendo nos próximos {dados.dias_considerados} dias.
               </td>
             </tr>
@@ -1046,6 +1051,7 @@ function TabelaVencimentos({ dados, veTodasUnidades }: { dados: RelatorioVencime
           {dados.itens.map((lote) => (
             <tr key={lote.id}>
               <td>{lote.medicamento.nome}</td>
+              <td>{lote.medicamento.fabricante ?? '—'}</td>
               <td className="mono">{lote.numero_lote}</td>
               {veTodasUnidades && <td>{lote.unidade.nome}</td>}
               <td>{formatarData(lote.data_validade)}</td>

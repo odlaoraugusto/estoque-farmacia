@@ -92,6 +92,7 @@ const TIPO_MOV_LABEL: Record<string, string> = {
   saida: 'Saída',
   descarte: 'Descarte',
   ajuste: 'Ajuste',
+  correcao_valor: 'Correção',
 };
 export function labelTipoMovimentacao(tipo: string): string {
   return TIPO_MOV_LABEL[tipo] ?? tipo;

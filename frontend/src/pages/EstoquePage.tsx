@@ -156,18 +156,39 @@ export function EstoquePage() {
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
 
       <div className="tiles">
-        <div className="tile">
-          <div className="k">Estoque Crítico</div>
+        <div className={`tile ${itensEmRisco.length > 0 ? 'warn' : ''}`}>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-bell" />
+              </svg>
+            </span>
+            <span className="k">Estoque Crítico</span>
+          </div>
           <div className={`v ${itensEmRisco.length > 0 ? 'warn' : ''}`}>{carregando ? '—' : itensEmRisco.length}</div>
         </div>
-        <div className="tile">
-          <div className="k">Lotes vencendo em {vencimentos?.dias_considerados ?? 30} dias</div>
+        <div className={`tile ${(vencimentos?.itens.length ?? 0) > 0 ? 'warn' : ''}`}>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-clock" />
+              </svg>
+            </span>
+            <span className="k">Lotes vencendo em {vencimentos?.dias_considerados ?? 30} dias</span>
+          </div>
           <div className={`v ${(vencimentos?.itens.length ?? 0) > 0 ? 'warn' : ''}`}>
             {carregando ? '—' : vencimentos?.itens.length ?? 0}
           </div>
         </div>
         <div className="tile">
-          <div className="k">Transferências pendentes</div>
+          <div className="tile-top">
+            <span className="tile-icon">
+              <svg className="ic">
+                <use href="#i-swap" />
+              </svg>
+            </span>
+            <span className="k">Transferências pendentes</span>
+          </div>
           <div className="v">{carregando ? '—' : pendentes.length + solicitacoesPendentes.length}</div>
           {!carregando && (pendentes.length > 0 || solicitacoesPendentes.length > 0) && (
             <div className="screen-sub" style={{ margin: '4px 0 0', fontSize: 11 }}>
@@ -179,7 +200,14 @@ export function EstoquePage() {
         </div>
         {permissoes.relatoriosFinanceiro && (
           <div className="tile">
-            <div className="k">Valor total em estoque</div>
+            <div className="tile-top">
+              <span className="tile-icon">
+                <svg className="ic">
+                  <use href="#i-coin" />
+                </svg>
+              </span>
+              <span className="k">Valor total em estoque</span>
+            </div>
             <div className="v">{carregando ? '—' : formatarMoeda(consolidado?.valor_total_geral ?? '0')}</div>
           </div>
         )}
@@ -188,7 +216,7 @@ export function EstoquePage() {
       {(alertas.total > 0 || (alertas.atividade?.itens.length ?? 0) > 0) && (
         <div className="panel">
           <h2>Alertas</h2>
-          <ConteudoAlertas alertas={alertas} />
+          <ConteudoAlertas alertas={alertas} colapsavel />
         </div>
       )}
 

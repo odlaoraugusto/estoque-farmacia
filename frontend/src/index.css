@@ -34,13 +34,22 @@
   --danger-bg: #f4e6e8;
   --ok: #397463;
   --ok-bg: #e8f3ef;
+  /* --info (2026-09-10, "Acabamento FESF") — único token novo da
+     proposta, derivado do verde-água institucional (--fesf-teal), pra
+     dar a essa cor um papel funcional (notificação, segundo acento)
+     além de decorativo na régua institucional. Já era mencionado num
+     comentário mais abaixo (popup de estoque) sem nunca ter sido
+     definido — chegou a hora. */
+  --info: #2f7d74;
+  --info-bg: #e6f0ee;
   --roxo: #7a4f9e;
   --roxo-bg: #f1ebf6;
   --locked-bg: #ece7ee;
-  --shadow: 0 1px 3px rgba(44, 36, 51, 0.07), 0 1px 1px rgba(44, 36, 51, 0.04);
+  --shadow: 0 1px 2px rgba(44, 36, 51, 0.05), 0 6px 16px rgba(44, 36, 51, 0.07);
   --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
-  --sans: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --radius: 10px;
+  --sans: 'Arimo', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Nunito', var(--sans);
+  --radius: 12px;
 
   /* cores por unidade (rail de contexto) — cada uma das 4 unidades do
      hospital herda uma das 4 cores da régua institucional, suavizada.
@@ -70,10 +79,12 @@
     --danger-bg: #381e23;
     --ok: #80c6b2;
     --ok-bg: #1d302a;
+    --info: #6cc4b7;
+    --info-bg: #17302b;
     --roxo: #c9a8e0;
     --roxo-bg: #2e2340;
     --locked-bg: #312a37;
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 20px rgba(0, 0, 0, 0.35);
     --unit-caf: #b897d8;
     --unit-uti: #a5a2d7;
     --unit-cc: #77c5b9;
@@ -103,6 +114,14 @@ body {
 
 a {
   color: inherit;
+}
+
+/* Ícones do sprite (IconSprite.tsx) — os `<symbol>` não têm cor
+   própria; `currentColor` puxa o `color` já herdado em cada contexto
+   (`.nav-btn`, `.tile-icon` etc.), sem repetir cor em cada lugar. */
+.ic {
+  stroke: currentColor;
+  fill: none;
 }
 
 .shell {
@@ -224,6 +243,15 @@ a {
   display: flex;
   flex-direction: column;
   gap: 22px;
+  /* overflow-y:auto zera o tamanho mínimo automático do item flex
+     (regra do spec: overflow != visible -> automatic minimum size vira
+     0) — sem isso, se o conteúdo da sidebar (sessão + menu) for mais
+     alto que a viewport, ela força a página inteira a crescer além de
+     100vh em vez de simplesmente rolar por dentro (achado real no
+     projeto irmão, Almoxarifado, 2026-09-10, ao deixar os botões de
+     sessão mais altos). */
+  overflow-y: auto;
+  min-height: 0;
 }
 .brand {
   display: flex;
@@ -232,10 +260,10 @@ a {
   padding: 0 4px;
 }
 .brand .mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--accent);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(150deg, var(--accent), var(--accent-strong));
   color: var(--accent-ink);
   display: flex;
   align-items: center;
@@ -243,10 +271,16 @@ a {
   font-weight: 700;
   font-size: 13px;
   flex: none;
+  box-shadow: 0 2px 6px rgba(84, 50, 118, 0.35);
+}
+.brand .mark .ic {
+  width: 15px;
+  height: 15px;
 }
 .brand .name {
+  font-family: var(--font-display);
   font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.15;
 }
@@ -261,7 +295,7 @@ a {
 .session-card {
   background: var(--surface-2);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 10px 11px;
 }
 .session-card .who {
@@ -305,6 +339,20 @@ a {
   text-decoration: underline;
   white-space: nowrap;
 }
+/* `inline-flex` só nos poucos `.link-btn` com ícone (2026-09-10) — a
+   maioria é texto solto em linha de tabela/lista; virar flex item de
+   um ancestral flex faz o botão se dimensionar pelo max-content em vez
+   de encolher/quebrar linha normalmente pra caber (achado real no
+   projeto irmão, Almoxarifado — uma tabela inteira estourou o painel). */
+.link-btn:has(.ic) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.link-btn .ic {
+  width: 12px;
+  height: 12px;
+}
 .link-btn:hover {
   color: var(--accent);
 }
@@ -328,7 +376,7 @@ nav.screens .eyebrow {
   gap: 9px;
   text-align: left;
   padding: 8px 9px;
-  border-radius: 6px;
+  border-radius: 8px;
   border: none;
   background: transparent;
   color: var(--ink);
@@ -337,12 +385,13 @@ nav.screens .eyebrow {
   font-family: var(--sans);
   width: 100%;
   text-decoration: none;
+  position: relative;
 }
 .nav-btn .ic {
   width: 15px;
+  height: 15px;
   text-align: center;
-  font-size: 13px;
-  opacity: 0.8;
+  opacity: 0.75;
   flex: none;
 }
 .nav-btn .lbl {
@@ -351,13 +400,26 @@ nav.screens .eyebrow {
 .nav-btn:hover {
   background: var(--line-soft);
 }
+/* Item ativo — fundo suave + barra de acento à esquerda, em vez do
+   preenchimento roxo sólido de antes (2026-09-10, "Acabamento FESF"). */
 .nav-btn[aria-current='page'] {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 750;
+}
+.nav-btn[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 3px;
   background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 650;
 }
 .nav-btn[aria-current='page'] .ic {
   opacity: 1;
+  color: var(--accent-strong);
 }
 
 .sidebar-foot {
@@ -556,7 +618,7 @@ select {
   right: 0;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: 9px;
   box-shadow: var(--shadow);
   max-height: 220px;
   overflow-y: auto;
@@ -623,13 +685,29 @@ select {
 .btn {
   font-family: var(--sans);
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 700;
   padding: 9px 17px;
-  border-radius: 7px;
+  border-radius: 8px;
   border: 1px solid var(--accent);
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
   color: var(--accent-ink);
   cursor: pointer;
+}
+/* `inline-flex` só nos botões que TÊM ícone (2026-09-10) — vira flex
+   item de qualquer flex/grid ancestral (linha de tabela, lista de
+   ações) e passa a se dimensionar pelo max-content em vez de
+   encolher/quebrar linha normalmente pra caber, empurrando a tabela
+   pra fora do painel (achado real no projeto irmão, Almoxarifado). A
+   maioria dos `.btn` do app é só texto. */
+.btn:has(.ic) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.btn .ic {
+  width: 14px;
+  height: 14px;
+  flex: none;
 }
 .btn:hover {
   background: var(--accent-strong);
@@ -666,6 +744,10 @@ select {
 .btn.sm {
   padding: 6px 11px;
   font-size: 11.5px;
+}
+.btn.sm .ic {
+  width: 12px;
+  height: 12px;
 }
 
 .note {
@@ -765,6 +847,10 @@ tbody tr:hover {
   background: var(--roxo-bg);
   color: var(--roxo);
 }
+.pill.info {
+  background: var(--info-bg);
+  color: var(--info);
+}
 .pill::before {
   content: '';
   width: 5px;
@@ -803,11 +889,51 @@ tbody tr:hover {
 .tile .v.warn {
   color: var(--warn);
 }
+/* Badge de ícone do KPI (2026-09-10, "Acabamento FESF" — guia de
+   componentes: "Cartão KPI"). Neutro (--accent) por padrão; o
+   modificador de estado vai no `.tile` (`.tile.warn`/`.danger`/`.ok`/
+   `.info`), igual ao padrão que `.v.warn` já usava. */
+.tile-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tile-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.tile-icon .ic {
+  width: 14px;
+  height: 14px;
+}
+.tile.warn .tile-icon {
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.tile.danger .tile-icon {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.tile.ok .tile-icon {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+.tile.info .tile-icon {
+  background: var(--info-bg);
+  color: var(--info);
+}
 
 .letterhead {
   border: 1px solid var(--line);
   border-top: 3px solid var(--fesf-purple);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface);
   padding: 12px 16px;
   margin-bottom: 16px;
@@ -894,9 +1020,9 @@ tbody tr:hover {
   border: 1px solid var(--ok);
 }
 .alerta.info {
-  background: var(--surface-2);
-  color: var(--muted);
-  border: 1px solid var(--line);
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info);
 }
 
 .carregando {
@@ -905,17 +1031,104 @@ tbody tr:hover {
   padding: 20px 0;
 }
 
+/* Login — painel dividido (2026-09-10, "Acabamento FESF"): marca de um
+   lado (cor cheia institucional, como manda o manual), formulário do
+   outro. Antes era um cartão centrado sobre fundo neutro, sem nenhum
+   momento de marca; a barra institucional (.topbar) saiu da tela de
+   login — o painel de marca abaixo já carrega essa identificação no
+   rodapé (.login-brand-foot).
+   `.login-wrap` usa `height:100vh` (não `min-height`) + `overflow:
+   hidden`, e a cadeia `.login-split`/`.login-brand`/`.login-form-side`
+   tem `min-height:0` — sem isso um lado mais alto que o outro (ex.: os
+   3 passos da farmácia — trocar senha / selecionar unidade / login)
+   empurra a página inteira além de 100vh (achado real no projeto
+   irmão, Almoxarifado, corrigindo aqui desde o início). */
 .login-wrap {
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+.login-split {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+.login-brand {
+  flex: 0 0 40%;
+  max-width: 460px;
+  background: linear-gradient(160deg, var(--fesf-purple), var(--accent-strong));
+  color: #fdfbfe;
+  padding: 48px 42px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
 }
-.login-main {
+.login-brand-mark {
+  width: 50px;
+  height: 50px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.login-brand-mark .ic {
+  width: 24px;
+  height: 24px;
+}
+.login-brand h2 {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 800;
+  margin: 0 0 10px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.login-brand p {
+  font-size: 12.5px;
+  line-height: 1.6;
+  max-width: 34ch;
+  color: #ece1f2;
+}
+.login-brand-foot {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d9c8e3;
+  padding-bottom: 8px;
+}
+.login-brand-ribbon {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--fesf-purple) 0 25%,
+    var(--fesf-lavender) 25% 50%,
+    var(--fesf-teal) 50% 75%,
+    var(--fesf-mint) 75% 100%
+  );
+}
+.login-form-side {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 20px;
+  background: var(--bg);
+  min-width: 0;
+  min-height: 0;
+  /* Se o formulário (ex.: os 3 passos da farmácia) for mais alto que a
+     tela, rola só este lado — a página em volta (.login-wrap) nunca
+     rola. */
+  overflow-y: auto;
 }
 .login-panels {
   display: flex;
@@ -924,6 +1137,43 @@ tbody tr:hover {
   width: 100%;
   max-width: 420px;
 }
+.login-step {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .login-wrap {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+  .login-split {
+    flex-direction: column;
+  }
+  .login-brand {
+    flex: none;
+    max-width: none;
+    padding: 22px 24px 18px;
+  }
+  .login-brand p {
+    max-width: none;
+  }
+  .login-brand-mark {
+    width: 38px;
+    height: 38px;
+    margin-bottom: 14px;
+  }
+  .login-form-side {
+    padding: 28px 18px 40px;
+    overflow-y: visible;
+  }
+}
 
 .unidade-grid {
   display: grid;
@@ -931,9 +1181,12 @@ tbody tr:hover {
   gap: 10px;
 }
 .unidade-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   text-align: center;
-  border-radius: 7px;
+  border-radius: 8px;
   padding: 14px 10px;
   font-weight: 650;
   font-size: 12.5px;
@@ -942,6 +1195,10 @@ tbody tr:hover {
   border: 1px solid var(--line);
   color: var(--ink);
   font-family: var(--sans);
+}
+.unidade-btn .ic {
+  width: 14px;
+  height: 14px;
 }
 .unidade-btn:hover {
   background: var(--line-soft);
@@ -980,6 +1237,11 @@ tbody tr:hover {
     flex-direction: row;
     flex-wrap: wrap;
     width: 100%;
+  }
+  /* Barra de acento do item ativo pressupõe menu vertical — em linha
+     (mobile) ela some, sobra só o fundo suave. */
+  .nav-btn[aria-current='page']::before {
+    display: none;
   }
   .sidebar-foot {
     display: none;
@@ -1096,7 +1358,7 @@ tbody tr:hover {
 .modal-close:hover { color: var(--ink); }
 
 .alerta-bloco {
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 14px;
   border-left: 3px solid transparent;
@@ -1111,12 +1373,50 @@ tbody tr:hover {
   font-size: 13.5px;
   line-height: 1.6;
 }
+/* Versão colapsável (2026-09-10, pedido do cliente — só a página
+   "Estoque atual" usa `<details>`, ver `BlocoAlerta` em
+   NotificacaoEstoquePopup.tsx; o popup do sino continua com `<h3>`
+   fixo de sempre, sem nada disto). `<details>` fechado por padrão —
+   some o `<ul>` inteiro, sobra só o resumo clicável. */
+.alerta-bloco summary {
+  margin: 0;
+  font-size: 14px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.alerta-bloco summary::-webkit-details-marker {
+  display: none;
+}
+.alerta-bloco summary::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+  opacity: 0.7;
+}
+.alerta-bloco[open] summary {
+  margin-bottom: 8px;
+}
+.alerta-bloco[open] summary::after {
+  transform: rotate(-135deg);
+}
 
 .alerta-critico {
   background: var(--danger-bg);
   border-left-color: var(--danger);
 }
-.alerta-critico h3 { color: var(--danger); }
+.alerta-critico h3,
+.alerta-critico summary {
+  color: var(--danger);
+}
 
 /* Vencido (já passou da validade) é mais grave que "vencendo em breve"
    — mesma cor de --danger, mas com destaque extra (borda mais grossa,
@@ -1126,7 +1426,10 @@ tbody tr:hover {
   background: var(--danger-bg);
   border-left: 5px solid var(--danger);
 }
-.alerta-vencido h3 { color: var(--danger); }
+.alerta-vencido h3,
+.alerta-vencido summary {
+  color: var(--danger);
+}
 .alerta-vencido li { font-weight: 600; }
 
 /* Ajuste de alertas (2026-08-20): 3 níveis de proximidade de vencimento —
@@ -1136,13 +1439,19 @@ tbody tr:hover {
   background: var(--warn-bg);
   border-left-color: var(--warn);
 }
-.alerta-amarelo h3 { color: var(--warn); }
+.alerta-amarelo h3,
+.alerta-amarelo summary {
+  color: var(--warn);
+}
 
 .alerta-roxo {
   background: var(--roxo-bg);
   border-left-color: var(--roxo);
 }
-.alerta-roxo h3 { color: var(--roxo); }
+.alerta-roxo h3,
+.alerta-roxo summary {
+  color: var(--roxo);
+}
 
 /* Busca de estoque (2026-08-19) — evita ter que rolar a lista inteira de
    lotes pra achar um medicamento. Reaproveita o input de texto padrão,
@@ -1168,7 +1477,10 @@ tbody tr:hover {
   background: var(--surface-2);
   border-left-color: var(--muted);
 }
-.alerta-atividade h3 { color: var(--ink); }
+.alerta-atividade h3,
+.alerta-atividade summary {
+  color: var(--ink);
+}
 .alerta-atividade li i { color: var(--muted); font-style: normal; }
 
 /* Fonte maior nas páginas públicas (2026-09-01, pedido do cliente) —

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RotaProtegida } from './components/RotaProtegida';
+import { IconSprite } from './components/IconSprite';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { PublicoInicioPage } from './pages/PublicoInicioPage';
@@ -32,6 +33,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <IconSprite />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/publico" element={<PublicoInicioPage />} />

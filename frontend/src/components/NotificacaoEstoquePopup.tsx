@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAlertasEstoque } from '../hooks/useAlertasEstoque';
 import { diasAteVencer, formatarData, formatarDataHora, labelTipoMovimentacao } from '../lib/formato';
@@ -78,7 +79,48 @@ export function NotificacaoEstoquePopup() {
   );
 }
 
-export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAlertasEstoque> }) {
+/** Cabeçalho + corpo de um bloco de alerta — vira `<details>/<summary>`
+ * (colapsado por padrão, sem JS nenhum: o navegador cuida do
+ * abrir/fechar) quando `colapsavel` é true, ou o `<div>/<h3>` de sempre
+ * quando não (2026-09-10, pedido do cliente: só a página "Estoque
+ * atual" — onde os alertas empilhados empurravam o catálogo pra baixo
+ * — colapsa; o popup do sino continua exatamente como está, já que lá
+ * a pessoa abriu de propósito pra ver tudo). */
+function BlocoAlerta({
+  colapsavel,
+  className,
+  titulo,
+  children,
+}: {
+  colapsavel?: boolean;
+  className: string;
+  titulo: string;
+  children: ReactNode;
+}) {
+  if (colapsavel) {
+    return (
+      <details className={className}>
+        <summary>{titulo}</summary>
+        {children}
+      </details>
+    );
+  }
+  return (
+    <div className={className}>
+      <h3>{titulo}</h3>
+      {children}
+    </div>
+  );
+}
+
+export function ConteudoAlertas({
+  alertas,
+  colapsavel,
+}: {
+  alertas: ReturnType<typeof useAlertasEstoque>;
+  /** Só a página "Estoque atual" passa `true` — ver `BlocoAlerta`. */
+  colapsavel?: boolean;
+}) {
   const itensCriticos = alertas.critico?.itens ?? [];
 
   if (alertas.total === 0 && !alertas.atividade?.itens.length) {
@@ -88,8 +130,11 @@ export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAle
   return (
     <>
       {itensCriticos.length > 0 && (
-        <div className="alerta-bloco alerta-critico">
-          <h3>Estoque crítico — {itensCriticos.length} medicamento(s)</h3>
+        <BlocoAlerta
+          colapsavel={colapsavel}
+          className="alerta-bloco alerta-critico"
+          titulo={`Estoque crítico — ${itensCriticos.length} medicamento(s)`}
+        >
           <ul>
             {itensCriticos.map((item) => (
               <li key={item.medicamento_id}>
@@ -97,59 +142,69 @@ export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAle
               </li>
             ))}
           </ul>
-        </div>
+        </BlocoAlerta>
       )}
 
       {alertas.itensVencidos.length > 0 && (
-        <div className="alerta-bloco alerta-vencido">
-          <h3>Vencidos — {alertas.itensVencidos.length} lote(s)</h3>
+        <BlocoAlerta
+          colapsavel={colapsavel}
+          className="alerta-bloco alerta-vencido"
+          titulo={`Vencidos — ${alertas.itensVencidos.length} lote(s)`}
+        >
           <ul>
             {alertas.itensVencidos.map((lote) => (
               <li key={lote.id}>
-                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · venceu em {formatarData(lote.data_validade)} ·{' '}
-                {lote.unidade.nome}
+                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · {lote.quantidade_atual} un. · venceu em{' '}
+                {formatarData(lote.data_validade)} · {lote.unidade.nome}
               </li>
             ))}
           </ul>
-        </div>
+        </BlocoAlerta>
       )}
 
       {alertas.itensAmarelo.length > 0 && (
-        <div className="alerta-bloco alerta-amarelo">
-          <h3>Vence em menos de 30 dias — {alertas.itensAmarelo.length} lote(s)</h3>
+        <BlocoAlerta
+          colapsavel={colapsavel}
+          className="alerta-bloco alerta-amarelo"
+          titulo={`Vence em menos de 30 dias — ${alertas.itensAmarelo.length} lote(s)`}
+        >
           <ul>
             {alertas.itensAmarelo.map((lote) => (
               <li key={lote.id}>
-                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
-                {diasAteVencer(lote.data_validade)}d) · {lote.unidade.nome}
+                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · {lote.quantidade_atual} un. · vence em{' '}
+                {formatarData(lote.data_validade)} ({diasAteVencer(lote.data_validade)}d) · {lote.unidade.nome}
               </li>
             ))}
           </ul>
-        </div>
+        </BlocoAlerta>
       )}
 
       {alertas.itensRoxo.length > 0 && (
-        <div className="alerta-bloco alerta-roxo">
-          <h3>Vence entre 30 e 60 dias — {alertas.itensRoxo.length} lote(s)</h3>
+        <BlocoAlerta
+          colapsavel={colapsavel}
+          className="alerta-bloco alerta-roxo"
+          titulo={`Vence entre 30 e 60 dias — ${alertas.itensRoxo.length} lote(s)`}
+        >
           <ul>
             {alertas.itensRoxo.map((lote) => (
               <li key={lote.id}>
                 <span className="pill pend" style={{ marginRight: 6 }}>
                   OK
                 </span>
-                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · vence em {formatarData(lote.data_validade)} (
-                {diasAteVencer(lote.data_validade)}d) · {lote.unidade.nome}
+                <b>{lote.medicamento.nome}</b> — lote {lote.numero_lote} · {lote.quantidade_atual} un. · vence em{' '}
+                {formatarData(lote.data_validade)} ({diasAteVencer(lote.data_validade)}d) · {lote.unidade.nome}
               </li>
             ))}
           </ul>
-        </div>
+        </BlocoAlerta>
       )}
 
       {alertas.atividade && alertas.atividade.itens.length > 0 && (
-        <div className="alerta-bloco alerta-atividade">
-          <h3>
-            Atividade recente (últimos {alertas.atividade.dias_considerados} dias) — {alertas.atividade.itens.length} evento(s)
-          </h3>
+        <BlocoAlerta
+          colapsavel={colapsavel}
+          className="alerta-bloco alerta-atividade"
+          titulo={`Atividade recente (últimos ${alertas.atividade.dias_considerados} dias) — ${alertas.atividade.itens.length} evento(s)`}
+        >
           <ul>
             {alertas.atividade.itens.map((item) => (
               <li key={item.movimentacao_id}>
@@ -158,7 +213,7 @@ export function ConteudoAlertas({ alertas }: { alertas: ReturnType<typeof useAle
               </li>
             ))}
           </ul>
-        </div>
+        </BlocoAlerta>
       )}
     </>
   );

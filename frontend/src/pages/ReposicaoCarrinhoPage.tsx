@@ -161,7 +161,9 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
                 setBusca(v);
                 setLoteSelecionado(null);
               }}
-              rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`}
+              rotulo={(l) =>
+                `${l.medicamento.nome} · ${l.numero_lote} · vence ${formatarData(l.data_validade)} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`
+              }
               chave={(l) => l.id}
               aoSelecionar={(l) => {
                 setLoteSelecionado(l);

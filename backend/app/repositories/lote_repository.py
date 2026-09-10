@@ -29,6 +29,48 @@ class LoteRepository:
             .first()
         )
 
+    def buscar_para_merge(
+        self,
+        db: Session,
+        medicamento_id: int,
+        unidade_id: int,
+        numero_lote: str,
+        data_validade,
+        numero_nota_fiscal: str | None,
+        numero_afm: str | None,
+    ) -> Lote | None:
+        """Acha um lote já existente com a MESMA identidade física — mesmo
+        medicamento + unidade + nº de lote + validade + NF/AFM
+        (2026-09-09, pedido do cliente: "se for o mesmo lote, integra
+        aquele estoque"; 2026-09-10, ajuste: "independente da origem" —
+        `origem` SAIU da chave, um lote físico é o mesmo lote seja qual
+        for o canal pelo qual ele chegou: compra, doação, devolução ou
+        transferência) — pra somar em vez de criar linha duplicada
+        (usado por Entrada, Transferência/Reposição de carrinho e
+        Devolução de medicamento à farmácia). Mantém NF/AFM na chave pra
+        não juntar duas compras de notas fiscais diferentes só porque o
+        nº de lote do fabricante coincidiu — cada NF continua rastreável
+        por si só (`ck_lotes_nota_fiscal_obrigatoria_compra`). Comparação
+        null-safe: NF/AFM ambos nulos também conta como "igual" (cobre
+        doação/devolução, que não têm NF). `with_for_update()` trava a
+        linha achada até o fim da transação, mesmo motivo de
+        `get_by_id_for_update`."""
+        query = db.query(Lote).filter(
+            Lote.medicamento_id == medicamento_id,
+            Lote.unidade_id == unidade_id,
+            Lote.numero_lote == numero_lote,
+            Lote.data_validade == data_validade,
+        )
+        query = query.filter(
+            Lote.numero_nota_fiscal.is_(None)
+            if numero_nota_fiscal is None
+            else Lote.numero_nota_fiscal == numero_nota_fiscal
+        )
+        query = query.filter(
+            Lote.numero_afm.is_(None) if numero_afm is None else Lote.numero_afm == numero_afm
+        )
+        return query.with_for_update().first()
+
     def listar(
         self,
         db: Session,

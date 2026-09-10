@@ -92,3 +92,16 @@ class LoteDetalhadoOut(LoteOut):
     sugerido_fefo: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EntradaRegistradaOut(BaseModel):
+    """Resposta de `POST /entradas` — o lote (que agora pode já existir
+    de antes, se a entrada mergeou nele, 2026-09-09) + o id da
+    `Movimentacao` desta operação específica, usado depois pra imprimir
+    o comprovante com a quantidade certa (não o saldo acumulado do
+    lote, ver `tabela_comprovante_entrada`)."""
+
+    lote: LoteDetalhadoOut
+    movimentacao_id: int
+
+    model_config = ConfigDict(from_attributes=True)

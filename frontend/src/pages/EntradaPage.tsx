@@ -176,15 +176,20 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
   const [progresso, setProgresso] = useState<{ ok: number; total: number } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
-  const [ultimaNotaRegistrada, setUltimaNotaRegistrada] = useState<string | null>(null);
+  // Ids das `Movimentacao` desta remessa (2026-09-09: deixou de ser
+  // `numero_nota_fiscal` — uma entrada pode mergear num lote já
+  // existente, então `lote.quantidade_atual` deixou de refletir só o
+  // que esta remessa trouxe; o comprovante agora é montado a partir das
+  // movimentações específicas desta operação).
+  const [movimentacaoIdsRegistrados, setMovimentacaoIdsRegistrados] = useState<number[] | null>(null);
   const [imprimindo, setImprimindo] = useState(false);
 
   async function imprimirComprovante() {
-    if (!ultimaNotaRegistrada) return;
+    if (!movimentacaoIdsRegistrados || movimentacaoIdsRegistrados.length === 0) return;
     setErro(null);
     setImprimindo(true);
     try {
-      await baixarArquivo('/entradas/comprovante', { token, params: { formato: 'pdf', numero_nota_fiscal: ultimaNotaRegistrada } });
+      await baixarArquivo('/entradas/comprovante', { token, params: { formato: 'pdf', ids: movimentacaoIdsRegistrados.join(',') } });
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
     } finally {
@@ -249,15 +254,16 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
   async function registrarTodos() {
     setErro(null);
     setSucesso(null);
-    setUltimaNotaRegistrada(null);
+    setMovimentacaoIdsRegistrados(null);
     setRegistrando(true);
     setProgresso({ ok: 0, total: itens.length });
 
     const restantes = [...itens];
+    const movimentacaoIds: number[] = [];
     let ok = 0;
     for (const item of restantes) {
       try {
-        await api.post(
+        const resposta = await api.post<{ movimentacao_id: number }>(
           '/entradas',
           {
             medicamento_id: item.medicamento.id,
@@ -271,6 +277,7 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
           },
           { token },
         );
+        movimentacaoIds.push(resposta.movimentacao_id);
         ok += 1;
         setProgresso({ ok, total: restantes.length });
         setItens((atual) => atual.filter((i) => i.chave !== item.chave));
@@ -287,7 +294,7 @@ function FormularioNotaFiscal({ token, medicamentos }: { token: string | null; m
     }
 
     setSucesso(`${ok} item(ns) da nota ${numeroNotaFiscal} registrado(s) com sucesso.`);
-    setUltimaNotaRegistrada(numeroNotaFiscal.trim());
+    setMovimentacaoIdsRegistrados(movimentacaoIds);
     setNumeroNotaFiscal('');
     setValorTotalNota('');
     setValorEditadoManualmente(false);
@@ -577,7 +584,11 @@ function FormularioItemUnico({
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
-  const [ultimoLoteId, setUltimoLoteId] = useState<number | null>(null);
+  // Movimentação desta operação específica (2026-09-09: deixou de ser
+  // `ultimoLoteId`/`lote_id` — o lote pode ter mergeado num já
+  // existente, então `lote.quantidade_atual` deixou de refletir só o
+  // que esta entrada trouxe; o comprovante usa a movimentação).
+  const [ultimaMovimentacaoId, setUltimaMovimentacaoId] = useState<number | null>(null);
   const [imprimindo, setImprimindo] = useState(false);
 
   function limparFormulario() {
@@ -594,7 +605,7 @@ function FormularioItemUnico({
     e.preventDefault();
     setErro(null);
     setSucesso(null);
-    setUltimoLoteId(null);
+    setUltimaMovimentacaoId(null);
 
     if (!medicamentoSelecionado) {
       setErro('Selecione um medicamento na busca.');
@@ -607,7 +618,7 @@ function FormularioItemUnico({
 
     setEnviando(true);
     try {
-      const lote = await api.post<{ id: number; numero_lote: string }>(
+      const resposta = await api.post<{ lote: { id: number; numero_lote: string }; movimentacao_id: number }>(
         '/entradas',
         {
           medicamento_id: medicamentoSelecionado.id,
@@ -622,8 +633,8 @@ function FormularioItemUnico({
         },
         { token },
       );
-      setSucesso(`Entrada registrada — lote ${lote.numero_lote}.`);
-      setUltimoLoteId(lote.id);
+      setSucesso(`Entrada registrada — lote ${resposta.lote.numero_lote}.`);
+      setUltimaMovimentacaoId(resposta.movimentacao_id);
       limparFormulario();
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível registrar a entrada.'));
@@ -633,11 +644,11 @@ function FormularioItemUnico({
   }
 
   async function imprimirComprovante() {
-    if (!ultimoLoteId) return;
+    if (!ultimaMovimentacaoId) return;
     setErro(null);
     setImprimindo(true);
     try {
-      await baixarArquivo('/entradas/comprovante', { token, params: { formato: 'pdf', lote_id: ultimoLoteId } });
+      await baixarArquivo('/entradas/comprovante', { token, params: { formato: 'pdf', ids: String(ultimaMovimentacaoId) } });
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
     } finally {

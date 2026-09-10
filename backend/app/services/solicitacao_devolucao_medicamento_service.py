@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -124,11 +125,14 @@ class SolicitacaoDevolucaoMedicamentoService:
 
     # ---- comprovante autenticado ----
 
-    def obter_lotes_para_comprovante(self, db: Session, solicitacao_id: int) -> list[Lote]:
+    def obter_lotes_para_comprovante(self, db: Session, solicitacao_id: int) -> list[Movimentacao]:
         """Pra imprimir o comprovante depois de confirmar — reaproveita o
         mesmo builder de comprovante de Entrada (`tabela_comprovante_entrada`),
-        já que cada item confirmado virou um `Lote` normal com
-        `origem=devolucao` (ver `confirmar` abaixo).
+        que lê a quantidade da `Movimentacao` (2026-09-09), não mais do
+        `Lote` — desde que a confirmação pode mergear num lote já
+        existente (`LoteRepository.buscar_para_merge`),
+        `lote.quantidade_atual` deixou de refletir só o que esta
+        solicitação trouxe.
 
         Busca via `Movimentacao.solicitacao_devolucao_id` (2026-09-04),
         não via `item.lote_id` — um mesmo item pode ter virado mais de um
@@ -146,10 +150,9 @@ class SolicitacaoDevolucaoMedicamentoService:
             )
 
         movimentacoes = self.movimentacao_repository.listar_por_solicitacao_devolucao(db, solicitacao_id)
-        lotes = [m.lote for m in movimentacoes if m.lote is not None]
-        if not lotes:
+        if not movimentacoes:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nenhum lote encontrado.")
-        return lotes
+        return movimentacoes
 
     # ---- confirmação autenticada ----
 
@@ -184,17 +187,37 @@ class SolicitacaoDevolucaoMedicamentoService:
                     detail=f"Item {confirmacao.item_id} não pertence a esta solicitação.",
                 )
 
-            lote = Lote(
-                medicamento_id=item.medicamento_id,
-                unidade_id=unidade_ativa_id,
-                numero_lote=confirmacao.numero_lote,
-                data_validade=confirmacao.data_validade,
-                quantidade_atual=confirmacao.quantidade,
-                valor_unitario=confirmacao.valor_unitario,
-                origem=OrigemEnum.devolucao,
-                usuario_entrada_id=usuario.id,
+            # Se já existe um lote com a MESMA identidade física (mesmo
+            # medicamento + unidade + nº de lote + validade — devolução
+            # não tem NF/AFM), soma nele em vez de criar linha nova
+            # (2026-09-09, pedido do cliente: "se for o mesmo lote,
+            # integra aquele estoque").
+            lote = self.lote_repository.buscar_para_merge(
+                db,
+                item.medicamento_id,
+                unidade_ativa_id,
+                confirmacao.numero_lote,
+                confirmacao.data_validade,
+                None,
+                None,
             )
-            lote = self.lote_repository.create(db, lote)
+            if lote is not None:
+                lote.quantidade_atual += confirmacao.quantidade
+                if lote.valor_unitario in (None, Decimal("0")) and confirmacao.valor_unitario:
+                    lote.valor_unitario = confirmacao.valor_unitario
+                lote = self.lote_repository.salvar(db, lote)
+            else:
+                lote = Lote(
+                    medicamento_id=item.medicamento_id,
+                    unidade_id=unidade_ativa_id,
+                    numero_lote=confirmacao.numero_lote,
+                    data_validade=confirmacao.data_validade,
+                    quantidade_atual=confirmacao.quantidade,
+                    valor_unitario=confirmacao.valor_unitario,
+                    origem=OrigemEnum.devolucao,
+                    usuario_entrada_id=usuario.id,
+                )
+                lote = self.lote_repository.create(db, lote)
 
             self.movimentacao_repository.create(
                 db,

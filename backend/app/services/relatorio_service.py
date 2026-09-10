@@ -649,13 +649,17 @@ class RelatorioService:
         )
         return tabela_comprovante_solicitacao(metadados, solicitacao)
 
-    def comprovante_entrada(self, db: Session, usuario: UsuarioMe, lotes: list) -> TabelaRelatorio:
+    def comprovante_entrada(self, db: Session, usuario: UsuarioMe, movimentacoes: list) -> TabelaRelatorio:
         """Comprovante imprimível do que acabou de ser registrado em
         Entrada, qualquer modalidade (2026-09-01, pedido do cliente) —
-        `lotes` já vem carregado e validado por
-        `EntradaService.obter_para_comprovante`."""
-        metadados = self._metadados(usuario, "Comprovante de Entrada", lotes[0].unidade_id, db)
-        return tabela_comprovante_entrada(metadados, lotes)
+        `movimentacoes` já vem carregada e validada por
+        `EntradaService.obter_para_comprovante` (2026-09-09: passou a
+        ser `Movimentacao`, não `Lote` — ver motivo em
+        `tabela_comprovante_entrada`)."""
+        metadados = self._metadados(
+            usuario, "Comprovante de Entrada", movimentacoes[0].unidade_destino_id, db
+        )
+        return tabela_comprovante_entrada(metadados, movimentacoes)
 
     def comprovante_saida(self, db: Session, usuario: UsuarioMe, movimentacoes: list) -> TabelaRelatorio:
         """Comprovante imprimível de uma ou mais Saídas (2026-09-02,

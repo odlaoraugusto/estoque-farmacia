@@ -109,20 +109,39 @@ class TransferenciaService:
         lote.status_transferencia = StatusTransferenciaEnum.recebido
         self.lote_repository.salvar(db, lote)
 
-        novo_lote = Lote(
-            medicamento_id=lote.medicamento_id,
-            unidade_id=destino.id,
-            numero_lote=lote.numero_lote,
-            data_validade=lote.data_validade,
-            quantidade_atual=dados.quantidade,
-            valor_unitario=lote.valor_unitario,
-            origem=lote.origem,
-            numero_nota_fiscal=lote.numero_nota_fiscal,
-            numero_afm=lote.numero_afm,
-            usuario_entrada_id=usuario.id,
-            lote_origem_id=lote.id,
+        # Se o destino já tem um lote com a MESMA identidade física
+        # (mesmo medicamento + nº de lote + validade + origem + NF/AFM —
+        # copiados do lote de origem, então reposições sucessivas do
+        # MESMO lote físico batem certinho), soma nele em vez de criar
+        # linha nova (2026-09-09, pedido do cliente: "se for o mesmo
+        # lote, integra aquele estoque").
+        novo_lote = self.lote_repository.buscar_para_merge(
+            db,
+            lote.medicamento_id,
+            destino.id,
+            lote.numero_lote,
+            lote.data_validade,
+            lote.numero_nota_fiscal,
+            lote.numero_afm,
         )
-        self.lote_repository.create(db, novo_lote)
+        if novo_lote is not None:
+            novo_lote.quantidade_atual += dados.quantidade
+            self.lote_repository.salvar(db, novo_lote)
+        else:
+            novo_lote = Lote(
+                medicamento_id=lote.medicamento_id,
+                unidade_id=destino.id,
+                numero_lote=lote.numero_lote,
+                data_validade=lote.data_validade,
+                quantidade_atual=dados.quantidade,
+                valor_unitario=lote.valor_unitario,
+                origem=lote.origem,
+                numero_nota_fiscal=lote.numero_nota_fiscal,
+                numero_afm=lote.numero_afm,
+                usuario_entrada_id=usuario.id,
+                lote_origem_id=lote.id,
+            )
+            self.lote_repository.create(db, novo_lote)
 
         agora = datetime.now(timezone.utc)
 
@@ -187,26 +206,42 @@ class TransferenciaService:
                 detail="Lote de origem não encontrado.",
             )
 
-        novo_lote = Lote(
-            medicamento_id=lote_origem.medicamento_id,
-            unidade_id=unidade_ativa_id,
-            numero_lote=lote_origem.numero_lote,
-            data_validade=lote_origem.data_validade,
-            quantidade_atual=dados.quantidade_recebida,
-            valor_unitario=lote_origem.valor_unitario,
-            origem=lote_origem.origem,
-            # Copiar do lote pai — não só o que a seção 6 do doc lista
-            # explicitamente. Faltar `numero_nota_fiscal` aqui viola
-            # `ck_lotes_nota_fiscal_obrigatoria_compra` sempre que
-            # origem=compra (achado em revisão 2026-08-01: confirmar
-            # recebimento de qualquer transferência de lote comprado
-            # dava 500).
-            numero_nota_fiscal=lote_origem.numero_nota_fiscal,
-            numero_afm=lote_origem.numero_afm,
-            usuario_entrada_id=usuario.id,
-            lote_origem_id=lote_origem.id,
+        # Mesmo critério de merge de `enviar()` — se o destino já tem um
+        # lote com a MESMA identidade física, soma nele em vez de criar
+        # linha nova (2026-09-09, pedido do cliente).
+        novo_lote = self.lote_repository.buscar_para_merge(
+            db,
+            lote_origem.medicamento_id,
+            unidade_ativa_id,
+            lote_origem.numero_lote,
+            lote_origem.data_validade,
+            lote_origem.numero_nota_fiscal,
+            lote_origem.numero_afm,
         )
-        self.lote_repository.create(db, novo_lote)
+        if novo_lote is not None:
+            novo_lote.quantidade_atual += dados.quantidade_recebida
+            self.lote_repository.salvar(db, novo_lote)
+        else:
+            novo_lote = Lote(
+                medicamento_id=lote_origem.medicamento_id,
+                unidade_id=unidade_ativa_id,
+                numero_lote=lote_origem.numero_lote,
+                data_validade=lote_origem.data_validade,
+                quantidade_atual=dados.quantidade_recebida,
+                valor_unitario=lote_origem.valor_unitario,
+                origem=lote_origem.origem,
+                # Copiar do lote pai — não só o que a seção 6 do doc lista
+                # explicitamente. Faltar `numero_nota_fiscal` aqui viola
+                # `ck_lotes_nota_fiscal_obrigatoria_compra` sempre que
+                # origem=compra (achado em revisão 2026-08-01: confirmar
+                # recebimento de qualquer transferência de lote comprado
+                # dava 500).
+                numero_nota_fiscal=lote_origem.numero_nota_fiscal,
+                numero_afm=lote_origem.numero_afm,
+                usuario_entrada_id=usuario.id,
+                lote_origem_id=lote_origem.id,
+            )
+            self.lote_repository.create(db, novo_lote)
 
         lote_origem.status_transferencia = StatusTransferenciaEnum.recebido
         self.lote_repository.salvar(db, lote_origem)
@@ -278,20 +313,39 @@ class TransferenciaService:
         lote_origem.status_transferencia = StatusTransferenciaEnum.recebido
         self.lote_repository.salvar(db, lote_origem)
 
-        novo_lote = Lote(
-            medicamento_id=lote_origem.medicamento_id,
-            unidade_id=carrinho.id,
-            numero_lote=lote_origem.numero_lote,
-            data_validade=lote_origem.data_validade,
-            quantidade_atual=dados.quantidade,
-            valor_unitario=lote_origem.valor_unitario,
-            origem=lote_origem.origem,
-            numero_nota_fiscal=lote_origem.numero_nota_fiscal,
-            numero_afm=lote_origem.numero_afm,
-            usuario_entrada_id=usuario.id,
-            lote_origem_id=lote_origem.id,
+        # Mesmo critério de merge de `enviar()`/`confirmar()` — se o
+        # carrinho já tem um lote com a MESMA identidade física, soma
+        # nele em vez de criar linha nova (2026-09-09, pedido do
+        # cliente — era exatamente este o caso relatado: reposições
+        # sucessivas do mesmo lote pro mesmo carrinho/unidade viravam
+        # várias linhas).
+        novo_lote = self.lote_repository.buscar_para_merge(
+            db,
+            lote_origem.medicamento_id,
+            carrinho.id,
+            lote_origem.numero_lote,
+            lote_origem.data_validade,
+            lote_origem.numero_nota_fiscal,
+            lote_origem.numero_afm,
         )
-        self.lote_repository.create(db, novo_lote)
+        if novo_lote is not None:
+            novo_lote.quantidade_atual += dados.quantidade
+            self.lote_repository.salvar(db, novo_lote)
+        else:
+            novo_lote = Lote(
+                medicamento_id=lote_origem.medicamento_id,
+                unidade_id=carrinho.id,
+                numero_lote=lote_origem.numero_lote,
+                data_validade=lote_origem.data_validade,
+                quantidade_atual=dados.quantidade,
+                valor_unitario=lote_origem.valor_unitario,
+                origem=lote_origem.origem,
+                numero_nota_fiscal=lote_origem.numero_nota_fiscal,
+                numero_afm=lote_origem.numero_afm,
+                usuario_entrada_id=usuario.id,
+                lote_origem_id=lote_origem.id,
+            )
+            self.lote_repository.create(db, novo_lote)
 
         agora = datetime.now(timezone.utc)
 

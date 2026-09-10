@@ -4,6 +4,7 @@ import { api, mensagemErro } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
+import { formatarData } from '../lib/formato';
 import type { LoteDetalhadoOut, UnidadeOut } from '../types';
 
 /** Transferência entre unidades — envio direto (Farmacêutico/Coordenador)
@@ -176,7 +177,9 @@ function PainelEnviar({ token, unidadeAtivaId }: { token: string | null; unidade
               setBusca(v);
               setLoteSelecionado(null);
             }}
-            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`}
+            rotulo={(l) =>
+              `${l.medicamento.nome} · ${l.numero_lote} · vence ${formatarData(l.data_validade)} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`
+            }
             chave={(l) => l.id}
             aoSelecionar={(l) => {
               setLoteSelecionado(l);
@@ -392,7 +395,9 @@ function PainelDevolverCarrinho({ token, unidadeAtivaId }: { token: string | nul
               setBusca(v);
               setLoteSelecionado(null);
             }}
-            rotulo={(l) => `${l.medicamento.nome} · ${l.numero_lote} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`}
+            rotulo={(l) =>
+              `${l.medicamento.nome} · ${l.numero_lote} · vence ${formatarData(l.data_validade)} · saldo ${l.quantidade_atual} · ${l.unidade.nome}`
+            }
             chave={(l) => l.id}
             aoSelecionar={(l) => {
               setLoteSelecionado(l);
