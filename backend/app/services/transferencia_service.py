@@ -22,8 +22,9 @@ from app.schemas.movimentacao import (
 from app.schemas.usuario import UsuarioMe
 
 # Mesmo padrão de checagem usado em app/services/entrada_service.py
-# (regra "Entrada só ocorre na CAF") — reposição de carrinho também só sai
-# da CAF.
+# (regra "Entrada só ocorre na CAF") — usado aqui para liberar a CAF a
+# repor QUALQUER carrinho, além da unidade que o hospeda (ver
+# repor_carrinho).
 NOME_UNIDADE_CAF = "CAF"
 
 
@@ -269,11 +270,15 @@ class TransferenciaService:
         da unidade real que é "pai" do carrinho (2026-08-31, pedido do
         cliente — antes só a CAF podia repor, mesmo carrinhos filhos de
         outras satélites; agora cada satélite repõe os carrinhos dela
-        mesma, com o próprio estoque). Fluxo de UMA ETAPA SÓ — o estoque
-        já entra "recebido" no carrinho destino no mesmo ato, sem
-        confirmação separada. Caminho dedicado, deliberadamente à parte
-        de `enviar`/`confirmar` (que têm a semântica de duas etapas da
-        Transferência normal)."""
+        mesma, com o próprio estoque) **ou** a partir da CAF, para
+        qualquer carrinho (2026-09-15, pedido do cliente — CAF é o
+        estoque central, então além de repor os carrinhos que ela
+        hospeda, pode repor os de qualquer satélite também). Em ambos os
+        casos o estoque debitado é sempre o da própria unidade ativa da
+        sessão. Fluxo de UMA ETAPA SÓ — o estoque já entra "recebido" no
+        carrinho destino no mesmo ato, sem confirmação separada. Caminho
+        dedicado, deliberadamente à parte de `enviar`/`confirmar` (que
+        têm a semântica de duas etapas da Transferência normal)."""
         carrinho = self.unidade_repository.get_by_id(db, dados.carrinho_destino_id)
         if carrinho is None or carrinho.tipo != TipoUnidadeEnum.carrinho:
             raise HTTPException(
@@ -281,11 +286,14 @@ class TransferenciaService:
                 detail="Carrinho de destino inválido — informe um carrinho de emergência existente.",
             )
 
-        if carrinho.unidade_pai_id != unidade_ativa_id:
+        unidade_ativa = self.unidade_repository.get_by_id(db, unidade_ativa_id)
+        eh_caf = (unidade_ativa.nome or "").strip().upper() == NOME_UNIDADE_CAF
+
+        if carrinho.unidade_pai_id != unidade_ativa_id and not eh_caf:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Este carrinho não é filho da unidade ativa da sessão — só "
-                "quem hospeda o carrinho pode repor ele.",
+                "quem hospeda o carrinho (ou a CAF) pode repor ele.",
             )
 
         lote_origem = self.lote_repository.get_by_id_for_update(db, dados.lote_id)

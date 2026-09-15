@@ -929,6 +929,8 @@ function TabelaMovimentacoesGeral({
               <th className="num">Qtd.</th>
               <th>Unid. Origem</th>
               <th>Unid. Destino</th>
+              <th>Paciente</th>
+              <th>Prontuário</th>
               <th>Usuário</th>
               <th>Detalhe</th>
             </tr>
@@ -936,7 +938,7 @@ function TabelaMovimentacoesGeral({
           <tbody>
             {dados.itens.length === 0 && (
               <tr>
-                <td colSpan={9} className="vazio-tabela">
+                <td colSpan={11} className="vazio-tabela">
                   Nenhuma movimentação no período.
                 </td>
               </tr>
@@ -950,6 +952,8 @@ function TabelaMovimentacoesGeral({
                 <td className="num">{mov.quantidade}</td>
                 <td>{mov.unidade_origem?.nome ?? '—'}</td>
                 <td>{mov.unidade_destino?.nome ?? '—'}</td>
+                <td>{mov.paciente_nome ?? '—'}</td>
+                <td className="mono">{mov.paciente_prontuario ?? '—'}</td>
                 <td>{mov.usuario.nome}</td>
                 <td>{detalheMovimentacao(mov)}</td>
               </tr>

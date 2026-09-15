@@ -27,8 +27,9 @@ class TransferenciaConfirmarCreate(BaseModel):
 
 
 class ReporCarrinhoCreate(BaseModel):
-    """Reposição de carrinho de emergência: fluxo de uma etapa só, exclusivo
-    CAF -> carrinho (regras 1/2 dos carrinhos, docs/00_PROJETO.md)."""
+    """Reposição de carrinho de emergência: fluxo de uma etapa só, a partir
+    da unidade que hospeda o carrinho ou da CAF (regras dos carrinhos,
+    docs/00_PROJETO.md; ver TransferenciaService.repor_carrinho)."""
 
     lote_id: int
     quantidade: int = Field(gt=0)

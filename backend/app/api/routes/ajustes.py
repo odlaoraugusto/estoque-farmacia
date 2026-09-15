@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import exigir_permissao, get_unidade_ativa_id
+from app.api.deps import exigir_permissao, get_current_user, get_unidade_ativa_id
 from app.database.session import get_db
-from app.schemas.movimentacao import AjusteCreate, AjusteLoteCreate, AjusteValorCreate, MovimentacaoDetalhadaOut
+from app.schemas.movimentacao import (
+    AjusteCreate,
+    AjusteLoteCreate,
+    AjusteNotaFiscalCreate,
+    AjusteValorCreate,
+    MovimentacaoDetalhadaOut,
+)
 from app.schemas.usuario import UsuarioMe
 from app.services.ajuste_service import AjusteService
 
@@ -60,4 +66,18 @@ def corrigir_lote(
     mesma chave/permissão de corrigir_valor_unitario (mesma categoria:
     corrigir um dado do lote sem mexer no saldo físico)."""
     movimentacao = service.ajustar_lote(db, usuario, unidade_ativa_id, dados)
+    return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
+
+
+@router.post("/nota-fiscal", response_model=MovimentacaoDetalhadaOut)
+def corrigir_nota_fiscal(
+    dados: AjusteNotaFiscalCreate,
+    usuario: UsuarioMe = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Self-service (2026-09-01, pedido do cliente: "Minhas Ações") — só
+    quem registrou a Entrada pode corrigir a própria nota fiscal/AFM,
+    qualquer perfil — diferente das correções acima (Farmacêutico/
+    Coordenador via matriz de permissões)."""
+    movimentacao = service.ajustar_nota_fiscal(db, usuario, dados)
     return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)

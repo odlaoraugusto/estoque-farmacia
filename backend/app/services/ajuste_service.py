@@ -5,7 +5,7 @@ from app.models.enums import TipoMovimentacaoEnum
 from app.models.movimentacao import Movimentacao
 from app.repositories.lote_repository import LoteRepository
 from app.repositories.movimentacao_repository import MovimentacaoRepository
-from app.schemas.movimentacao import AjusteCreate, AjusteLoteCreate, AjusteValorCreate
+from app.schemas.movimentacao import AjusteCreate, AjusteLoteCreate, AjusteNotaFiscalCreate, AjusteValorCreate
 from app.schemas.usuario import UsuarioMe
 
 
@@ -183,6 +183,65 @@ class AjusteService:
             motivo_ajuste=(
                 f"Nº lote: {numero_lote_antigo or 's/ nº'} -> {dados.numero_lote or 's/ nº'}. "
                 f"Validade: {data_validade_antiga or 'sem validade'} -> {dados.data_validade or 'sem validade'}. "
+                f"{dados.motivo.strip()}"
+            ),
+            usuario_id=usuario.id,
+        )
+
+        return self.movimentacao_repository.create(db, movimentacao)
+
+    def ajustar_nota_fiscal(
+        self,
+        db: Session,
+        usuario: UsuarioMe,
+        dados: AjusteNotaFiscalCreate,
+    ) -> Movimentacao:
+        """Corrigir nº da nota fiscal / AFM da Entrada (2026-09-01, pedido
+        do cliente: "conferir e corrigir o que fez") — SELF-SERVICE: só
+        quem registrou a Entrada pode corrigir, qualquer perfil. Diferente
+        de `ajustar_valor`/`ajustar_lote` acima (Farmacêutico/Coordenador
+        via matriz de permissões, escopo de unidade) — aqui é o próprio
+        autor revendo o que fez, não uma supervisão de outro perfil."""
+        lote = self.lote_repository.get_by_id_for_update(db, dados.lote_id)
+
+        if lote is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Lote não encontrado."
+            )
+
+        if lote.usuario_entrada_id != usuario.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Só quem registrou esta entrada pode corrigir a nota fiscal.",
+            )
+
+        if not dados.motivo.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Motivo da correção é obrigatório.",
+            )
+
+        nf_antiga = lote.numero_nota_fiscal
+        afm_antigo = lote.numero_afm
+
+        if dados.numero_nota_fiscal == nf_antiga and dados.numero_afm == afm_antigo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Nº da nota fiscal e AFM informados já são os valores atuais — nada para corrigir.",
+            )
+
+        lote.numero_nota_fiscal = dados.numero_nota_fiscal
+        lote.numero_afm = dados.numero_afm
+        self.lote_repository.salvar(db, lote)
+
+        movimentacao = Movimentacao(
+            tipo=TipoMovimentacaoEnum.correcao_valor,
+            lote_id=lote.id,
+            quantidade=0,
+            unidade_origem_id=lote.unidade_id,
+            motivo_ajuste=(
+                f"Nota fiscal: {nf_antiga or 's/ nº'} -> {dados.numero_nota_fiscal or 's/ nº'}. "
+                f"AFM: {afm_antigo or 's/ nº'} -> {dados.numero_afm or 's/ nº'}. "
                 f"{dados.motivo.strip()}"
             ),
             usuario_id=usuario.id,

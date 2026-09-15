@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api, mensagemErro } from '../lib/api';
-import { permissoesDe } from '../lib/permissoes';
+import { permissoesDe, unidadeEhCaf } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
 import { formatarData, formatarDataHora } from '../lib/formato';
@@ -11,11 +11,17 @@ import type { LoteDetalhadoOut, SolicitacaoRessuprimentoCarrinhoOut, UnidadeOut 
 type AbaCarrinho = 'repor' | 'solicitacoes';
 
 /** Carrinhos de Emergência — duas abas: "Repor Carrinho" (farmacêutico/
- * coordenador, reabastece a partir do estoque da PRÓPRIA unidade que
- * hospeda o carrinho — 2026-08-31, pedido do cliente: antes só saía do
- * estoque da CAF) e "Solicitações de Ressuprimento" (qualquer perfil
+ * coordenador, reabastece a partir do estoque da unidade ativa da
+ * sessão) e "Solicitações de Ressuprimento" (qualquer perfil
  * operacional, inclusive Atendente — confirma o que o painel público
- * `/publico/ressuprimento-carrinho` registrou). */
+ * `/publico/ressuprimento-carrinho` registrou).
+ *
+ * Quem repõe (2026-09-15, pedido do cliente — CAF volta a poder repor
+ * QUALQUER carrinho, além de cada satélite continuar podendo repor os
+ * dela mesma): a unidade "pai" que hospeda o carrinho (regra de
+ * 2026-08-31, ainda vale) **ou** a CAF, de qualquer carrinho, já que é
+ * o estoque central. As duas usam sempre o estoque da PRÓPRIA unidade
+ * ativa da sessão — nunca o de outra. */
 export function ReposicaoCarrinhoPage() {
   const { usuario, token, matrizPermissoes } = useAuth();
   const permissoes = permissoesDe(usuario, matrizPermissoes);
@@ -64,8 +70,13 @@ export function ReposicaoCarrinhoPage() {
 }
 
 function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; unidadeAtivaId: number | null }) {
+  const { usuario } = useAuth();
+  // CAF é a central — pode repor QUALQUER carrinho, não só os que ela
+  // hospeda (2026-09-15, pedido do cliente).
+  const ehCaf = unidadeEhCaf(usuario);
+
   const [lotes, setLotes] = useState<LoteDetalhadoOut[]>([]);
-  const [carrinhos, setCarrinhos] = useState<UnidadeOut[]>([]);
+  const [unidades, setUnidades] = useState<UnidadeOut[]>([]);
 
   const [busca, setBusca] = useState('');
   const [loteSelecionado, setLoteSelecionado] = useState<LoteDetalhadoOut | null>(null);
@@ -87,14 +98,20 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
   useEffect(() => {
     carregarLotes();
     if (!token || unidadeAtivaId == null) return;
-    // Só os carrinhos filhos da unidade ativa — é o estoque dela que vai
-    // ser usado pra repor (2026-08-31: cada satélite repõe os carrinhos
-    // dela mesma, não mais só a CAF).
     api
       .get<UnidadeOut[]>('/unidades', { token })
-      .then((lista) => setCarrinhos(lista.filter((u) => u.tipo === 'carrinho' && u.unidade_pai_id === unidadeAtivaId)))
+      .then(setUnidades)
       .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar os carrinhos de emergência.')));
   }, [carregarLotes, token, unidadeAtivaId]);
+
+  // Carrinhos que esta sessão pode repor: os que a unidade ativa hospeda
+  // (unidade_pai_id === unidadeAtivaId) ou, se a unidade ativa for a CAF,
+  // todos — ela é o estoque central (2026-09-15).
+  const carrinhos = useMemo(
+    () => unidades.filter((u) => u.tipo === 'carrinho' && (ehCaf || u.unidade_pai_id === unidadeAtivaId)),
+    [unidades, ehCaf, unidadeAtivaId],
+  );
+  const nomePorId = useMemo(() => new Map(unidades.map((u) => [u.id, u.nome])), [unidades]);
 
   function limpar() {
     setBusca('');
@@ -207,6 +224,7 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
               {carrinhos.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nome}
+                  {ehCaf && c.unidade_pai_id ? ` — ${nomePorId.get(c.unidade_pai_id) ?? ''}` : ''}
                 </option>
               ))}
             </select>

@@ -514,6 +514,8 @@ def tabela_movimentacoes_geral(relatorio: RelatorioMovimentacoesGeralOut) -> Tab
         "Unid. Origem",
         "Unid. Destino",
         "Setor Consumidor",
+        "Paciente",
+        "Prontuário",
         "Usuário",
     ]
     linhas = [
@@ -526,6 +528,12 @@ def tabela_movimentacoes_geral(relatorio: RelatorioMovimentacoesGeralOut) -> Tab
             m.unidade_origem.nome if m.unidade_origem else "",
             m.unidade_destino.nome if m.unidade_destino else "",
             _texto(m.setor_consumidor),
+            # Já vem None do backend pra quem não pode ver (Atendente) —
+            # ver MovimentacaoGeralOut.visivel_para em schemas/movimentacao.py,
+            # chamado em RelatorioService.movimentacoes_geral. Nada a
+            # filtrar aqui, só exibir o que já chegou.
+            _texto(m.paciente_nome),
+            _texto(m.paciente_prontuario),
             m.usuario.nome,
         ]
         for m in relatorio.itens
@@ -535,7 +543,7 @@ def tabela_movimentacoes_geral(relatorio: RelatorioMovimentacoesGeralOut) -> Tab
         metadados=relatorio.metadados,
         colunas=colunas,
         linhas=linhas,
-        larguras_relativas=[1.2, 1.3, 1.6, 0.9, 0.8, 1.0, 1.0, 1.1, 1.1],
+        larguras_relativas=[1.1, 1.2, 1.5, 0.9, 0.7, 0.9, 0.9, 1.0, 1.2, 1.0, 1.0],
     )
 
 
