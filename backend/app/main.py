@@ -6,6 +6,7 @@ from app.api.routes.ajustes import router as ajustes_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.config import router as config_router
 from app.api.routes.entradas import router as entradas_router
+from app.api.routes.logs import router as logs_router
 from app.api.routes.lotes import router as lotes_router
 from app.api.routes.medicamentos import router as medicamentos_router
 from app.api.routes.pacientes import router as pacientes_router
@@ -19,6 +20,7 @@ from app.api.routes.solicitacoes import router as solicitacoes_router
 from app.api.routes.transferencias import router as transferencias_router
 from app.api.routes.unidades import router as unidades_router
 from app.api.routes.usuarios import router as usuarios_router
+from app.api.routes.versao import router as versao_router
 from app.core.config import settings
 from app.database.database import engine
 
@@ -61,6 +63,8 @@ app.include_router(permissoes_router)
 app.include_router(ressuprimento_router)
 app.include_router(ressuprimento_carrinho_router)
 app.include_router(devolucao_medicamento_router)
+app.include_router(logs_router)
+app.include_router(versao_router)
 
 
 @app.get("/")

@@ -11,6 +11,12 @@ python-dotenv
 bcrypt
 pyjwt
 
-# Exportação de relatórios (docs/00_PROJETO.md seção 16, pendência 2)
+# Exportação de relatórios (docs/00_PROJETO.md seção 16, pendência 2) —
+# openpyxl também usado para LER a planilha da importação de valor
+# unitário em massa (POST /medicamentos/importar-valor-unitario)
 openpyxl
 reportlab
+
+# Upload de arquivo (FastAPI/Starlette precisa disso pra parsear
+# multipart/form-data em rotas com UploadFile)
+python-multipart

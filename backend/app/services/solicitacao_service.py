@@ -182,22 +182,38 @@ class SolicitacaoService:
                 detail="Esta solicitação já foi atendida.",
             )
 
-        # Reaproveita o fluxo de sempre — a solicitação só decide QUEM
-        # é o destino; o lote/quantidade enviados continuam sendo
-        # escolha da CAF na hora de aceitar.
-        movimentacao = self.transferencia_service.enviar(
-            db,
-            usuario,
-            unidade_ativa_id,
-            TransferenciaEnviarCreate(
-                lote_id=dados.lote_id,
-                quantidade=dados.quantidade,
-                unidade_destino_id=solicitacao.unidade_solicitante_id,
-            ),
-        )
+        # Reaproveita o fluxo de sempre — a solicitação só decide QUEM é
+        # o destino; lote(s)/quantidade(s) enviados continuam sendo
+        # escolha da CAF na hora de aceitar. Mais de um item quando o
+        # saldo do medicamento está dividido em vários lotes — uma
+        # `Movimentacao` de transferência por lote, igual seriam feitas
+        # uma a uma numa Transferência normal. Lista VAZIA (2026-09-24,
+        # pedido do cliente) — sem estoque pra enviar, fecha como
+        # "aceita" mesmo assim, só que com 0 unidades e nenhuma
+        # `Movimentacao` gerada, em vez de obrigar a Recusar.
+        primeira_movimentacao = None
+        for item in dados.itens:
+            movimentacao = self.transferencia_service.enviar(
+                db,
+                usuario,
+                unidade_ativa_id,
+                TransferenciaEnviarCreate(
+                    lote_id=item.lote_id,
+                    quantidade=item.quantidade,
+                    unidade_destino_id=solicitacao.unidade_solicitante_id,
+                ),
+            )
+            if primeira_movimentacao is None:
+                primeira_movimentacao = movimentacao
 
         solicitacao.status = StatusSolicitacaoEnum.aceita
-        solicitacao.movimentacao_id = movimentacao.id
+        # Referência informativa (usada só como link de conveniência) —
+        # quando o atendimento sai de mais de um lote, as demais
+        # movimentações continuam rastreáveis normalmente pela trilha de
+        # auditoria (/relatorios/movimentacoes), só não têm essa FK de
+        # volta pra cá. Fica None quando não teve nenhum lote (liberação
+        # zerada).
+        solicitacao.movimentacao_id = primeira_movimentacao.id if primeira_movimentacao is not None else None
         solicitacao.usuario_atendimento_id = usuario.id
         solicitacao.data_atendimento = datetime.now(timezone.utc)
 

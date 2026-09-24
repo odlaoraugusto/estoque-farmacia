@@ -191,7 +191,11 @@ class SolicitacaoDevolucaoMedicamentoService:
             # medicamento + unidade + nº de lote + validade — devolução
             # não tem NF/AFM), soma nele em vez de criar linha nova
             # (2026-09-09, pedido do cliente: "se for o mesmo lote,
-            # integra aquele estoque").
+            # integra aquele estoque"). `ignorar_nf_afm=True`
+            # (2026-09-24, pedido do cliente): reintegra ao lote ORIGINAL
+            # mesmo que ele tenha vindo de uma compra com NF — sem isso,
+            # a devolução nunca batia com um lote de compra (NF real vs.
+            # NF nula da devolução) e virava linha nova zerada.
             lote = self.lote_repository.buscar_para_merge(
                 db,
                 item.medicamento_id,
@@ -200,6 +204,7 @@ class SolicitacaoDevolucaoMedicamentoService:
                 confirmacao.data_validade,
                 None,
                 None,
+                ignorar_nf_afm=True,
             )
             if lote is not None:
                 lote.quantidade_atual += confirmacao.quantidade

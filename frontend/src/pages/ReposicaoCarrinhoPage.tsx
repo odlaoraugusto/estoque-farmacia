@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { api, mensagemErro } from '../lib/api';
+import { api, baixarArquivo, mensagemErro } from '../lib/api';
 import { permissoesDe, unidadeEhCaf } from '../lib/permissoes';
 import { Alerta } from '../components/Alerta';
 import { BuscaAutocomplete } from '../components/BuscaAutocomplete';
 import { formatarData, formatarDataHora } from '../lib/formato';
-import type { LoteDetalhadoOut, SolicitacaoRessuprimentoCarrinhoOut, UnidadeOut } from '../types';
+import type {
+  LoteDetalhadoOut,
+  MovimentacaoDetalhadaOut,
+  SolicitacaoRessuprimentoCarrinhoOut,
+  UnidadeOut,
+} from '../types';
 
 type AbaCarrinho = 'repor' | 'solicitacoes';
 
@@ -86,6 +91,26 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  // Reposição recém-registrada — habilita o botão de comprovante
+  // (2026-09-24, pedido do cliente: "para controle").
+  const [ultimaMovimentacaoId, setUltimaMovimentacaoId] = useState<number | null>(null);
+  const [imprimindo, setImprimindo] = useState(false);
+
+  async function imprimirComprovante() {
+    if (!ultimaMovimentacaoId) return;
+    setErro(null);
+    setImprimindo(true);
+    try {
+      await baixarArquivo('/transferencias/comprovante', {
+        token,
+        params: { formato: 'pdf', ids: String(ultimaMovimentacaoId) },
+      });
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
+    } finally {
+      setImprimindo(false);
+    }
+  }
 
   const carregarLotes = useCallback(() => {
     if (!token || unidadeAtivaId == null) return;
@@ -134,7 +159,7 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
     }
     setEnviando(true);
     try {
-      await api.post(
+      const resposta = await api.post<MovimentacaoDetalhadaOut>(
         '/transferencias/repor-carrinho',
         {
           lote_id: loteSelecionado.id,
@@ -144,6 +169,7 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
         { token },
       );
       setSucesso('Carrinho reposto — o lote já saiu como recebido no destino.');
+      setUltimaMovimentacaoId(resposta.id);
       limpar();
       carregarLotes();
     } catch (err) {
@@ -161,7 +187,14 @@ function FormularioReposicao({ token, unidadeAtivaId }: { token: string | null; 
       </p>
 
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
-      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      {sucesso && (
+        <Alerta tipo="sucesso">
+          {sucesso}{' '}
+          <button type="button" className="btn ghost sm" disabled={imprimindo} onClick={imprimirComprovante}>
+            {imprimindo ? 'Gerando…' : 'Baixar comprovante'}
+          </button>
+        </Alerta>
+      )}
 
       <form className="panel" onSubmit={aoSubmeter}>
         <h2>Repor carrinho</h2>

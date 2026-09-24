@@ -1,22 +1,37 @@
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { classeRailUnidade, labelPerfil } from '../lib/formato';
 import { NotificacaoEstoquePopup } from './NotificacaoEstoquePopup';
 import { NotificacaoRessuprimentoCarrinhoPopup } from './NotificacaoRessuprimentoCarrinhoPopup';
 import { NotificacaoDevolucaoMedicamentoPopup } from './NotificacaoDevolucaoMedicamentoPopup';
 import { NotificacaoSolicitacaoTransferenciaPopup } from './NotificacaoSolicitacaoTransferenciaPopup';
+import { NotasAtualizacaoModal } from './NotasAtualizacaoModal';
+import type { VersaoInfo } from '../types';
 
 /** Casca da aplicação pós-login: barra institucional no topo +
  * sidebar de navegação + conteúdo da tela. Itens de menu sem permissão
  * somem da lista (não aparecem desabilitados) — pedido explícito do
  * cliente, replicado do protótipo aprovado. */
 export function Layout() {
-  const { config, usuario, matrizPermissoes, trocarUnidade, sair } = useAuth();
+  const { token, config, usuario, matrizPermissoes, trocarUnidade, sair } = useAuth();
   const permissoes = permissoesDe(usuario, matrizPermissoes);
 
   const hospitalNome = config?.hospital_nome ?? 'Hospital Exemplo';
   const organizacao = config?.organizacao ?? 'Rede de Saúde Exemplo';
+
+  const [versao, setVersao] = useState<string | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    api
+      .get<VersaoInfo>('/versao', { token })
+      .then((info) => setVersao(info.atual))
+      .catch(() => {
+        // Rodapé só deixa de mostrar a versão — não vale um Alerta.
+      });
+  }, [token]);
 
   return (
     <div className="shell">
@@ -31,6 +46,7 @@ export function Layout() {
         <NotificacaoRessuprimentoCarrinhoPopup />
         <NotificacaoDevolucaoMedicamentoPopup />
         <NotificacaoSolicitacaoTransferenciaPopup />
+        <NotasAtualizacaoModal />
       </div>
 
       <div className="app">
@@ -183,12 +199,26 @@ export function Layout() {
                 <span className="lbl">Permissões</span>
               </NavLink>
             )}
+            {permissoes.gerenciarPermissoes && (
+              <NavLink to="/logs-erros" className="nav-btn">
+                <svg className="ic">
+                  <use href="#i-alert" />
+                </svg>
+                <span className="lbl">Logs de Erro</span>
+              </NavLink>
+            )}
           </nav>
 
           <div className="sidebar-foot">
             Servidor local · sem internet
             <br />
             {usuario?.login}
+            {versao && (
+              <>
+                <br />
+                <span style={{ opacity: 0.6 }}>versão {versao}</span>
+              </>
+            )}
           </div>
         </aside>
 

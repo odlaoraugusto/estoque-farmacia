@@ -400,6 +400,37 @@ def tabela_comprovante_saida(metadados: RelatorioMetadados, movimentacoes) -> Ta
     )
 
 
+def tabela_comprovante_reposicao_carrinho(metadados: RelatorioMetadados, movimentacoes) -> TabelaRelatorio:
+    """Comprovante de reposição de carrinho de emergência (2026-09-24,
+    pedido do cliente: "opção de gerar PDF/impressão... para controle")
+    — uma linha por lote enviado; `movimentacoes` é uma lista de
+    `Movimentacao` (tipo=transferencia, origem=unidade ativa que repôs,
+    destino=carrinho)."""
+    colunas = ["Medicamento", "Lote", "Validade", "Quantidade", "Unidade de Origem", "Carrinho", "Data/Hora"]
+    linhas = [
+        [
+            m.lote.medicamento.nome,
+            m.lote.numero_lote,
+            formatar_data(m.lote.data_validade),
+            str(m.quantidade),
+            m.unidade_origem.nome if m.unidade_origem else "",
+            m.unidade_destino.nome if m.unidade_destino else "",
+            formatar_data_hora(m.data_hora),
+        ]
+        for m in movimentacoes
+    ]
+
+    informacoes_extra = [f"Registrado por: {movimentacoes[0].usuario.nome}"]
+
+    return TabelaRelatorio(
+        metadados=metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[1.5, 0.9, 0.9, 0.8, 1.3, 1.3, 1.2],
+    )
+
+
 def tabela_comprovante_solicitacao(metadados: RelatorioMetadados, solicitacao) -> TabelaRelatorio:
     """Comprovante de UMA solicitação de ressuprimento (2026-09-01,
     pedido do cliente: botão "Imprimir" ao lado de "Minhas

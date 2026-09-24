@@ -22,6 +22,9 @@ interface AuthContextValue {
   /** Chamado pela tela de Permissões depois de salvar, pra refletir a
    * matriz nova sem precisar de um reload de página inteiro. */
   recarregarPermissoes: () => Promise<void>;
+  /** Fecha o popup de notas de atualização = já leu — grava no backend
+   * e reflete no estado local, sem precisar recarregar a sessão. */
+  marcarNotasLidas: (versao: string) => Promise<void>;
   sair: () => void;
 }
 
@@ -120,6 +123,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) await carregarPermissoes(token);
   }, [token, carregarPermissoes]);
 
+  const marcarNotasLidas = useCallback(
+    async (versao: string) => {
+      if (!token) return;
+      await api.post('/versao/marcar-lida', undefined, { token });
+      setUsuario((atual) => (atual ? { ...atual, versao_notas_vista: versao } : atual));
+    },
+    [token],
+  );
+
   const sair = useCallback(() => {
     localStorage.removeItem(CHAVE_TOKEN);
     setToken(null);
@@ -149,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       selecionarUnidade,
       trocarUnidade,
       recarregarPermissoes,
+      marcarNotasLidas,
       sair,
     }),
     [
@@ -163,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       selecionarUnidade,
       trocarUnidade,
       recarregarPermissoes,
+      marcarNotasLidas,
       sair,
     ],
   );

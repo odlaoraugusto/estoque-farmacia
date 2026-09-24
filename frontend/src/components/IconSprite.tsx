@@ -127,6 +127,11 @@ export function IconSprite() {
           <path d="M12 6.5v11" />
           <path d="M15 9.3c0-1.3-1.3-2.3-3-2.3s-3 .9-3 2.2c0 3 6 1.5 6 4.4 0 1.3-1.3 2.4-3 2.4s-3-1-3-2.3" />
         </symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3 2 20h20L12 3Z" />
+          <path d="M12 10v4" />
+          <path d="M12 17h.01" />
+        </symbol>
       </defs>
     </svg>
   );

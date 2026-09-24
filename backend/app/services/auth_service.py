@@ -49,6 +49,7 @@ class AuthService:
                 unidade_ativa_id=None,
                 unidade_ativa_nome=None,
                 deve_trocar_senha=usuario.deve_trocar_senha,
+                versao_notas_vista=usuario.versao_notas_vista,
             ),
         )
 
@@ -96,6 +97,7 @@ class AuthService:
                 crf=usuario_atual.crf,
                 unidade_ativa_id=unidade.id,
                 unidade_ativa_nome=unidade.nome,
+                versao_notas_vista=usuario_atual.versao_notas_vista,
             ),
         )
 

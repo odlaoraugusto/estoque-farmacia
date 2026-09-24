@@ -38,6 +38,7 @@ from app.schemas.relatorio import (
 from app.schemas.usuario import UsuarioMe
 from app.services.exportacao.relatorio_tabela_builder import (
     tabela_comprovante_entrada,
+    tabela_comprovante_reposicao_carrinho,
     tabela_comprovante_saida,
     tabela_comprovante_solicitacao,
 )
@@ -670,6 +671,16 @@ class RelatorioService:
             usuario, "Comprovante de Saída", movimentacoes[0].unidade_origem_id, db
         )
         return tabela_comprovante_saida(metadados, movimentacoes)
+
+    def comprovante_reposicao_carrinho(self, db: Session, usuario: UsuarioMe, movimentacoes: list) -> TabelaRelatorio:
+        """Comprovante imprimível de uma reposição de carrinho de
+        emergência (2026-09-24, pedido do cliente: "para controle") —
+        `movimentacoes` já vem carregada e validada por
+        `TransferenciaService.obter_para_comprovante`."""
+        metadados = self._metadados(
+            usuario, "Comprovante de Reposição de Carrinho", movimentacoes[0].unidade_origem_id, db
+        )
+        return tabela_comprovante_reposicao_carrinho(metadados, movimentacoes)
 
     def vencimentos_proximos(
         self, db: Session, usuario: UsuarioMe, unidade_id: int | None, dias: int

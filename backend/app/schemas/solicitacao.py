@@ -30,13 +30,23 @@ class SolicitacaoLoteCreate(BaseModel):
     observacao: str | None = None
 
 
-class SolicitacaoAceitarCreate(BaseModel):
-    """A CAF escolhe QUAL lote enviar e a quantidade — pode divergir da
-    `quantidade_desejada` (atendimento parcial), mesma flexibilidade que
-    já existe numa Transferência normal."""
-
+class SolicitacaoAceitarItem(BaseModel):
     lote_id: int
     quantidade: int = Field(gt=0)
+
+
+class SolicitacaoAceitarCreate(BaseModel):
+    """A CAF escolhe DE QUAIS lotes enviar e a quantidade de cada um —
+    mais de um lote na mesma resposta (2026-09-21, pedido do cliente:
+    quando nenhum lote sozinho cobre a quantidade pedida, o saldo
+    costuma estar dividido em vários lotes). A soma pode divergir da
+    `quantidade_desejada` (atendimento parcial), mesma flexibilidade que
+    já existe numa Transferência normal. Lista VAZIA é permitida
+    (2026-09-24, pedido do cliente) — sem nenhum estoque disponível pra
+    enviar, a CAF ainda pode "liberar" a solicitação como atendida com 0
+    unidades, em vez de ser obrigada a Recusar."""
+
+    itens: list[SolicitacaoAceitarItem] = Field(default_factory=list)
 
 
 class SolicitacaoRecusarCreate(BaseModel):

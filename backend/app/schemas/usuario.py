@@ -26,6 +26,7 @@ class UsuarioMe(BaseModel):
     unidade_ativa_id: int | None = None
     unidade_ativa_nome: str | None = None
     deve_trocar_senha: bool = False
+    versao_notas_vista: str | None = None
 
 
 class UsuarioCreate(BaseModel):

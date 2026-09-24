@@ -7,7 +7,9 @@ from app.api.deps import (
     get_unidade_ativa_id,
     resolver_unidade_escopo,
 )
+from app.api.exportacao_utils import exportar_relatorio
 from app.database.session import get_db
+from app.schemas.exportacao import FormatoExportacao
 from app.schemas.movimentacao import (
     DevolverCarrinhoCreate,
     MovimentacaoDetalhadaOut,
@@ -16,11 +18,13 @@ from app.schemas.movimentacao import (
     TransferenciaEnviarCreate,
 )
 from app.schemas.usuario import UsuarioMe
+from app.services.relatorio_service import RelatorioService
 from app.services.transferencia_service import TransferenciaService
 
 router = APIRouter(prefix="/transferencias", tags=["Transferências"])
 
 service = TransferenciaService()
+relatorio_service = RelatorioService()
 
 # Regra 3: enviar — controlado pela matriz de permissões (2026-08-31,
 # mesma chave usada em _PODE_ATENDER de solicitacoes.py, é a mesma ação
@@ -86,6 +90,23 @@ def confirmar_transferencia(
     desde que esteja na unidade de destino."""
     movimentacao = service.confirmar(db, usuario, unidade_ativa_id, movimentacao_id, dados)
     return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
+
+
+@router.get("/comprovante")
+def comprovante_reposicao_carrinho(
+    ids: str,
+    formato: FormatoExportacao,
+    usuario: UsuarioMe = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """PDF/Excel de uma reposição de carrinho já registrada (2026-09-24,
+    pedido do cliente: "para controle") — `ids` é uma lista de ids de
+    Movimentacao separados por vírgula, mesmo padrão de
+    `GET /saidas/comprovante`."""
+    movimentacao_ids = [int(item) for item in ids.split(",") if item.strip()]
+    movimentacoes = service.obter_para_comprovante(db, movimentacao_ids)
+    tabela = relatorio_service.comprovante_reposicao_carrinho(db, usuario, movimentacoes)
+    return exportar_relatorio(formato, "reposicao-carrinho", tabela)
 
 
 @router.get("/pendentes", response_model=list[MovimentacaoDetalhadaOut])

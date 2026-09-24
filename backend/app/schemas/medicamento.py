@@ -42,3 +42,33 @@ class MedicamentoOut(BaseModel):
     e_controlado: bool
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MedicamentoImportarValorAtualizado(BaseModel):
+    """Uma linha da planilha que bateu com exatamente um medicamento
+    ativo (por nome) e teve o valor unitário aplicado a todos os lotes
+    ATIVOS (com saldo) daquele medicamento, em qualquer unidade — não
+    existe um "valor do medicamento" único (o preço mora no lote, que
+    varia por compra), então a planilha vale como "preço atual desse
+    medicamento" e é aplicada em cada lote com saldo (2026-09-18, pedido
+    do cliente)."""
+
+    nome: str
+    lotes_atualizados: int
+    valor_novo: str
+
+
+class MedicamentoImportarValorLinhaInvalida(BaseModel):
+    linha: int
+    motivo: str
+
+
+class MedicamentoImportarValorResultado(BaseModel):
+    atualizados: list[MedicamentoImportarValorAtualizado]
+    nao_encontrados: list[str]
+    ambiguos: list[str]
+    # Nome bateu com um medicamento ativo, mas ele não tem nenhum lote
+    # com saldo agora — nada pra atualizar, reportado à parte de
+    # "não encontrado" pra não confundir as duas causas.
+    sem_lote_ativo: list[str]
+    invalidas: list[MedicamentoImportarValorLinhaInvalida]

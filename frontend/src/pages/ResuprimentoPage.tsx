@@ -10,6 +10,23 @@ import type { LoteDetalhadoOut, MedicamentoOut, SolicitacaoOut, StatusRessuprime
 
 type Aba = 'solicitar' | 'pontos';
 
+interface ItemEnvio {
+  id: string;
+  loteId: number | '';
+  quantidade: string;
+}
+
+// Contador simples pra identificar cada linha de envio na tela — não é
+// `crypto.randomUUID()` de propósito: esse método exige contexto seguro
+// (HTTPS/localhost) e este sistema roda em HTTP puro na rede interna,
+// onde ele nem existe no navegador (bug real já corrigido no
+// Almoxarifado, mesma causa).
+let proximoIdItemEnvio = 0;
+function novoItemEnvio(loteId: number | '', quantidade: string): ItemEnvio {
+  proximoIdItemEnvio += 1;
+  return { id: `item-envio-${proximoIdItemEnvio}`, loteId, quantidade };
+}
+
 const LABEL_STATUS_SOLICITACAO: Record<string, string> = {
   pendente: 'Pendente',
   aceita: 'Aceita',
@@ -368,10 +385,30 @@ function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
 
   const [atendendoId, setAtendendoId] = useState<number | null>(null);
   const [lotesPorSolicitacao, setLotesPorSolicitacao] = useState<Record<number, LoteDetalhadoOut[]>>({});
-  const [loteEscolhido, setLoteEscolhido] = useState<Record<number, number>>({});
-  const [quantidadeEnvio, setQuantidadeEnvio] = useState<Record<number, string>>({});
+  // Lista de itens por solicitação — mais de um lote quando o saldo do
+  // medicamento está dividido (2026-09-21, pedido do cliente: nenhum
+  // lote sozinho cobria a quantidade pedida).
+  const [itensPorSolicitacao, setItensPorSolicitacao] = useState<Record<number, ItemEnvio[]>>({});
   const [motivoRecusa, setMotivoRecusa] = useState<Record<number, string>>({});
   const [processandoId, setProcessandoId] = useState<number | null>(null);
+  const [imprimindoId, setImprimindoId] = useState<number | null>(null);
+  // Solicitação recém-atendida (aceita ou recusada) — some da lista de
+  // pendentes assim que `carregar()` recarrega, então o botão de
+  // comprovante fica junto do Alerta de sucesso, não na linha (que já
+  // não existe mais ali).
+  const [ultimoAtendidoId, setUltimoAtendidoId] = useState<number | null>(null);
+
+  async function imprimirComprovante(solicitacaoId: number) {
+    setErro(null);
+    setImprimindoId(solicitacaoId);
+    try {
+      await baixarArquivo(`/solicitacoes/${solicitacaoId}/comprovante`, { token, params: { formato: 'pdf' } });
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
+    } finally {
+      setImprimindoId(null);
+    }
+  }
 
   const carregar = useCallback(() => {
     if (!token) return;
@@ -398,26 +435,66 @@ function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
       });
       setLotesPorSolicitacao((atual) => ({ ...atual, [s.id]: lotes }));
       const sugerido = lotes.find((l) => l.sugerido_fefo) ?? lotes[0];
-      if (sugerido) setLoteEscolhido((atual) => ({ ...atual, [s.id]: sugerido.id }));
-      setQuantidadeEnvio((atual) => ({ ...atual, [s.id]: String(s.quantidade_desejada) }));
+      setItensPorSolicitacao((atual) => ({
+        ...atual,
+        [s.id]: [novoItemEnvio(sugerido?.id ?? '', String(s.quantidade_desejada))],
+      }));
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível buscar lotes disponíveis na CAF para este medicamento.'));
     }
   }
 
+  function adicionarItemEnvio(solicitacaoId: number) {
+    setItensPorSolicitacao((atual) => ({
+      ...atual,
+      [solicitacaoId]: [...(atual[solicitacaoId] ?? []), novoItemEnvio('', '')],
+    }));
+  }
+
+  function removerItemEnvio(solicitacaoId: number, itemId: string) {
+    setItensPorSolicitacao((atual) => ({
+      ...atual,
+      [solicitacaoId]: (atual[solicitacaoId] ?? []).filter((i) => i.id !== itemId),
+    }));
+  }
+
+  function atualizarItemEnvio(solicitacaoId: number, itemId: string, patch: Partial<ItemEnvio>) {
+    setItensPorSolicitacao((atual) => ({
+      ...atual,
+      [solicitacaoId]: (atual[solicitacaoId] ?? []).map((i) => (i.id === itemId ? { ...i, ...patch } : i)),
+    }));
+  }
+
   async function aceitar(s: SolicitacaoOut) {
-    const loteId = loteEscolhido[s.id];
-    const quantidade = Number(quantidadeEnvio[s.id]);
-    if (!loteId) {
-      setErro('Selecione um lote para enviar.');
-      return;
+    const linhas = itensPorSolicitacao[s.id] ?? [];
+    // Linha em branco não é permitida — mas a lista pode ficar vazia de
+    // propósito (2026-09-24, pedido do cliente): sem estoque nenhum pra
+    // enviar, "Remover" até não sobrar lote nenhum e liberar assim
+    // mesmo, em vez de precisar Recusar. Fecha a solicitação como
+    // atendida, só que sem nenhuma transferência de fato.
+    for (const linha of linhas) {
+      if (!linha.loteId) {
+        setErro('Selecione o lote em todas as linhas antes de enviar (ou remova a linha se não tem estoque).');
+        return;
+      }
+      if (!Number(linha.quantidade) || Number(linha.quantidade) <= 0) {
+        setErro('Informe uma quantidade válida em todas as linhas antes de enviar.');
+        return;
+      }
     }
+
     setProcessandoId(s.id);
     setErro(null);
     setSucesso(null);
     try {
-      await api.post(`/solicitacoes/${s.id}/aceitar`, { lote_id: loteId, quantidade }, { token });
-      setSucesso(`Solicitação de ${s.unidade_solicitante.nome} atendida.`);
+      const itens = linhas.map((l) => ({ lote_id: l.loteId as number, quantidade: Number(l.quantidade) }));
+      await api.post(`/solicitacoes/${s.id}/aceitar`, { itens }, { token });
+      setSucesso(
+        linhas.length === 0
+          ? `Solicitação de ${s.unidade_solicitante.nome} liberada sem estoque disponível (0 unidades enviadas).`
+          : `Solicitação de ${s.unidade_solicitante.nome} atendida.`,
+      );
+      setUltimoAtendidoId(s.id);
       setAtendendoId(null);
       carregar();
     } catch (err) {
@@ -439,6 +516,7 @@ function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
     try {
       await api.post(`/solicitacoes/${s.id}/recusar`, { motivo_recusa: motivo }, { token });
       setSucesso(`Solicitação de ${s.unidade_solicitante.nome} recusada.`);
+      setUltimoAtendidoId(s.id);
       setAtendendoId(null);
       carregar();
     } catch (err) {
@@ -452,7 +530,24 @@ function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
     <div className="panel">
       <h2>Solicitações pendentes de outras unidades</h2>
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
-      {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}
+      {sucesso && (
+        <Alerta tipo="sucesso">
+          {sucesso}
+          {ultimoAtendidoId && (
+            <>
+              {' '}
+              <button
+                type="button"
+                className="btn ghost sm"
+                disabled={imprimindoId === ultimoAtendidoId}
+                onClick={() => imprimirComprovante(ultimoAtendidoId)}
+              >
+                {imprimindoId === ultimoAtendidoId ? 'Gerando…' : 'Baixar comprovante'}
+              </button>
+            </>
+          )}
+        </Alerta>
+      )}
       {carregando && <p className="carregando">Carregando…</p>}
       {!carregando && pendentes.length === 0 && <p className="vazio-tabela">Nenhuma solicitação pendente.</p>}
       {!carregando &&
@@ -477,31 +572,51 @@ function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
             ) : (
               <div className="grid">
                 <div className="field span2">
-                  <label>Lote a enviar (estoque da CAF)</label>
-                  <select
-                    value={loteEscolhido[s.id] ?? ''}
-                    onChange={(e) => setLoteEscolhido((atual) => ({ ...atual, [s.id]: Number(e.target.value) }))}
-                  >
-                    <option value="">Selecione…</option>
-                    {(lotesPorSolicitacao[s.id] ?? []).map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.numero_lote} · vence {formatarData(l.data_validade)} · saldo {l.quantidade_atual}
-                        {l.sugerido_fefo ? ' · sugerido (usar primeiro)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {(lotesPorSolicitacao[s.id] ?? []).length === 0 && (
+                  <label>Lote(s) a enviar (estoque da CAF)</label>
+                  {(lotesPorSolicitacao[s.id] ?? []).length === 0 ? (
                     <span className="tag">nenhum lote disponível na CAF para este medicamento</span>
+                  ) : (
+                    <>
+                      {(itensPorSolicitacao[s.id] ?? []).map((item) => (
+                        <div key={item.id} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+                          <select
+                            style={{ flex: 2 }}
+                            value={item.loteId}
+                            onChange={(e) =>
+                              atualizarItemEnvio(s.id, item.id, { loteId: e.target.value ? Number(e.target.value) : '' })
+                            }
+                          >
+                            <option value="">Selecione…</option>
+                            {(lotesPorSolicitacao[s.id] ?? []).map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.numero_lote} · vence {formatarData(l.data_validade)} · saldo {l.quantidade_atual}
+                                {l.sugerido_fefo ? ' · sugerido (usar primeiro)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            min={1}
+                            placeholder="quantidade"
+                            style={{ flex: 1 }}
+                            value={item.quantidade}
+                            onChange={(e) => atualizarItemEnvio(s.id, item.id, { quantidade: e.target.value })}
+                          />
+                          <button type="button" className="btn ghost sm" onClick={() => removerItemEnvio(s.id, item.id)}>
+                            Remover
+                          </button>
+                        </div>
+                      ))}
+                      <button type="button" className="btn ghost sm" onClick={() => adicionarItemEnvio(s.id)}>
+                        + Adicionar outro lote
+                      </button>
+                      {(itensPorSolicitacao[s.id] ?? []).length === 0 && (
+                        <span className="tag">
+                          sem lote selecionado — "Aceitar e enviar" vai liberar a solicitação com 0 unidades
+                        </span>
+                      )}
+                    </>
                   )}
-                </div>
-                <div className="field">
-                  <label>Quantidade a enviar</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={quantidadeEnvio[s.id] ?? ''}
-                    onChange={(e) => setQuantidadeEnvio((atual) => ({ ...atual, [s.id]: e.target.value }))}
-                  />
                 </div>
                 <div className="field span2">
                   <label>Motivo da recusa (só se for recusar)</label>

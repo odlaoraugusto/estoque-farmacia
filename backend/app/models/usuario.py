@@ -33,6 +33,13 @@ class Usuario(Base):
     # Coordenador (UsuarioUpdate.senha) também liga este flag de novo.
     deve_trocar_senha = Column(Boolean, nullable=False, default=False, server_default="false")
 
+    # Última versão do sistema (app.core.changelog.VERSAO_ATUAL) cujas
+    # notas de atualização este login já fechou no popup — null pra
+    # quem nunca viu nenhuma (usuário novo, ou de antes desse recurso
+    # existir). Comparado a cada login pra decidir se mostra o popup de
+    # novo.
+    versao_notas_vista = Column(String(20), nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True),

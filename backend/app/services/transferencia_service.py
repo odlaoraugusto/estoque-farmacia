@@ -457,3 +457,24 @@ class TransferenciaService:
         )
 
         return self.movimentacao_repository.create(db, movimentacao)
+
+    def obter_para_comprovante(self, db: Session, movimentacao_ids: list[int]) -> list[Movimentacao]:
+        """Pra imprimir o comprovante do que acabou de ser registrado em
+        Repor Carrinho (2026-09-24, pedido do cliente: "para controle")
+        — mesmo padrão de `SaidaService.obter_para_comprovante`."""
+        if not movimentacao_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Informe ao menos um id de movimentação."
+            )
+
+        movimentacoes = []
+        for movimentacao_id in movimentacao_ids:
+            movimentacao = self.movimentacao_repository.get_by_id(db, movimentacao_id)
+            if movimentacao is None or movimentacao.tipo != TipoMovimentacaoEnum.transferencia:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Reposição #{movimentacao_id} não encontrada.",
+                )
+            movimentacoes.append(movimentacao)
+
+        return movimentacoes

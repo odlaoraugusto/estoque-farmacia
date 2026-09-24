@@ -20,6 +20,7 @@ import { ReposicaoCarrinhoPage } from './pages/ReposicaoCarrinhoPage';
 import { AjustePage } from './pages/AjustePage';
 import { UsuariosPage } from './pages/UsuariosPage';
 import { PermissoesPage } from './pages/PermissoesPage';
+import { LogsErrosPage } from './pages/LogsErrosPage';
 
 /** Admin global (2026-08-27) não tem Estoque atual — sua home é Usuários,
  * única tela que esse perfil usa. */
@@ -54,6 +55,7 @@ function App() {
               <Route path="/medicamentos" element={<MedicamentosPage />} />
               <Route path="/usuarios" element={<UsuariosPage />} />
               <Route path="/permissoes" element={<PermissoesPage />} />
+              <Route path="/logs-erros" element={<LogsErrosPage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

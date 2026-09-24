@@ -13,6 +13,7 @@ import {
   labelOrigem,
   labelAcondicionamento,
   nivelValidade,
+  paraDecimalApi,
 } from '../lib/formato';
 import type {
   LoteDetalhadoOut,
@@ -141,6 +142,54 @@ export function EstoquePage() {
   const tituloUnidade = ehCoordenador ? 'todas as unidades' : usuario?.unidade_ativa_nome ?? '—';
   const alertas = useAlertasEstoque();
 
+  // ---- edição inline do valor unitário de um lote (2026-09-17, pedido
+  // do cliente: "igual o Almoxarifado já tem", depois "sem motivo do
+  // ajuste, nesse caso") — reaproveita o mesmo `POST /ajustes/valor` que
+  // já existia só na tela separada "Ajuste de Estoque" (`AjustePage.tsx`,
+  // que continua pedindo motivo pra quem usar por lá). Aqui na linha do
+  // estoque não pede motivo pro usuário — manda um motivo padrão fixo,
+  // só pra continuar satisfazendo o schema do backend (`AjusteValorCreate.
+  // motivo` é obrigatório) sem abrir mão da trilha de auditoria. ----
+  const MOTIVO_EDICAO_RAPIDA = 'Correção rápida via tela de Estoque.';
+
+  const [loteEditandoValorId, setLoteEditandoValorId] = useState<number | null>(null);
+  const [valorUnitarioEdit, setValorUnitarioEdit] = useState('');
+  const [salvandoValorUnitario, setSalvandoValorUnitario] = useState(false);
+
+  function abrirEdicaoValor(lote: LoteDetalhadoOut) {
+    setLoteEditandoValorId(lote.id);
+    setValorUnitarioEdit('');
+    setErro(null);
+  }
+
+  function cancelarEdicaoValor() {
+    setLoteEditandoValorId(null);
+    setValorUnitarioEdit('');
+  }
+
+  async function salvarValorUnitario(lote: LoteDetalhadoOut) {
+    if (!valorUnitarioEdit.trim()) {
+      setErro('Informe o novo valor unitário.');
+      return;
+    }
+    setErro(null);
+    setSalvandoValorUnitario(true);
+    const valorNovo = paraDecimalApi(valorUnitarioEdit);
+    try {
+      await api.post(
+        '/ajustes/valor',
+        { lote_id: lote.id, valor_unitario_novo: valorNovo, motivo: MOTIVO_EDICAO_RAPIDA },
+        { token },
+      );
+      setLotes((atual) => atual.map((l) => (l.id === lote.id ? { ...l, valor_unitario: valorNovo } : l)));
+      cancelarEdicaoValor();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível corrigir o valor unitário.'));
+    } finally {
+      setSalvandoValorUnitario(false);
+    }
+  }
+
   return (
     <section>
       <div className="screen-head">
@@ -245,13 +294,14 @@ export function EstoquePage() {
                   <th className="num">Qtd.</th>
                   <th>Acondic.</th>
                   <th>Origem</th>
+                  {permissoes.relatoriosFinanceiro && <th className="num">Valor unit.</th>}
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {lotesFiltrados.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="vazio-tabela">
+                    <td colSpan={permissoes.relatoriosFinanceiro ? 9 : 8} className="vazio-tabela">
                       {busca.trim() ? `Nenhum lote encontrado para "${busca.trim()}".` : 'Nenhum lote disponível.'}
                     </td>
                   </tr>
@@ -268,6 +318,45 @@ export function EstoquePage() {
                       <td className="num">{lote.quantidade_atual}</td>
                       <td>{lote.medicamento.acondicionamento ? labelAcondicionamento(lote.medicamento.acondicionamento) : '—'}</td>
                       <td>{labelOrigem(lote.origem)}</td>
+                      {permissoes.relatoriosFinanceiro && (
+                        <td className="num">
+                          {loteEditandoValorId === lote.id ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder={`atual: ${formatarMoeda(lote.valor_unitario)}`}
+                                style={{ width: 130 }}
+                                autoFocus
+                                value={valorUnitarioEdit}
+                                onChange={(e) => setValorUnitarioEdit(e.target.value)}
+                              />
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button
+                                  type="button"
+                                  className="btn ghost sm"
+                                  disabled={salvandoValorUnitario}
+                                  onClick={() => salvarValorUnitario(lote)}
+                                >
+                                  {salvandoValorUnitario ? '…' : 'Salvar'}
+                                </button>
+                                <button type="button" className="btn ghost sm" onClick={cancelarEdicaoValor}>
+                                  Cancelar
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
+                              {formatarMoeda(lote.valor_unitario)}
+                              {permissoes.corrigirValorUnitario && (
+                                <button type="button" className="btn ghost sm" onClick={() => abrirEdicaoValor(lote)}>
+                                  Editar
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      )}
                       <td>
                         {lote.status_transferencia === 'em_transito' ? (
                           <span className="pill pend">em trânsito</span>

@@ -38,6 +38,7 @@ class LoteRepository:
         data_validade,
         numero_nota_fiscal: str | None,
         numero_afm: str | None,
+        ignorar_nf_afm: bool = False,
     ) -> Lote | None:
         """Acha um lote já existente com a MESMA identidade física — mesmo
         medicamento + unidade + nº de lote + validade + NF/AFM
@@ -52,23 +53,35 @@ class LoteRepository:
         nº de lote do fabricante coincidiu — cada NF continua rastreável
         por si só (`ck_lotes_nota_fiscal_obrigatoria_compra`). Comparação
         null-safe: NF/AFM ambos nulos também conta como "igual" (cobre
-        doação/devolução, que não têm NF). `with_for_update()` trava a
-        linha achada até o fim da transação, mesmo motivo de
-        `get_by_id_for_update`."""
+        doação/devolução, que não têm NF).
+
+        `ignorar_nf_afm=True` (2026-09-24, pedido do cliente) — EXCEÇÃO
+        usada só pela confirmação de Devolução: quem devolve não informa
+        NF/AFM (sempre `None` nessa chamada), então comparar por
+        igualdade normalmente forçava `Lote.numero_nota_fiscal IS NULL`
+        — nunca batia com o lote original de uma COMPRA (que tem NF de
+        verdade), criando uma linha nova zerada em vez de reintegrar ao
+        mesmo lote físico. Com a exceção, medicamento + unidade + nº de
+        lote + validade já bastam pra achar o lote original e devolver
+        prá ele, preservando o valor unitário que já estava lá.
+
+        `with_for_update()` trava a linha achada até o fim da transação,
+        mesmo motivo de `get_by_id_for_update`."""
         query = db.query(Lote).filter(
             Lote.medicamento_id == medicamento_id,
             Lote.unidade_id == unidade_id,
             Lote.numero_lote == numero_lote,
             Lote.data_validade == data_validade,
         )
-        query = query.filter(
-            Lote.numero_nota_fiscal.is_(None)
-            if numero_nota_fiscal is None
-            else Lote.numero_nota_fiscal == numero_nota_fiscal
-        )
-        query = query.filter(
-            Lote.numero_afm.is_(None) if numero_afm is None else Lote.numero_afm == numero_afm
-        )
+        if not ignorar_nf_afm:
+            query = query.filter(
+                Lote.numero_nota_fiscal.is_(None)
+                if numero_nota_fiscal is None
+                else Lote.numero_nota_fiscal == numero_nota_fiscal
+            )
+            query = query.filter(
+                Lote.numero_afm.is_(None) if numero_afm is None else Lote.numero_afm == numero_afm
+            )
         return query.with_for_update().first()
 
     def listar(

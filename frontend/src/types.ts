@@ -62,6 +62,21 @@ export interface UsuarioMe {
   unidade_ativa_id: number | null;
   unidade_ativa_nome: string | null;
   deve_trocar_senha: boolean;
+  versao_notas_vista: string | null;
+}
+
+export interface VersaoMudanca {
+  tipo: 'correcao' | 'novidade';
+  descricao: string;
+}
+export interface VersaoNota {
+  versao: string;
+  data: string;
+  mudancas: VersaoMudanca[];
+}
+export interface VersaoInfo {
+  atual: string;
+  notas: VersaoNota[];
 }
 
 export interface UsuarioResumo {
@@ -461,4 +476,20 @@ export interface RelatorioAtividadeRecenteOut {
   metadados: RelatorioMetadados;
   dias_considerados: number;
   itens: AtividadeRecenteItem[];
+}
+
+export interface LogErroItem {
+  timestamp: string;
+  timestamp_aproximado: boolean;
+  nivel: string;
+  tipo_excecao: string | null;
+  resumo: string;
+  detalhe: string;
+  ruido: boolean;
+  arquivo: string;
+}
+export interface LogErroResultado {
+  itens: LogErroItem[];
+  total_bruto: number;
+  arquivos_lidos: string[];
 }
