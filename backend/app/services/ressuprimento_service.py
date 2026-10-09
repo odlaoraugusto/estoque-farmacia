@@ -41,6 +41,8 @@ class RessuprimentoService:
             atual = totais.get((ponto.medicamento_id, ponto.unidade_id), 0)
             precisa = atual < ponto.quantidade_minima
             sugerida = max(ponto.quantidade_padrao - atual, 0) if precisa else 0
+            em_excesso = atual > ponto.quantidade_padrao
+            excedente = max(atual - ponto.quantidade_padrao, 0) if em_excesso else 0
 
             itens.append(
                 StatusRessuprimentoItem(
@@ -53,6 +55,8 @@ class RessuprimentoService:
                     quantidade_minima=ponto.quantidade_minima,
                     precisa_ressuprir=precisa,
                     quantidade_sugerida=sugerida,
+                    em_excesso=em_excesso,
+                    excedente=excedente,
                 )
             )
 

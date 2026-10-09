@@ -431,6 +431,54 @@ def tabela_comprovante_reposicao_carrinho(metadados: RelatorioMetadados, movimen
     )
 
 
+def tabela_comprovante_ressuprimento_carrinho(metadados: RelatorioMetadados, solicitacao) -> TabelaRelatorio:
+    """Comprovante de uma solicitação de ressuprimento de carrinho
+    (2026-09-24, pedido do cliente: "para controle") — uma linha por
+    medicamento usado; `solicitacao` é o modelo ORM
+    `SolicitacaoRessuprimentoCarrinho` (relações já carregadas via
+    lazy="selectin")."""
+    colunas = ["Medicamento", "Quantidade Usada"]
+    linhas = [[item.medicamento.nome, str(item.quantidade_usada)] for item in solicitacao.itens]
+
+    informacoes_extra = [
+        f"Protocolo: #{solicitacao.id}",
+        f"Data/Hora: {formatar_data_hora(solicitacao.data_hora)}",
+        f"Setor: {solicitacao.setor}",
+        f"Carrinho: {solicitacao.carrinho.nome}",
+        f"Unidade de destino: {solicitacao.unidade_destino.nome}",
+        (
+            "Saída do carrinho: "
+            + ("Confirmada" if solicitacao.status_saida.value == "confirmada" else "Pendente")
+            + (
+                f" — {solicitacao.usuario_confirmacao_saida.nome} em "
+                f"{formatar_data_hora(solicitacao.data_confirmacao_saida)}"
+                if solicitacao.usuario_confirmacao_saida
+                else ""
+            )
+        ),
+        (
+            "Reposição do carrinho: "
+            + ("Confirmada" if solicitacao.status_transferencia.value == "confirmada" else "Pendente")
+            + (
+                f" — {solicitacao.usuario_confirmacao_transferencia.nome} em "
+                f"{formatar_data_hora(solicitacao.data_confirmacao_transferencia)}"
+                if solicitacao.usuario_confirmacao_transferencia
+                else ""
+            )
+        ),
+    ]
+    if solicitacao.paciente_nome:
+        informacoes_extra.append(f"Paciente: {solicitacao.paciente_nome} · Prontuário: {solicitacao.paciente_prontuario}")
+
+    return TabelaRelatorio(
+        metadados=metadados,
+        colunas=colunas,
+        linhas=linhas,
+        informacoes_extra=informacoes_extra,
+        larguras_relativas=[2.5, 1.0],
+    )
+
+
 def tabela_comprovante_solicitacao(metadados: RelatorioMetadados, solicitacao) -> TabelaRelatorio:
     """Comprovante de UMA solicitação de ressuprimento (2026-09-01,
     pedido do cliente: botão "Imprimir" ao lado de "Minhas

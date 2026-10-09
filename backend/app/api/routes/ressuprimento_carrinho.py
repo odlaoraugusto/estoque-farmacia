@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_unidade_ativa_id
+from app.api.exportacao_utils import exportar_relatorio
 from app.database.session import get_db
+from app.schemas.exportacao import FormatoExportacao
 from app.schemas.ressuprimento_carrinho import (
     CarrinhoPublicoOut,
     ConfirmarSaidaCarrinhoCreate,
@@ -13,11 +15,13 @@ from app.schemas.ressuprimento_carrinho import (
     UnidadePublicaOut,
 )
 from app.schemas.usuario import UsuarioMe
+from app.services.relatorio_service import RelatorioService
 from app.services.ressuprimento_carrinho_service import RessuprimentoCarrinhoService
 
 router = APIRouter(prefix="/ressuprimento-carrinho", tags=["Ressuprimento de Carrinho"])
 
 service = RessuprimentoCarrinhoService()
+relatorio_service = RelatorioService()
 
 
 # ---- público (sem login) — formulário de uso de carrinho ----
@@ -57,6 +61,22 @@ def listar_pendentes(
     quem vai fisicamente atender, pedido do cliente)."""
     pendentes = service.listar_pendentes(db, unidade_ativa_id)
     return [SolicitacaoRessuprimentoCarrinhoOut.from_model(s) for s in pendentes]
+
+
+@router.get("/{solicitacao_id}/comprovante")
+def comprovante_ressuprimento_carrinho(
+    solicitacao_id: int,
+    formato: FormatoExportacao,
+    usuario: UsuarioMe = Depends(get_current_user),
+    unidade_ativa_id: int = Depends(get_unidade_ativa_id),
+    db: Session = Depends(get_db),
+):
+    """PDF/Excel de uma solicitação de ressuprimento de carrinho
+    (2026-09-24, pedido do cliente: "para controle") — disponível em
+    qualquer status, não só depois de confirmada."""
+    solicitacao = service.obter_para_comprovante(db, unidade_ativa_id, solicitacao_id)
+    tabela = relatorio_service.comprovante_ressuprimento_carrinho(db, usuario, solicitacao)
+    return exportar_relatorio(formato, "ressuprimento-carrinho", tabela)
 
 
 @router.post("/{solicitacao_id}/confirmar-saida", response_model=SolicitacaoRessuprimentoCarrinhoOut)

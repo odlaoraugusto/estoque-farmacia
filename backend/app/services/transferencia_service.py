@@ -173,11 +173,14 @@ class TransferenciaService:
         destino. Cria um NOVO lote no destino; a quantidade recebida pode
         divergir da enviada sem bloquear — só registra a divergência.
 
-        Desde 2026-08-31, só `devolver_carrinho()` ainda produz
-        movimentação pendente de confirmação — `enviar()` e
-        `repor_carrinho()` já nascem confirmadas (fluxo de uma etapa
-        só). Método mantido sem outra alteração porque a devolução de
-        carrinho continua precisando das duas etapas."""
+        Desde 2026-10-05, nenhum fluxo novo cria movimentação pendente —
+        `enviar()`, `repor_carrinho()` e `devolver_carrinho()` já nascem
+        confirmadas (fluxo de uma etapa só). Método mantido só como via
+        de escape para fechar manualmente qualquer movimentação de
+        devolução de carrinho que tenha ficado pendente de confirmação
+        no período em que o fluxo era em duas etapas (até 2026-10-05) —
+        sem tela própria no front desde 2026-09-01, quando o painel
+        "Confirmar recebimento" foi removido por engano."""
         movimentacao = self.movimentacao_repository.get_by_id_for_update(
             db, movimentacao_id
         )
@@ -383,11 +386,17 @@ class TransferenciaService:
         (2026-08-31, pedido do cliente: antes sempre voltava pra CAF,
         mesmo carrinho sendo de outra satélite; agora, espelhando a
         reposição já generalizada, volta pra própria unidade "pai" do
-        carrinho). Espelho de `repor_carrinho`, só que ao contrário e em
-        DUAS ETAPAS (diferente da reposição, que é uma etapa só) — a
-        unidade confere o que está voltando antes de aceitar de volta no
-        estoque, então esta etapa só envia; a confirmação reaproveita
-        `confirmar()` sem alteração nenhuma.
+        carrinho). Espelho de `repor_carrinho`.
+
+        FLUXO DE UMA ETAPA SÓ (2026-10-05, pedido do cliente — era em
+        duas etapas, exigindo confirmação via `POST
+        /transferencias/{id}/confirmar`, mas a tela "Confirmar
+        recebimento" foi removida do front em 2026-09-01 por engano
+        ["não estava sendo usado"], deixando toda devolução de carrinho
+        travada em trânsito sem nenhuma forma de concluir. Acompanha o
+        mesmo padrão de uma etapa só já usado em `enviar()`/
+        `repor_carrinho()` — a unidade "pai" já recebe o lote confirmado
+        no mesmo ato).
 
         Farmacêutico ou Coordenador (checado no router). Quem estiver
         logado na unidade real só pode devolver lotes de carrinhos que
@@ -426,8 +435,42 @@ class TransferenciaService:
             )
 
         lote.quantidade_atual -= dados.quantidade
-        lote.status_transferencia = StatusTransferenciaEnum.em_transito
+        lote.status_transferencia = StatusTransferenciaEnum.recebido
         self.lote_repository.salvar(db, lote)
+
+        # Mesmo critério de merge de `enviar()`/`repor_carrinho()` — se a
+        # unidade "pai" já tem um lote com a MESMA identidade física,
+        # soma nele em vez de criar linha nova (2026-09-09, pedido do
+        # cliente).
+        novo_lote = self.lote_repository.buscar_para_merge(
+            db,
+            lote.medicamento_id,
+            unidade_ativa_id,
+            lote.numero_lote,
+            lote.data_validade,
+            lote.numero_nota_fiscal,
+            lote.numero_afm,
+        )
+        if novo_lote is not None:
+            novo_lote.quantidade_atual += dados.quantidade
+            self.lote_repository.salvar(db, novo_lote)
+        else:
+            novo_lote = Lote(
+                medicamento_id=lote.medicamento_id,
+                unidade_id=unidade_ativa_id,
+                numero_lote=lote.numero_lote,
+                data_validade=lote.data_validade,
+                quantidade_atual=dados.quantidade,
+                valor_unitario=lote.valor_unitario,
+                origem=lote.origem,
+                numero_nota_fiscal=lote.numero_nota_fiscal,
+                numero_afm=lote.numero_afm,
+                usuario_entrada_id=usuario.id,
+                lote_origem_id=lote.id,
+            )
+            self.lote_repository.create(db, novo_lote)
+
+        agora = datetime.now(timezone.utc)
 
         movimentacao = Movimentacao(
             tipo=TipoMovimentacaoEnum.transferencia,
@@ -448,12 +491,11 @@ class TransferenciaService:
             # sempre a mesma unidade que está devolvendo, nunca mais
             # fixo em CAF.
             unidade_destino_id=unidade_ativa_id,
+            # Já nasce confirmada — fluxo de uma etapa só (2026-10-05).
+            quantidade_recebida=dados.quantidade,
             usuario_id=usuario.id,
-            # quantidade_recebida fica None — pendente. Fica visível em
-            # GET /transferencias/pendentes para quem estiver logado
-            # nessa unidade, e é fechada por POST
-            # /transferencias/{id}/confirmar (endpoint já existente, sem
-            # alteração).
+            usuario_confirmacao_id=usuario.id,
+            data_confirmacao=agora,
         )
 
         return self.movimentacao_repository.create(db, movimentacao)

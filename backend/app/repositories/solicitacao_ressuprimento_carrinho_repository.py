@@ -14,6 +14,13 @@ class SolicitacaoRessuprimentoCarrinhoRepository:
         db.refresh(solicitacao)
         return solicitacao
 
+    def get_by_id(self, db: Session, solicitacao_id: int) -> SolicitacaoRessuprimentoCarrinho | None:
+        return (
+            db.query(SolicitacaoRessuprimentoCarrinho)
+            .filter(SolicitacaoRessuprimentoCarrinho.id == solicitacao_id)
+            .first()
+        )
+
     def get_by_id_for_update(self, db: Session, solicitacao_id: int) -> SolicitacaoRessuprimentoCarrinho | None:
         return (
             db.query(SolicitacaoRessuprimentoCarrinho)

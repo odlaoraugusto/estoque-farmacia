@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { permissoesDe } from '../lib/permissoes';
 import { classeRailUnidade, labelPerfil } from '../lib/formato';
 import { NotificacaoEstoquePopup } from './NotificacaoEstoquePopup';
+import { NotificacaoEstoqueExcessoPopup } from './NotificacaoEstoqueExcessoPopup';
 import { NotificacaoRessuprimentoCarrinhoPopup } from './NotificacaoRessuprimentoCarrinhoPopup';
 import { NotificacaoDevolucaoMedicamentoPopup } from './NotificacaoDevolucaoMedicamentoPopup';
 import { NotificacaoSolicitacaoTransferenciaPopup } from './NotificacaoSolicitacaoTransferenciaPopup';
@@ -43,6 +44,7 @@ export function Layout() {
         <span className="fesf-div" />
         <span className="fesf-app">Estoque Farmácia — Farmácia Hospitalar</span>
         <NotificacaoEstoquePopup />
+        <NotificacaoEstoqueExcessoPopup />
         <NotificacaoRessuprimentoCarrinhoPopup />
         <NotificacaoDevolucaoMedicamentoPopup />
         <NotificacaoSolicitacaoTransferenciaPopup />

@@ -72,11 +72,19 @@ class ConfirmarItemCarrinho(BaseModel):
 
 
 class ConfirmarSaidaCarrinhoCreate(BaseModel):
-    itens: list[ConfirmarItemCarrinho] = Field(min_length=1)
+    """Lista pode vir VAZIA (2026-09-24, pedido do cliente) — item sem
+    nenhum lote disponível fica de fora, em vez de travar a confirmação
+    inteira; a solicitação fecha como confirmada mesmo assim (liberação
+    parcial)."""
+
+    itens: list[ConfirmarItemCarrinho] = Field(default_factory=list)
 
 
 class ConfirmarTransferenciaCarrinhoCreate(BaseModel):
-    itens: list[ConfirmarItemCarrinho] = Field(min_length=1)
+    """Mesma tolerância de `ConfirmarSaidaCarrinhoCreate` — lista vazia
+    permitida."""
+
+    itens: list[ConfirmarItemCarrinho] = Field(default_factory=list)
 
 
 # ---- Leitura autenticada (fila de pendentes da farmácia) ----

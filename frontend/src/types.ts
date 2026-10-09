@@ -369,6 +369,8 @@ export interface StatusRessuprimentoItem {
   quantidade_minima: number;
   precisa_ressuprir: boolean;
   quantidade_sugerida: number;
+  em_excesso: boolean;
+  excedente: number;
 }
 
 export interface MovimentacaoTransferenciaItem {

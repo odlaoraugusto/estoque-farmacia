@@ -343,6 +343,20 @@ function CardSolicitacaoRessuprimento({
 }) {
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [imprimindo, setImprimindo] = useState(false);
+
+  async function imprimirComprovante() {
+    if (!token) return;
+    setErro(null);
+    setImprimindo(true);
+    try {
+      await baixarArquivo(`/ressuprimento-carrinho/${solicitacao.id}/comprovante`, { token, params: { formato: 'pdf' } });
+    } catch (err) {
+      setErro(mensagemErro(err, 'Não foi possível gerar o comprovante.'));
+    } finally {
+      setImprimindo(false);
+    }
+  }
 
   // ---- confirmar saída (lotes do CARRINHO) ----
   const [lotesCarrinhoPorMedicamento, setLotesCarrinhoPorMedicamento] = useState<Record<number, LoteDetalhadoOut[]>>({});
@@ -402,18 +416,28 @@ function CardSolicitacaoRessuprimento({
     if (!linhasSaida || !token) return;
     setErro(null);
     setSucesso(null);
-    if (linhasSaida.some((l) => !l.loteId || !Number(l.quantidade))) {
-      setErro('Escolha um lote e uma quantidade válida para cada medicamento.');
+    // Item sem lote selecionado (sem estoque disponível) fica de fora
+    // da confirmação, em vez de travar tudo (2026-09-24, pedido do
+    // cliente: "o item zerado... precisa conseguir confirmar e o
+    // pedido ser liberado parcial"). Só quem TEM lote escolhido precisa
+    // de uma quantidade válida.
+    const comLote = linhasSaida.filter((l) => l.loteId);
+    if (comLote.some((l) => !Number(l.quantidade))) {
+      setErro('Informe uma quantidade válida para os medicamentos com lote selecionado.');
       return;
     }
     setConfirmandoSaida(true);
     try {
       await api.post(
         `/ressuprimento-carrinho/${solicitacao.id}/confirmar-saida`,
-        { itens: linhasSaida.map((l) => ({ medicamento_id: l.medicamento_id, lote_id: Number(l.loteId), quantidade: Number(l.quantidade) })) },
+        { itens: comLote.map((l) => ({ medicamento_id: l.medicamento_id, lote_id: Number(l.loteId), quantidade: Number(l.quantidade) })) },
         { token },
       );
-      setSucesso('Saída do carrinho confirmada.');
+      setSucesso(
+        comLote.length < linhasSaida.length
+          ? 'Saída do carrinho confirmada — parcial, item(ns) sem lote disponível ficaram de fora.'
+          : 'Saída do carrinho confirmada.',
+      );
       setLinhasSaida(null);
       recarregar();
     } catch (err) {
@@ -427,8 +451,12 @@ function CardSolicitacaoRessuprimento({
     if (!linhasTransferencia || !token) return;
     setErro(null);
     setSucesso(null);
-    if (linhasTransferencia.some((l) => !l.loteId || !Number(l.quantidade))) {
-      setErro('Escolha um lote e uma quantidade válida para cada medicamento.');
+    // Mesma tolerância de confirmarSaida: item sem lote selecionado
+    // (sem estoque disponível na unidade) fica de fora, em vez de
+    // travar a confirmação inteira.
+    const comLote = linhasTransferencia.filter((l) => l.loteId);
+    if (comLote.some((l) => !Number(l.quantidade))) {
+      setErro('Informe uma quantidade válida para os medicamentos com lote selecionado.');
       return;
     }
     setConfirmandoTransferencia(true);
@@ -436,7 +464,7 @@ function CardSolicitacaoRessuprimento({
       await api.post(
         `/ressuprimento-carrinho/${solicitacao.id}/confirmar-transferencia`,
         {
-          itens: linhasTransferencia.map((l) => ({
+          itens: comLote.map((l) => ({
             medicamento_id: l.medicamento_id,
             lote_id: Number(l.loteId),
             quantidade: Number(l.quantidade),
@@ -444,7 +472,11 @@ function CardSolicitacaoRessuprimento({
         },
         { token },
       );
-      setSucesso('Reposição do carrinho confirmada.');
+      setSucesso(
+        comLote.length < linhasTransferencia.length
+          ? 'Reposição do carrinho confirmada — parcial, item(ns) sem lote disponível ficaram de fora.'
+          : 'Reposição do carrinho confirmada.',
+      );
       setLinhasTransferencia(null);
       recarregar();
     } catch (err) {
@@ -513,11 +545,16 @@ function CardSolicitacaoRessuprimento({
             reposição {solicitacao.status_transferencia === 'confirmada' ? 'confirmada' : 'pendente'}
           </span>
         </div>
-        {podeCancelar && (
-          <button type="button" className="btn ghost sm" disabled={cancelando} onClick={cancelarSolicitacao}>
-            {cancelando ? 'Cancelando…' : 'Cancelar solicitação'}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" className="btn ghost sm" disabled={imprimindo} onClick={imprimirComprovante}>
+            {imprimindo ? 'Gerando…' : 'Baixar comprovante'}
           </button>
-        )}
+          {podeCancelar && (
+            <button type="button" className="btn ghost sm" disabled={cancelando} onClick={cancelarSolicitacao}>
+              {cancelando ? 'Cancelando…' : 'Cancelar solicitação'}
+            </button>
+          )}
+        </div>
       </div>
 
       {podeConfirmarSaida && (

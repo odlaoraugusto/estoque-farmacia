@@ -131,6 +131,25 @@ class RessuprimentoCarrinhoService:
     def listar_pendentes(self, db: Session, unidade_destino_id: int) -> list[SolicitacaoRessuprimentoCarrinho]:
         return self.repository.listar_pendentes_por_unidade(db, unidade_destino_id)
 
+    def obter_para_comprovante(
+        self, db: Session, unidade_ativa_id: int, solicitacao_id: int
+    ) -> SolicitacaoRessuprimentoCarrinho:
+        """Pra imprimir o comprovante de uma solicitação de ressuprimento
+        de carrinho (2026-09-24, pedido do cliente: "para controle") —
+        mesma visibilidade de quem pode confirmar: só a farmácia de
+        destino desta solicitação."""
+        solicitacao = self.repository.get_by_id(db, solicitacao_id)
+        if solicitacao is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Solicitação não encontrada.")
+
+        if solicitacao.unidade_destino_id != unidade_ativa_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Só a farmácia de destino desta solicitação pode imprimir o comprovante.",
+            )
+
+        return solicitacao
+
     # ---- cancelamento autenticado ----
 
     def cancelar(

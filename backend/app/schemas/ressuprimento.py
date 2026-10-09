@@ -45,3 +45,9 @@ class StatusRessuprimentoItem(BaseModel):
     # Quanto falta pra voltar à quantidade padrão — só relevante quando
     # `precisa_ressuprir=True` (senão é 0 ou negativo, sem sentido pedir).
     quantidade_sugerida: int
+    # Excesso (2026-10-08, pedido do cliente): satélite com MAIS do que a
+    # quantidade padrão — o oposto de `precisa_ressuprir`. `excedente` só
+    # relevante quando `em_excesso=True` (quanto devolver pra CAF pra
+    # voltar à quantidade padrão).
+    em_excesso: bool
+    excedente: int

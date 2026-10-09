@@ -20,10 +20,11 @@ import type { LoteDetalhadoOut, UnidadeOut } from '../types';
  * fica mais pendente esperando a unidade de destino confirmar.
  *
  * 2026-09-01 (pedido do cliente): removido o painel "Confirmar
- * recebimento" (não estava sendo usado). Devolução de carrinho continua
- * sendo criada em duas etapas no backend (`TransferenciaService.
- * devolver_carrinho`, ver `POST /transferencias/{id}/confirmar`) — sem
- * este painel, essa confirmação deixou de ter uma tela própria. */
+ * recebimento" (achava-se que não estava sendo usado — por engano, era
+ * a segunda etapa da devolução de carrinho, que ficou travada em
+ * trânsito sem nenhuma tela até ser corrigida em 2026-10-05: devolução
+ * de carrinho agora também é de uma etapa só, igual envio direto e
+ * reposição). */
 export function TransferenciaPage() {
   const { usuario, token, matrizPermissoes } = useAuth();
   const permissoes = permissoesDe(usuario, matrizPermissoes);
@@ -263,11 +264,13 @@ function PainelEnviar({ token, unidadeAtivaId }: { token: string | null; unidade
 /** Devolução de carrinho -> unidade que o hospeda (2026-08-31, pedido do
  * cliente: antes sempre voltava pra CAF, mesmo carrinho sendo de outra
  * satélite; agora, espelhando a reposição já generalizada, volta pra
- * própria unidade ativa). Espelho da Reposição, mas em DUAS etapas —
- * esta tela só envia (fica pendente); a confirmação em si não tem mais
- * tela própria (painel "Confirmar recebimento" removido em 2026-09-01,
- * não estava sendo usado). Exclusiva do Farmacêutico/Coordenador — só
- * pode devolver carrinhos que são FILHOS da unidade ativa. */
+ * própria unidade ativa). Espelho da Reposição — fluxo de uma etapa só
+ * (2026-10-05, pedido do cliente: era em duas etapas, mas a tela
+ * "Confirmar recebimento" tinha sido removida em 2026-09-01 por engano
+ * ["não estava sendo usado"], deixando toda devolução travada em
+ * trânsito pra sempre, sem nenhuma tela pra concluir a segunda etapa).
+ * Exclusiva do Farmacêutico/Coordenador — só pode devolver carrinhos que
+ * são FILHOS da unidade ativa. */
 interface ItemListaDevolucao {
   lote: LoteDetalhadoOut;
   quantidade: string;
@@ -366,7 +369,7 @@ function PainelDevolverCarrinho({ token, unidadeAtivaId }: { token: string | nul
     setEnviando(false);
     carregarLotes();
     if (idsComFalha.size === 0) {
-      setSucesso(`${itensLista.length} devolução(ões) enviada(s) — pendente(s) até a unidade confirmar o recebimento.`);
+      setSucesso(`${itensLista.length} devolução(ões) recebida(s) no estoque da unidade.`);
       setItensLista([]);
     } else {
       setItensLista((atual) => atual.filter((i) => idsComFalha.has(i.lote.id)));
@@ -379,8 +382,8 @@ function PainelDevolverCarrinho({ token, unidadeAtivaId }: { token: string | nul
       <h2>Devolver carrinho à unidade</h2>
       <p className="screen-sub">
         Destino: a própria unidade ativa (sempre a que hospeda o carrinho, não é uma escolha — inclusive a CAF, que
-        também tem carrinhos próprios). Diferente da reposição, que já sai recebida no destino, a devolução fica
-        pendente até alguém confirmar. Adicione um ou mais lotes à lista antes de enviar.
+        também tem carrinhos próprios). Já sai recebida no estoque da unidade, igual à reposição. Adicione um ou
+        mais lotes à lista antes de enviar.
       </p>
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
       {sucesso && <Alerta tipo="sucesso">{sucesso}</Alerta>}

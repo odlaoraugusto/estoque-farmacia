@@ -434,10 +434,16 @@ function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
         params: { medicamento_id: s.medicamento_id },
       });
       setLotesPorSolicitacao((atual) => ({ ...atual, [s.id]: lotes }));
+      // Sem nenhum lote disponível na CAF, a lista de itens já nasce
+      // vazia (2026-09-24, bug real: nascia com uma linha com lote em
+      // branco, e a UI de linhas fica escondida quando não há lote
+      // nenhum pra escolher — essa linha em branco nunca podia ser
+      // removida, e "Aceitar e enviar" sempre travava pedindo pra
+      // selecionar o lote dela). Lista vazia = liberação com 0 unidades.
       const sugerido = lotes.find((l) => l.sugerido_fefo) ?? lotes[0];
       setItensPorSolicitacao((atual) => ({
         ...atual,
-        [s.id]: [novoItemEnvio(sugerido?.id ?? '', String(s.quantidade_desejada))],
+        [s.id]: sugerido ? [novoItemEnvio(sugerido.id, String(s.quantidade_desejada))] : [],
       }));
     } catch (err) {
       setErro(mensagemErro(err, 'Não foi possível buscar lotes disponíveis na CAF para este medicamento.'));
@@ -574,7 +580,10 @@ function PainelAtenderSolicitacoes({ token }: { token: string | null }) {
                 <div className="field span2">
                   <label>Lote(s) a enviar (estoque da CAF)</label>
                   {(lotesPorSolicitacao[s.id] ?? []).length === 0 ? (
-                    <span className="tag">nenhum lote disponível na CAF para este medicamento</span>
+                    <span className="tag">
+                      nenhum lote disponível na CAF para este medicamento — "Aceitar e enviar" abaixo libera a
+                      solicitação com 0 unidades
+                    </span>
                   ) : (
                     <>
                       {(itensPorSolicitacao[s.id] ?? []).map((item) => (
@@ -849,6 +858,8 @@ function PainelPontosRessuprimento({ token }: { token: string | null }) {
                         <td>
                           {p.precisa_ressuprir ? (
                             <span className="pill danger">precisa ressuprir ({p.quantidade_sugerida})</span>
+                          ) : p.em_excesso ? (
+                            <span className="pill info">excesso (devolver {p.excedente})</span>
                           ) : (
                             <span className="pill ok">ok</span>
                           )}

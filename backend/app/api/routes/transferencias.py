@@ -70,10 +70,10 @@ def devolver_carrinho(
     unidade_ativa_id: int = Depends(get_unidade_ativa_id),
     db: Session = Depends(get_db),
 ):
-    """Devolução de carrinho de emergência -> CAF (seção 22 do doc): só
-    farmacêutico, fluxo de DUAS etapas (diferente da reposição) — esta
-    etapa só envia (fica pendente); a CAF confirma com o endpoint já
-    existente `POST /transferencias/{id}/confirmar`."""
+    """Devolução de carrinho de emergência -> unidade que o hospeda: só
+    farmacêutico/coordenador, fluxo de uma etapa só (2026-10-05) — o
+    lote já nasce recebido na unidade destino, sem confirmação
+    separada, igual à reposição."""
     movimentacao = service.devolver_carrinho(db, usuario, unidade_ativa_id, dados)
     return MovimentacaoDetalhadaOut.visivel_para(movimentacao, usuario)
 
